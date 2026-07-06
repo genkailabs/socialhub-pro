@@ -185,31 +185,45 @@ export default function Sidebar({ currentTab, setCurrentTab }) {
 
       {/* User Footer Card */}
       <div className="p-4 border-t border-gray-800 bg-[#0B0F19]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3 overflow-hidden">
-            <img 
-              src={user?.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'} 
-              alt="Avatar" 
-              className="w-9 h-9 rounded-full border-2 border-[#F26526] object-cover shrink-0"
-            />
-            <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-white truncate">
-                {user?.user_metadata?.name || 'Genkai Labs'}
-              </p>
-              <p className="text-[11px] text-[#1A73E8] font-medium truncate flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
-                {user?.user_metadata?.role || 'Online (Admin)'}
-              </p>
+        {user ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3 overflow-hidden">
+              <img 
+                src={user?.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'} 
+                alt="Avatar" 
+                className="w-9 h-9 rounded-full border-2 border-[#F26526] object-cover shrink-0"
+              />
+              <div className="overflow-hidden">
+                <p className="text-sm font-semibold text-white truncate">
+                  {user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuário Logado'}
+                </p>
+                <p className="text-[11px] text-[#1A73E8] font-medium truncate flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+                  {user?.user_metadata?.role || 'Online'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={signOut}
+              title="Sair do Sistema"
+              className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-800 transition-colors shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between text-gray-400">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center shrink-0">
+                <LogOut className="w-4 h-4 text-gray-500 rotate-180" />
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold text-gray-300 truncate">Não Conectado</p>
+                <p className="text-[10px] text-gray-500 truncate">Clique no botão superior</p>
+              </div>
             </div>
           </div>
-          <button
-            onClick={signOut}
-            title="Sair / Reiniciar Sessão Demo"
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors shrink-0"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
+        )}
       </div>
     </aside>
   );
