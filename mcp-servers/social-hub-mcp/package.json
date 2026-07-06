@@ -1,0 +1,35 @@
+{
+  "name": "social-hub-mcp",
+  "version": "1.0.0",
+  "description": "Servidor MCP Sênior do SocialHub para automação e gerenciamento de redes sociais (Meta/Instagram, YouTube, TikTok, Spotify e WhatsApp)",
+  "type": "module",
+  "main": "src/http-server.js",
+  "scripts": {
+    "start": "node src/http-server.js",
+    "start:stdio": "node src/index.js",
+    "dev": "node src/http-server.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "socialhub",
+    "instagram",
+    "meta",
+    "youtube",
+    "tiktok",
+    "spotify",
+    "whatsapp",
+    "ai",
+    "agents"
+  ],
+  "author": "SocialHub Senior MCP Architect",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "axios": "^1.7.2",
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.2",
+    "form-data": "^4.0.0"
+  }
+}
