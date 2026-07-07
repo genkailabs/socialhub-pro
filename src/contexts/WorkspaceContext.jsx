@@ -152,47 +152,23 @@ export const DEFAULT_BRAND_PRO = {
   handle: '@genkailabs.pro',
   category: 'Agência & Tech',
   color: '#F26526',
-  followers: '24.8k',
-  engagement: '4.9%',
-  connectedChannels: ['instagram', 'whatsapp', 'linkedin', 'youtube'],
+  followers: '14.2k',
+  engagement: '6.4%',
+  reach: '85.0k',
+  connectedChannels: ['instagram'],
   networksMetadata: {
     instagram: {
       handle: '@genkailabs.pro',
       token: 'TOKEN_INSTAGRAM_PROD_ACTIVE',
       bio: 'Agência de Automação, IA e Gestão de Mídias Sociais no Brasil. 🚀✨',
-      followers: '12.4k',
-      engagement: '5.1%',
-      status: 'connected',
-      lastSynced: new Date().toLocaleString('pt-BR')
-    },
-    whatsapp: {
-      handle: '+55 (11) 98888-0000',
-      expiresIn: 'Sessão Ativa (QR Code)',
-      status: 'connected',
-      bio: 'Canal de Suporte e Atendimento Automatizado.'
-    },
-    linkedin: {
-      handle: 'GenkaiLabs PRO',
-      token: 'TOKEN_LINKEDIN_ACTIVE',
-      bio: 'Inovação e Engenharia de Software Avançada.',
-      followers: '8.2k',
-      engagement: '4.6%',
-      status: 'connected',
-      lastSynced: new Date().toLocaleString('pt-BR')
-    },
-    youtube: {
-      handle: 'GenkaiLabsTV',
-      token: 'TOKEN_YOUTUBE_ACTIVE',
-      bio: 'Tech demos e novidades de produtos.',
-      followers: '4.2k',
-      engagement: '5.0%',
+      followers: '14.2k',
+      engagement: '6.4%',
       status: 'connected',
       lastSynced: new Date().toLocaleString('pt-BR')
     }
   },
   campaigns: [
-    { id: 'camp-pro-1', name: 'Expansão SocialHub Pro 2026', status: 'active', budget: 'R$ 20.000', reach: '180.0k', conversionRate: '4.9%' },
-    { id: 'camp-pro-2', name: 'Automação WhatsApp IA', status: 'active', budget: 'R$ 8.500', reach: '65.4k', conversionRate: '6.2%' }
+    { id: 'camp-pro-1', name: 'Expansão SocialHub Pro 2026', status: 'active', budget: 'R$ 20.000', reach: '85.0k', conversionRate: '6.4%' }
   ]
 };
 
@@ -297,22 +273,35 @@ export function enrichBrandData(brand) {
     } else if (id === 'brand-techpulse' || name.toLowerCase().includes('techpulse')) {
       channels = ['linkedin', 'youtube', 'spotify', 'instagram'];
     } else if (id === 'default-brand-pro' || name.toLowerCase().includes('genkai')) {
-      channels = ['instagram', 'whatsapp', 'linkedin', 'youtube'];
+      channels = ['instagram'];
     } else {
       channels = ['instagram', 'whatsapp', 'linkedin'];
     }
   }
 
   let followers = brand.followers;
-  if (!followers || followers === '0' || followers === 0) {
-    const baseCount = channels.length * 14200 + (name.length * 1500);
-    followers = baseCount >= 1000 ? `${(baseCount / 1000).toFixed(1)}k` : `${baseCount}`;
+  if (!followers || followers === '0' || followers === 0 || followers === '24.8k') {
+    if (id === 'default-brand-pro' || name.toLowerCase().includes('genkai')) {
+      followers = '14.2k';
+    } else {
+      const baseCount = channels.length * 14200 + (name.length * 1500);
+      followers = baseCount >= 1000 ? `${(baseCount / 1000).toFixed(1)}k` : `${baseCount}`;
+    }
   }
 
   let engagement = brand.engagement;
-  if (!engagement || engagement === '0%' || engagement === 0) {
-    const baseEng = (3.8 + (channels.length * 0.7) + (name.length % 3) * 0.4).toFixed(1);
-    engagement = `${baseEng}%`;
+  if (!engagement || engagement === '0%' || engagement === 0 || engagement === '4.9%') {
+    if (id === 'default-brand-pro' || name.toLowerCase().includes('genkai')) {
+      engagement = '6.4%';
+    } else {
+      const baseEng = (3.8 + (channels.length * 0.7) + (name.length % 3) * 0.4).toFixed(1);
+      engagement = `${baseEng}%`;
+    }
+  }
+
+  let reach = brand.reach;
+  if (id === 'default-brand-pro' || name.toLowerCase().includes('genkai')) {
+    if (!reach) reach = '85.0k';
   }
 
   const meta = { ...(brand.networksMetadata || brand.networks_metadata || {}) };

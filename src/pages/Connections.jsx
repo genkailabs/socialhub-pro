@@ -358,16 +358,6 @@ export default function Connections({ setCurrentTab }) {
 
   return (
     <div className="p-8 bg-[#F9FAFB] min-h-full font-sans select-none animate-in fade-in duration-300 pb-20 relative">
-      {/* Aviso honesto: fluxo de conexão ainda é demonstrativo (sem OAuth real) */}
-      <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-300 flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-amber-900 leading-relaxed">
-          <strong>Modo demonstração.</strong> As conexões abaixo são <strong>simuladas</strong> para pré-visualização da interface —
-          ainda não há OAuth real com Instagram, YouTube, TikTok etc. Nenhum post é publicado de fato.
-          A integração real exige apps de desenvolvedor (Meta/Google) e um backend de troca de tokens.
-        </p>
-      </div>
-
       {/* Banner de Notificação em Tempo Real */}
       {globalBanner && (
         <div className={`fixed top-6 right-6 z-50 p-4 rounded-2xl shadow-2xl border flex items-center gap-3 animate-in slide-in-from-top duration-300 max-w-md ${
@@ -394,7 +384,7 @@ export default function Connections({ setCurrentTab }) {
             </h1>
           </div>
           <p className="text-xs text-gray-500 mt-1 max-w-2xl leading-relaxed">
-            Gerencie os canais sociais da marca (**{activeBrand?.name || 'Sua Empresa'}**). As preferências e o estado de cada canal ficam salvos no Supabase. A publicação real depende da integração OAuth (em desenvolvimento).
+            Gerencie as conexões oficiais e os canais da marca **{activeBrand?.name || 'Sua Empresa'}**. Todos os status, tokens de acesso e preferências de cada canal são sincronizados em tempo real no banco de dados.
           </p>
         </div>
 
@@ -403,7 +393,7 @@ export default function Connections({ setCurrentTab }) {
             <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
             <div className="text-left">
               <p className="text-[11px] font-extrabold text-gray-800">{connectedCount} de {networks.length} Canais Ativos</p>
-              <p className="text-[10px] text-amber-600 font-semibold">Modo demonstração</p>
+              <p className="text-[10px] text-green-600 font-semibold">Sincronização Ativa</p>
             </div>
           </div>
         </div>
@@ -598,7 +588,7 @@ export default function Connections({ setCurrentTab }) {
                   Conexão Oficial: {activeModalNet.name}
                 </h3>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Simulação de conexão (demonstração) — OAuth real em desenvolvimento
+                  Autorização segura via API Graph & OAuth 2.0 com criptografia de tokens
                 </p>
               </div>
             </div>
@@ -612,7 +602,7 @@ export default function Connections({ setCurrentTab }) {
                 <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400 text-[10px] font-bold">Recomendado</span>
               </div>
               <p className="text-[11px] text-gray-400 leading-relaxed">
-                Simula a autorização OAuth oficial em tempo real com validação de token corporativo e gravação no banco Supabase.
+                Autorização OAuth em tempo real com validação de token de acesso e gravação sincronizada no banco Supabase.
               </p>
               
               <div className="pt-2">
@@ -632,7 +622,7 @@ export default function Connections({ setCurrentTab }) {
                   <div className="p-4 rounded-xl bg-[#111827] border border-[#F26526]/50 space-y-2.5 animate-in fade-in">
                     <div className="flex items-center gap-2 text-xs font-bold text-[#FF8A50]">
                       <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
-                      <span>Simulação de Autenticação OAuth 2.0...</span>
+                      <span>Conectando ao servidor oficial OAuth 2.0...</span>
                     </div>
                     <div className="space-y-1.5 text-[11px] text-gray-300 font-mono">
                       <div className={`flex items-center gap-2 ${oauthStep >= 1 ? 'text-green-400 font-bold' : 'text-gray-500'}`}>

@@ -87,24 +87,34 @@ export default function Dashboard({ setCurrentTab }) {
       }));
     }
 
-    // O alcance diário é proporcional ao total de seguidores da marca e aos canais conectados
-    const baseDailyReach = (numericFollowers * (1.8 + brandSeed * 1.5)) / 7;
+    const isGenkai = activeBrand?.name?.toLowerCase().includes('genkai') || activeBrand?.id === 'default-brand-pro';
+    let targetTotalReach = 85000;
+    if (activeBrand?.reach) {
+      const str = String(activeBrand.reach).toLowerCase().replace(',', '.');
+      if (str.includes('k')) targetTotalReach = parseFloat(str.replace('k', '')) * 1000;
+      else if (str.includes('m')) targetTotalReach = parseFloat(str.replace('m', '')) * 1000000;
+      else if (!isNaN(parseFloat(str))) targetTotalReach = parseFloat(str);
+    } else if (isGenkai) {
+      targetTotalReach = 85000;
+    } else {
+      targetTotalReach = numericFollowers * (5.5 + brandSeed * 2.0);
+    }
+
+    const baseDailyReach = targetTotalReach / 7;
     const baseDailyInteractions = (baseDailyReach * (parseFloat(activeBrand?.engagement || '4.5') / 100));
 
-    // Fatores diários simulando o comportamento real na semana (pico quinta a sábado)
-    const reachFactors = [0.75, 0.88, 0.94, 1.15, 1.28, 1.35, 1.05];
-    const intFactors = [0.70, 0.82, 0.90, 1.18, 1.32, 1.42, 1.10];
+    // Fatores diários simulando o comportamento real na semana (soma = 7.00 exatamente)
+    const reachFactors = [0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.00];
+    const intFactors = [0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.00];
 
     return ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((dia, idx) => {
-      // Adiciona uma leve variação única por marca baseada no brandSeed
-      const variation = 1 + ((idx % 3 === 0 ? 1 : -1) * (brandSeed * 0.15));
       return {
         dia,
-        alcance: Math.round(baseDailyReach * reachFactors[idx] * variation),
-        interacoes: Math.round(baseDailyInteractions * intFactors[idx] * variation)
+        alcance: Math.round(baseDailyReach * reachFactors[idx]),
+        interacoes: Math.round(baseDailyInteractions * intFactors[idx])
       };
     });
-  }, [connectedList, hasChannels, numericFollowers, brandSeed, activeBrand?.engagement]);
+  }, [connectedList, hasChannels, numericFollowers, brandSeed, activeBrand?.engagement, activeBrand?.reach, activeBrand?.name, activeBrand?.id]);
 
   // Dados dinâmicos de engajamento por canal da marca ativa
   const dynamicEngagementData = useMemo(() => {
@@ -143,9 +153,10 @@ export default function Dashboard({ setCurrentTab }) {
 
   // KPIs dinâmicos e personalizados para a marca ativa
   const kpis = useMemo(() => {
-    const reachChange = hasChannels ? `+${(16.4 + brandSeed * 18.2).toFixed(1)}%` : '0%';
-    const engChange = hasChannels ? `+${(1.1 + brandSeed * 3.4).toFixed(1)}%` : '0%';
-    const folChange = hasChannels ? `+${(2.8 + brandSeed * 5.1).toFixed(1)}%` : '0%';
+    const isGenkai = activeBrand?.name?.toLowerCase().includes('genkai') || activeBrand?.id === 'default-brand-pro';
+    const reachChange = isGenkai ? '+24.5%' : (hasChannels ? `+${(16.4 + brandSeed * 18.2).toFixed(1)}%` : '0%');
+    const engChange = isGenkai ? '+1.8%' : (hasChannels ? `+${(1.1 + brandSeed * 3.4).toFixed(1)}%` : '0%');
+    const folChange = isGenkai ? '+3.8%' : (hasChannels ? `+${(2.8 + brandSeed * 5.1).toFixed(1)}%` : '0%');
 
     return [
       {
@@ -181,7 +192,7 @@ export default function Dashboard({ setCurrentTab }) {
       {
         title: 'Canais Conectados',
         value: `${connectedList.length} Redes`,
-        change: hasChannels ? '100% Sincronizado' : 'Aguardando',
+        change: hasChannels ? '100% Ativo' : 'Aguardando',
         isPositive: hasChannels,
         icon: Share2,
         color: 'from-[#10B981] to-[#34D399]',
@@ -189,7 +200,7 @@ export default function Dashboard({ setCurrentTab }) {
         subtitle: 'Monitoramento em tempo real'
       }
     ];
-  }, [formattedReach, activeBrand?.engagement, avgEngRate, activeBrand?.followers, connectedList.length, hasChannels, brandSeed]);
+  }, [formattedReach, activeBrand?.engagement, avgEngRate, activeBrand?.followers, connectedList.length, hasChannels, brandSeed, activeBrand?.name, activeBrand?.id]);
 
   // Filtra posts da marca com base no status selecionado nas abas
   const filteredPosts = useMemo(() => {
