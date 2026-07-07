@@ -99,7 +99,10 @@ export function AuthProvider({ children }) {
     } finally {
       setUser(null);
       try {
-        localStorage.clear();
+        // Remove só as chaves do app (não apaga storage de terceiros no mesmo domínio)
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('socialhub_'))
+          .forEach((k) => localStorage.removeItem(k));
       } catch (e) {
         // Ignora erros ao limpar storage em iframes
       }
@@ -114,7 +117,9 @@ export function AuthProvider({ children }) {
     signUp,
     signInWithGoogle,
     signOut,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
+    isDemo: !user,
+    sessionStatus: user ? 'authenticated' : 'workspace_active'
   };
 
   return (

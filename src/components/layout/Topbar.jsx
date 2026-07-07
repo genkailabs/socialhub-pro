@@ -9,7 +9,9 @@ import {
   HelpCircle,
   CheckCircle,
   ExternalLink,
-  Lock
+  Lock,
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -95,8 +97,28 @@ export default function Topbar({ currentTab, setCurrentTab, onOpenAuthModal }) {
           <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#F26526] rounded-full ring-2 ring-white" />
         </button>
 
-        {/* Botão de Autenticação / Cadastro Real */}
-        {!user ? (
+        {/* Status de Conexão e Autenticação */}
+        {user ? (
+          <div className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-green-500/10 border border-green-500/30 text-green-600 rounded-xl text-xs font-extrabold shadow-sm select-none">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            <span>Conta Ativa ({user.email?.split('@')[0]})</span>
+          </div>
+        ) : activeBrand ? (
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-green-500/10 border border-green-500/30 text-green-600 rounded-xl text-xs font-extrabold shadow-sm select-none" title="Sessão ativa operando a marca">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              <span>Conectado ({activeBrand.handle || 'Online'})</span>
+            </div>
+            <button
+              onClick={onOpenAuthModal}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-[#1F2937] hover:bg-black text-white rounded-xl text-xs font-bold shadow-sm hover:shadow transition-all border border-gray-700"
+              title="Vincular ou entrar em uma conta na nuvem Supabase"
+            >
+              <Lock className="w-3.5 h-3.5 text-[#F26526]" />
+              <span className="hidden xl:inline">Vincular Supabase</span>
+            </button>
+          </div>
+        ) : (
           <button
             onClick={onOpenAuthModal}
             className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-[#1F2937] hover:bg-black text-white rounded-xl text-xs font-extrabold shadow-sm hover:shadow-md transition-all border border-gray-700"
@@ -105,11 +127,6 @@ export default function Topbar({ currentTab, setCurrentTab, onOpenAuthModal }) {
             <Lock className="w-3.5 h-3.5 text-[#F26526]" />
             <span>Cadastrar / Entrar</span>
           </button>
-        ) : (
-          <div className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-green-500/10 border border-green-500/30 text-green-600 rounded-xl text-xs font-extrabold shadow-sm select-none">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            <span>Conta Ativa ({user.email?.split('@')[0]})</span>
-          </div>
         )}
 
         {/* Quick Schedule Button */}
