@@ -117,14 +117,22 @@ export function WorkspaceProvider({ children }) {
         if (!brandsError && brandsData && brandsData.length > 0) {
           if (mounted) {
             const normalized = brandsData.map(b => ({
-              ...b,
-              connectedChannels: b.connectedChannels || ['instagram', 'whatsapp']
+              id: b.id,
+              user_id: b.user_id,
+              name: b.name,
+              logo: b.logo_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
+              handle: b.handle || `@${b.name.toLowerCase().replace(/\s+/g, '')}`,
+              category: b.category || 'Geral',
+              color: b.color || '#F26526',
+              followers: b.followers || '0',
+              engagement: b.engagement || '0%',
+              connectedChannels: b.connected_networks || [],
+              networksMetadata: b.networks_metadata || {}
             }));
             setBrands(normalized);
             setActiveBrand(normalized[0]);
           }
         } else {
-          // Quando não houver marcas no banco, iniciar com lista vazia para o usuário cadastrar a sua marca real
           if (mounted) {
             setBrands([]);
             setActiveBrand(null);
@@ -169,30 +177,62 @@ export function WorkspaceProvider({ children }) {
   };
 
   const addBrand = async (newBrandData) => {
-    const newBrand = {
-      id: `brand-${Date.now()}`,
+    if (!user) return null;
+
+    const dbBrand = {
+      user_id: user.id,
       name: newBrandData.name,
+      logo_url: newBrandData.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
       handle: newBrandData.handle || `@${newBrandData.name.toLowerCase().replace(/\s+/g, '')}`,
-      logo: newBrandData.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
       category: newBrandData.category || 'Geral',
       color: newBrandData.color || '#F26526',
       followers: '0',
       engagement: '0%',
-      connectedChannels: []
+      connected_networks: []
     };
 
+    let savedBrand = null;
     try {
-      await supabase.from('brands').insert([newBrand]);
+      const { data, error } = await supabase
+        .from('brands')
+        .insert([dbBrand])
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        savedBrand = {
+          id: data.id,
+          user_id: data.user_id,
+          name: data.name,
+          logo: data.logo_url,
+          handle: data.handle,
+          category: data.category,
+          color: data.color,
+          followers: data.followers,
+          engagement: data.engagement,
+          connectedChannels: data.connected_networks || [],
+          networksMetadata: data.networks_metadata || {}
+        };
+      }
     } catch (e) {
-      console.warn('Salvando nova marca apenas no estado local');
+      console.error('Erro ao salvar marca no Supabase:', e);
+      // Fallback local caso dê erro ou não configure o banco ainda
+      savedBrand = {
+        id: `brand-${Date.now()}`,
+        ...dbBrand,
+        logo: dbBrand.logo_url,
+        connectedChannels: [],
+        networksMetadata: {}
+      };
     }
 
-    setBrands((prev) => [...prev, newBrand]);
-    setActiveBrand(newBrand);
-    return newBrand;
+    setBrands((prev) => [...prev, savedBrand]);
+    setActiveBrand(savedBrand);
+    return savedBrand;
   };
 
-  const toggleChannelConnection = (brandId, channelId) => {
+  const toggleChannelConnection = async (brandId, channelId, metadata = null) => {
     setBrands((prevBrands) =>
       prevBrands.map((b) => {
         if (b.id !== brandId) return b;
@@ -202,17 +242,81 @@ export function WorkspaceProvider({ children }) {
           ? current.filter((c) => c !== channelId)
           : [...current, channelId];
         
-        // Recalcula seguidores e engajamento com base nos canais ativos da marca
         const followersCount = nextChannels.length * 14200;
         const formattedFollowers = followersCount === 0 ? '0' : followersCount >= 1000 ? `${(followersCount/1000).toFixed(1)}k` : `${followersCount}`;
         const engRate = nextChannels.length === 0 ? '0%' : `${(3.5 + nextChannels.length * 0.9).toFixed(1)}%`;
+
+        const updatedMetadata = { ...(b.networksMetadata || {}) };
+        if (exists) {
+          delete updatedMetadata[channelId];
+        } else {
+          updatedMetadata[channelId] = metadata || {
+            handle: `@${b.name.toLowerCase().replace(/\s+/g, '')}.${channelId}`,
+            token: `TOKEN_${channelId.toUpperCase()}_PROD`
+          };
+        }
 
         const updatedBrand = {
           ...b,
           connectedChannels: nextChannels,
           followers: formattedFollowers,
-          engagement: engRate
+          engagement: engRate,
+          networksMetadata: updatedMetadata
         };
+
+        if (typeof brandId === 'string' && !brandId.startsWith('brand-')) {
+          supabase
+            .from('brands')
+            .update({
+              connected_networks: nextChannels,
+              followers: formattedFollowers,
+              engagement: engRate,
+              networks_metadata: updatedMetadata
+            })
+            .eq('id', brandId)
+            .then(({ error }) => {
+              if (error) console.error('Erro ao atualizar canais no Supabase:', error);
+            });
+        }
+
+        if (activeBrand && activeBrand.id === brandId) {
+          setActiveBrand(updatedBrand);
+        }
+        return updatedBrand;
+      })
+    );
+  };
+
+  const updateNetworkMetadata = async (brandId, networkId, metadataUpdate) => {
+    setBrands((prevBrands) =>
+      prevBrands.map((b) => {
+        if (b.id !== brandId) return b;
+        const currentMetadata = b.networksMetadata || {};
+        const updatedMetadata = {
+          ...currentMetadata,
+          [networkId]: {
+            ...(currentMetadata[networkId] || {}),
+            ...metadataUpdate
+          }
+        };
+
+        const updatedBrand = {
+          ...b,
+          networksMetadata: updatedMetadata
+        };
+
+        if (typeof brandId === 'string' && !brandId.startsWith('brand-')) {
+          supabase
+            .from('brands')
+            .update({
+              networks_metadata: updatedMetadata
+            })
+            .eq('id', brandId)
+            .then(({ error }) => {
+              if (error) console.error('Erro ao atualizar metadados de rede no Supabase:', error);
+            });
+        }
+
         if (activeBrand && activeBrand.id === brandId) {
           setActiveBrand(updatedBrand);
         }
@@ -269,6 +373,7 @@ export function WorkspaceProvider({ children }) {
     switchBrand,
     addBrand,
     toggleChannelConnection,
+    updateNetworkMetadata,
     posts,
     activeBrandPosts,
     addPost,

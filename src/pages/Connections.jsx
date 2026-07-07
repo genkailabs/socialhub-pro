@@ -150,28 +150,28 @@ const defaultNetworks = [
 ];
 
 export default function Connections({ setCurrentTab }) {
-  const { activeBrand, toggleChannelConnection } = useWorkspace();
+  const { activeBrand, toggleChannelConnection, updateNetworkMetadata } = useWorkspace();
   const [openTutorial, setOpenTutorial] = useState('instagram');
   const [qrCodeModal, setQrCodeModal] = useState(false);
-  
-  const [localOverrides, setLocalOverrides] = useState({});
 
   const networks = React.useMemo(() => {
     const connectedList = activeBrand?.connectedChannels || [];
+    const dbMetadata = activeBrand?.networksMetadata || {};
     return defaultNetworks.map(net => {
       const isConnected = connectedList.includes(net.id);
-      const override = localOverrides[net.id] || {};
+      const netMeta = dbMetadata[net.id] || {};
       const cleanName = activeBrand?.name?.toLowerCase().replace(/\s+/g, '') || 'suamarca';
       return {
         ...net,
         status: isConnected ? 'connected' : 'disconnected',
-        handle: isConnected ? (override.handle || `@${cleanName}.${net.id}`) : 'Não conectado',
-        expiresIn: isConnected ? '90 dias (Sincronizado)' : null,
-        token: isConnected ? (override.token || `TOKEN_${net.id.toUpperCase()}_PROD`) : '',
-        ...override
+        handle: isConnected ? (netMeta.handle || `@${cleanName}.${net.id}`) : 'Não conectado',
+        expiresIn: isConnected ? (netMeta.expiresIn || '90 dias (Sincronizado)') : null,
+        token: isConnected ? (netMeta.token || `TOKEN_${net.id.toUpperCase()}_PROD`) : '',
+        bio: netMeta.bio || '',
+        ...netMeta
       };
     });
-  }, [activeBrand, localOverrides]);
+  }, [activeBrand]);
 
   const [activeModalNet, setActiveModalNet] = useState(null);
   const [customTokenInput, setCustomTokenInput] = useState('');
@@ -185,7 +185,6 @@ export default function Connections({ setCurrentTab }) {
   const [bioText, setBioText] = useState('');
   const [isSavingBio, setIsSavingBio] = useState(false);
 
-  // Limite de caracteres da bio por rede
   const BIO_LIMITS = { instagram: 150, facebook: 255 };
 
   const openBioModal = (net) => {
@@ -194,14 +193,11 @@ export default function Connections({ setCurrentTab }) {
   };
 
   const handleSaveBio = () => {
-    if (!bioModalNet) return;
+    if (!bioModalNet || !activeBrand) return;
     setIsSavingBio(true);
 
-    setTimeout(() => {
-      setLocalOverrides((prev) => ({
-        ...prev,
-        [bioModalNet.id]: { ...(prev[bioModalNet.id] || {}), bio: bioText }
-      }));
+    setTimeout(async () => {
+      await updateNetworkMetadata(activeBrand.id, bioModalNet.id, { bio: bioText });
       setIsSavingBio(false);
       const savedNet = bioModalNet;
       setBioModalNet(null);
@@ -238,18 +234,13 @@ export default function Connections({ setCurrentTab }) {
     if (!activeModalNet || !activeBrand) return;
     setIsConnecting(true);
 
-    setTimeout(() => {
-      if (!activeBrand.connectedChannels?.includes(activeModalNet.id)) {
-        toggleChannelConnection(activeBrand.id, activeModalNet.id);
-      }
-      setLocalOverrides(prev => ({
-        ...prev,
-        [activeModalNet.id]: {
-          handle: customHandleInput || `@${activeModalNet.id}.oficial`,
-          token: method === 'cloud' ? `PROD_CLOUD_TOKEN_${Date.now()}` : (customTokenInput || `USER_API_KEY_${Date.now()}`)
-        }
-      }));
+    const netMetadata = {
+      handle: customHandleInput || `@${activeBrand.name.toLowerCase().replace(/\s+/g, '')}.${activeModalNet.id}`,
+      token: method === 'cloud' ? `PROD_CLOUD_TOKEN_${Date.now()}` : (customTokenInput || `USER_API_KEY_${Date.now()}`)
+    };
 
+    setTimeout(async () => {
+      await toggleChannelConnection(activeBrand.id, activeModalNet.id, netMetadata);
       setIsConnecting(false);
       const connectedName = activeModalNet.name;
       setActiveModalNet(null);
@@ -262,16 +253,11 @@ export default function Connections({ setCurrentTab }) {
     }, 1200);
   };
 
-  const handleDisconnect = (netId) => {
+  const handleDisconnect = async (netId) => {
     if (!activeBrand) return;
     if (activeBrand.connectedChannels?.includes(netId)) {
-      toggleChannelConnection(activeBrand.id, netId);
+      await toggleChannelConnection(activeBrand.id, netId);
     }
-    setLocalOverrides(prev => {
-      const next = { ...prev };
-      delete next[netId];
-      return next;
-    });
     setGlobalBanner({
       type: 'info',
       msg: `🔗 Canal desconectado da marca ${activeBrand.name}.`
@@ -640,9 +626,11 @@ export default function Connections({ setCurrentTab }) {
                 onClick={() => {
                   setQrCodeModal(false);
                   if (activeBrand && !activeBrand.connectedChannels?.includes('whatsapp')) {
-                    toggleChannelConnection(activeBrand.id, 'whatsapp');
+                    toggleChannelConnection(activeBrand.id, 'whatsapp', {
+                      handle: '+55 (11) 98888-0000',
+                      expiresIn: 'Sessão Ativa (QR Code)'
+                    });
                   }
-                  setLocalOverrides(prev => ({ ...prev, whatsapp: { handle: '+55 (11) 98888-0000', expiresIn: 'Sessão Ativa (QR Code)' } }));
                   setGlobalBanner({
                     type: 'success',
                     msg: `🎉 WhatsApp Business conectado à marca ${activeBrand?.name || 'ativa'} com sucesso!`
