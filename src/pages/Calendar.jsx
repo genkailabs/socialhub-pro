@@ -101,7 +101,7 @@ export default function CalendarView({ setCurrentTab }) {
         <div className="flex flex-wrap items-center gap-3">
           {/* Filtro por Marca */}
           <div className="flex items-center space-x-1.5 bg-white border border-gray-200 px-3 py-1.5 rounded-xl shadow-sm text-xs font-medium text-gray-700">
-            <Filter className="w-3.5 h-3.5 text-gray-400" />
+            <Filter className="w-3.5 h-3.5 text-gray-500" />
             <span>Marca:</span>
             <select 
               value={brandFilter} 
@@ -174,7 +174,7 @@ export default function CalendarView({ setCurrentTab }) {
       </div>
 
       {/* Grade do Calendário Editorial */}
-      <div className="bg-white rounded-3xl border border-gray-200/80 shadow-xl overflow-hidden">
+      <div className="bg-white rounded-3xl border border-gray-200/80 shadow-md overflow-hidden">
         {/* Dias da Semana (Header) */}
         <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200 text-center py-3">
           {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((dia, index) => (
@@ -216,7 +216,7 @@ export default function CalendarView({ setCurrentTab }) {
                     {dayNum}
                   </span>
                   {dayPosts.length > 0 && (
-                    <span className="text-[10px] font-bold text-gray-400">
+                    <span className="text-[10px] font-bold text-gray-500">
                       {dayPosts.length} post{dayPosts.length > 1 ? 's' : ''}
                     </span>
                   )}
@@ -280,7 +280,7 @@ export default function CalendarView({ setCurrentTab }) {
               </div>
               <button 
                 onClick={() => setSelectedPost(null)}
-                className="text-gray-400 hover:text-gray-600 font-bold text-lg p-1"
+                className="text-gray-500 hover:text-gray-700 font-bold text-lg p-1"
               >
                 ✕
               </button>

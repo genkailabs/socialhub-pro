@@ -1,28 +1,32 @@
 import React, { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  PlusCircle, 
-  MessageSquare, 
-  CheckCircle2, 
-  ChevronDown, 
-  ChevronRight, 
-  Sparkles, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Calendar,
+  PlusCircle,
+  MessageSquare,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
+  LogOut,
   Building2,
   Plus,
-  Share2
+  Share2,
+  BarChart3
 } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
+import NewBrandModal from '../workspace/NewBrandModal';
 
 export default function Sidebar({ currentTab, setCurrentTab }) {
   const { brands, activeBrand, switchBrand } = useWorkspace();
   const { user, signOut } = useAuth();
   const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
+  const [newBrandModalOpen, setNewBrandModalOpen] = useState(false);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'reports', label: 'Relatórios por Rede', icon: BarChart3, badge: 'Analytics' },
     { id: 'connections', label: 'Conexões & Canais', icon: Share2, badge: 'Tutorias & QR' },
     { id: 'calendar', label: 'Calendário Editorial', icon: Calendar },
     { id: 'scheduler', label: 'Agendar Post', icon: PlusCircle, badge: 'Ação Rápida' },
@@ -105,7 +109,7 @@ export default function Sidebar({ currentTab, setCurrentTab }) {
               <div className="p-2 bg-[#111827]/80 border-t border-gray-800">
                 <button 
                   onClick={() => {
-                    alert('Funcionalidade Demo: Use o painel para explorar as marcas carregadas!');
+                    setNewBrandModalOpen(true);
                     setBrandDropdownOpen(false);
                   }}
                   className="w-full py-1.5 px-2 rounded-lg bg-[#1A73E8]/20 hover:bg-[#1A73E8]/30 text-[#1A73E8] text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
@@ -225,6 +229,12 @@ export default function Sidebar({ currentTab, setCurrentTab }) {
           </div>
         )}
       </div>
+
+      {/* Modal de Adicionar Nova Marca */}
+      <NewBrandModal 
+        isOpen={newBrandModalOpen} 
+        onClose={() => setNewBrandModalOpen(false)} 
+      />
     </aside>
   );
 }

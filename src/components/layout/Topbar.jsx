@@ -12,14 +12,18 @@ import {
   Lock
 } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function Topbar({ currentTab, setCurrentTab, onOpenAuthModal }) {
   const { activeBrand } = useWorkspace();
+  const { user } = useAuth();
 
   const getPageTitle = () => {
     switch (currentTab) {
       case 'dashboard':
         return 'Visão Geral & Performance';
+      case 'reports':
+        return 'Relatórios & Analytics por Rede';
       case 'calendar':
         return 'Calendário Editorial Interativo';
       case 'scheduler':
@@ -92,14 +96,21 @@ export default function Topbar({ currentTab, setCurrentTab, onOpenAuthModal }) {
         </button>
 
         {/* Botão de Autenticação / Cadastro Real */}
-        <button
-          onClick={onOpenAuthModal}
-          className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-[#1F2937] hover:bg-black text-white rounded-xl text-xs font-extrabold shadow-sm hover:shadow-md transition-all border border-gray-700"
-          title="Criar conta real ou fazer login no banco Supabase"
-        >
-          <Lock className="w-3.5 h-3.5 text-[#F26526]" />
-          <span>Cadastrar / Entrar</span>
-        </button>
+        {!user ? (
+          <button
+            onClick={onOpenAuthModal}
+            className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-[#1F2937] hover:bg-black text-white rounded-xl text-xs font-extrabold shadow-sm hover:shadow-md transition-all border border-gray-700"
+            title="Criar conta real ou fazer login no banco Supabase"
+          >
+            <Lock className="w-3.5 h-3.5 text-[#F26526]" />
+            <span>Cadastrar / Entrar</span>
+          </button>
+        ) : (
+          <div className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-green-500/10 border border-green-500/30 text-green-600 rounded-xl text-xs font-extrabold shadow-sm select-none">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            <span>Conta Ativa ({user.email?.split('@')[0]})</span>
+          </div>
+        )}
 
         {/* Quick Schedule Button */}
         <button

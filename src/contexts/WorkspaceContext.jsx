@@ -7,7 +7,7 @@ const WorkspaceContext = createContext({});
 export const DEMO_BRANDS = [
   {
     id: 'brand-acme',
-    name: 'Acme Corp (Demo)',
+    name: 'Acme Corp',
     handle: '@acmecorp',
     logo: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=100&auto=format&fit=crop&q=80',
     category: 'Tecnologia & Inovação',
@@ -17,7 +17,7 @@ export const DEMO_BRANDS = [
   },
   {
     id: 'brand-starlight',
-    name: 'Starlight Fashion (Demo)',
+    name: 'Starlight Fashion',
     handle: '@starlightfashion',
     logo: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=100&auto=format&fit=crop&q=80',
     category: 'Moda & Varejo',
@@ -27,7 +27,7 @@ export const DEMO_BRANDS = [
   },
   {
     id: 'brand-techpulse',
-    name: 'TechPulse (Demo)',
+    name: 'TechPulse',
     handle: '@techpulse_ai',
     logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
     category: 'Inteligência Artificial',
@@ -95,8 +95,8 @@ export const INITIAL_POSTS = [
 
 export function WorkspaceProvider({ children }) {
   const { user, isDemo } = useAuth();
-  const [brands, setBrands] = useState(DEMO_BRANDS);
-  const [activeBrand, setActiveBrand] = useState(DEMO_BRANDS[0]);
+  const [brands, setBrands] = useState([]);
+  const [activeBrand, setActiveBrand] = useState(null);
   const [posts, setPosts] = useState(INITIAL_POSTS);
   const [loading, setLoading] = useState(true);
 
@@ -116,14 +116,18 @@ export function WorkspaceProvider({ children }) {
 
         if (!brandsError && brandsData && brandsData.length > 0) {
           if (mounted) {
-            setBrands(brandsData);
-            setActiveBrand(brandsData[0]);
+            const normalized = brandsData.map(b => ({
+              ...b,
+              connectedChannels: b.connectedChannels || ['instagram', 'whatsapp']
+            }));
+            setBrands(normalized);
+            setActiveBrand(normalized[0]);
           }
         } else {
-          // Fallback para marcas de demonstração
+          // Quando não houver marcas no banco, iniciar com lista vazia para o usuário cadastrar a sua marca real
           if (mounted) {
-            setBrands(DEMO_BRANDS);
-            setActiveBrand(DEMO_BRANDS[0]);
+            setBrands([]);
+            setActiveBrand(null);
           }
         }
 
@@ -139,10 +143,10 @@ export function WorkspaceProvider({ children }) {
           if (mounted) setPosts(INITIAL_POSTS);
         }
       } catch (err) {
-        console.warn('⚡ [WorkspaceContext] Usando dados locais do modo Demo.', err);
+        console.warn('⚡ [WorkspaceContext] Usando dados locais do Workspace.', err);
         if (mounted) {
-          setBrands(DEMO_BRANDS);
-          setActiveBrand(DEMO_BRANDS[0]);
+          setBrands([]);
+          setActiveBrand(null);
           setPosts(INITIAL_POSTS);
         }
       } finally {
@@ -173,7 +177,8 @@ export function WorkspaceProvider({ children }) {
       category: newBrandData.category || 'Geral',
       color: newBrandData.color || '#F26526',
       followers: '0',
-      engagement: '0%'
+      engagement: '0%',
+      connectedChannels: []
     };
 
     try {
@@ -187,7 +192,37 @@ export function WorkspaceProvider({ children }) {
     return newBrand;
   };
 
+  const toggleChannelConnection = (brandId, channelId) => {
+    setBrands((prevBrands) =>
+      prevBrands.map((b) => {
+        if (b.id !== brandId) return b;
+        const current = b.connectedChannels || [];
+        const exists = current.includes(channelId);
+        const nextChannels = exists
+          ? current.filter((c) => c !== channelId)
+          : [...current, channelId];
+        
+        // Recalcula seguidores e engajamento com base nos canais ativos da marca
+        const followersCount = nextChannels.length * 14200;
+        const formattedFollowers = followersCount === 0 ? '0' : followersCount >= 1000 ? `${(followersCount/1000).toFixed(1)}k` : `${followersCount}`;
+        const engRate = nextChannels.length === 0 ? '0%' : `${(3.5 + nextChannels.length * 0.9).toFixed(1)}%`;
+
+        const updatedBrand = {
+          ...b,
+          connectedChannels: nextChannels,
+          followers: formattedFollowers,
+          engagement: engRate
+        };
+        if (activeBrand && activeBrand.id === brandId) {
+          setActiveBrand(updatedBrand);
+        }
+        return updatedBrand;
+      })
+    );
+  };
+
   const addPost = async (newPostData) => {
+    if (!activeBrand) return null;
     const newPost = {
       id: `post-${Date.now()}`,
       brand_id: activeBrand.id,
@@ -233,6 +268,7 @@ export function WorkspaceProvider({ children }) {
     setActiveBrand,
     switchBrand,
     addBrand,
+    toggleChannelConnection,
     posts,
     activeBrandPosts,
     addPost,

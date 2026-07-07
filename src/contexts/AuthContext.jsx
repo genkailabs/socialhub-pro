@@ -76,6 +76,21 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const signInWithGoogle = async () => {
+    setError(null);
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin || 'https://socialhub-pro-steel.vercel.app'
+      }
+    });
+    if (error) {
+      setError(error.message);
+      throw error;
+    }
+    return data;
+  };
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -97,6 +112,7 @@ export function AuthProvider({ children }) {
     error,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     isAuthenticated: !!user
   };

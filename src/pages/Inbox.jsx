@@ -330,17 +330,17 @@ export default function Inbox() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <h4 className="text-xs font-extrabold text-gray-900 truncate pr-1">{conv.user}</h4>
-                      <span className="text-[10px] text-gray-400 shrink-0">{conv.time}</span>
+                      <span className="text-[10px] text-gray-600 shrink-0">{conv.time}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5 mb-1.5">
                       {getNetworkBadge(conv.network)}
-                      <span className="text-[10px] text-gray-500 font-bold truncate">
+                      <span className="text-[10px] text-gray-600 font-bold truncate">
                         {conv.type}
                       </span>
                     </div>
 
-                    <p className={`text-xs truncate ${conv.unread ? 'text-gray-900 font-extrabold' : 'text-gray-500'}`}>
+                    <p className={`text-xs truncate ${conv.unread ? 'text-gray-900 font-extrabold' : 'text-gray-600'}`}>
                       {conv.preview}
                     </p>
                   </div>
@@ -392,7 +392,7 @@ export default function Inbox() {
           <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-[#F8FAFC]">
             {/* Box de Contexto do Post */}
             <div className="bg-white p-3.5 rounded-2xl border border-gray-200 text-center max-w-md mx-auto shadow-sm mb-6">
-              <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Contexto da Interação</span>
+              <span className="text-[10px] uppercase font-bold text-gray-600 block mb-1">Contexto da Interação</span>
               <p className="text-xs font-bold text-gray-800">{selectedConv?.postTitle}</p>
               <div className="flex items-center justify-center gap-2 mt-1">
                 {getNetworkBadge(selectedConv?.network)}
@@ -410,7 +410,7 @@ export default function Inbox() {
                       : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none'
                   }`}>
                     <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                    <div className={`flex items-center justify-end gap-1 text-[10px] mt-1.5 ${isAgent ? 'text-blue-100' : 'text-gray-400'}`}>
+                    <div className={`flex items-center justify-end gap-1 text-[10px] mt-1.5 ${isAgent ? 'text-blue-100' : 'text-gray-600'}`}>
                       <span>{msg.time}</span>
                       {isAgent && <CheckCheck className="w-3.5 h-3.5 text-white" />}
                     </div>
@@ -451,7 +451,7 @@ export default function Inbox() {
               </button>
             </div>
             <div className="flex items-center justify-between px-2 mt-2">
-              <span className="text-[10px] text-gray-400">Pressione Enter ou clique no botão para enviar resposta</span>
+              <span className="text-[10px] text-gray-600">Pressione Enter ou clique no botão para enviar resposta</span>
               <button 
                 type="button" 
                 onClick={() => alert(`❤️ Reação registrada no canal original (${selectedConv?.network.toUpperCase()})!`)}

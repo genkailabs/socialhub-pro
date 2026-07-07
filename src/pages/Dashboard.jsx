@@ -28,69 +28,135 @@ import {
 } from 'recharts';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 
-// Dados para Evolução de Alcance (Últimos 7 dias)
-const REACH_DATA = [
-  { dia: 'Seg', alcance: 14200, interacoes: 1800 },
-  { dia: 'Ter', alcance: 18500, interacoes: 2400 },
-  { dia: 'Qua', alcance: 16800, interacoes: 2100 },
-  { dia: 'Qui', alcance: 24900, interacoes: 3600 },
-  { dia: 'Sex', alcance: 29400, interacoes: 4200 },
-  { dia: 'Sáb', alcance: 35100, interacoes: 5100 },
-  { dia: 'Dom', alcance: 41200, interacoes: 6300 },
-];
-
-// Dados para Engajamento por Rede com todas as redes conectadas e cores oficiais
-const ENGAGEMENT_DATA = [
-  { rede: 'WhatsApp', engajamento: 9.1, cliques: 6800, cor: '#25D366' },
-  { rede: 'TikTok', engajamento: 8.2, cliques: 4100, cor: '#000000' },
-  { rede: 'YouTube', engajamento: 7.5, cliques: 5400, cor: '#FF0000' },
-  { rede: 'Instagram', engajamento: 6.4, cliques: 3200, cor: '#E1306C' },
-  { rede: 'Spotify', engajamento: 5.6, cliques: 2100, cor: '#1DB954' },
-  { rede: 'LinkedIn', engajamento: 4.8, cliques: 1850, cor: '#0A66C2' },
-  { rede: 'Facebook', engajamento: 3.1, cliques: 940, cor: '#1877F2' },
-];
+// Dados base de alcance e engajamento para cada canal disponível
+const CHANNEL_BASE_DATA = {
+  instagram: { name: 'Instagram', reach: 85000, interactions: 5440, engagement: 6.4, color: '#E1306C' },
+  whatsapp: { name: 'WhatsApp', reach: 68000, interactions: 6188, engagement: 9.1, color: '#25D366' },
+  youtube: { name: 'YouTube', reach: 92000, interactions: 6900, engagement: 7.5, color: '#FF0000' },
+  tiktok: { name: 'TikTok', reach: 110000, interactions: 9020, engagement: 8.2, color: '#000000' },
+  spotify: { name: 'Spotify', reach: 25000, interactions: 1400, engagement: 5.6, color: '#1DB954' },
+  linkedin: { name: 'LinkedIn', reach: 20000, interactions: 960, engagement: 4.8, color: '#0A66C2' },
+  facebook: { name: 'Facebook', reach: 12500, interactions: 387, engagement: 3.1, color: '#1877F2' },
+};
 
 export default function Dashboard({ setCurrentTab }) {
   const { activeBrand, activeBrandPosts } = useWorkspace();
 
+  const connectedList = activeBrand?.connectedChannels || [];
+  const hasChannels = connectedList.length > 0;
+
+  const dynamicReachData = React.useMemo(() => {
+    if (!hasChannels) {
+      return [
+        { dia: 'Seg', alcance: 0, interacoes: 0 },
+        { dia: 'Ter', alcance: 0, interacoes: 0 },
+        { dia: 'Qua', alcance: 0, interacoes: 0 },
+        { dia: 'Qui', alcance: 0, interacoes: 0 },
+        { dia: 'Sex', alcance: 0, interacoes: 0 },
+        { dia: 'Sáb', alcance: 0, interacoes: 0 },
+        { dia: 'Dom', alcance: 0, interacoes: 0 },
+      ];
+    }
+    let totalWeeklyReach = 0;
+    let totalWeeklyInteractions = 0;
+    connectedList.forEach(cId => {
+      const info = CHANNEL_BASE_DATA[cId];
+      if (info) {
+        totalWeeklyReach += info.reach;
+        totalWeeklyInteractions += info.interactions;
+      }
+    });
+    const factors = [0.35, 0.45, 0.40, 0.60, 0.70, 0.85, 1.0];
+    const intFactors = [0.28, 0.38, 0.33, 0.58, 0.68, 0.82, 1.0];
+    return ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((dia, idx) => ({
+      dia,
+      alcance: Math.round((totalWeeklyReach / 4.35) * factors[idx]),
+      interacoes: Math.round((totalWeeklyInteractions / 4.35) * intFactors[idx]),
+    }));
+  }, [connectedList, hasChannels]);
+
+  const dynamicEngagementData = React.useMemo(() => {
+    if (!hasChannels) {
+      return [];
+    }
+    return connectedList.map(cId => {
+      const info = CHANNEL_BASE_DATA[cId] || { name: cId, engagement: 4.0, color: '#64748B' };
+      return { rede: info.name, engajamento: info.engagement, cor: info.color };
+    }).sort((a, b) => b.engajamento - a.engajamento);
+  }, [connectedList, hasChannels]);
+
+  const totalReachNum = dynamicReachData.reduce((acc, curr) => acc + curr.alcance, 0);
+  const formattedReach = totalReachNum === 0 ? '0' : totalReachNum >= 1000 ? `${(totalReachNum / 1000).toFixed(1)}k` : `${totalReachNum}`;
+  const avgEngRate = !hasChannels ? '0%' : `${(dynamicEngagementData.reduce((acc, c) => acc + c.engajamento, 0) / connectedList.length).toFixed(1)}%`;
+
   const kpis = [
     {
       title: 'Alcance Total',
-      value: '412.5k',
-      change: '+24.5%',
-      isPositive: true,
+      value: formattedReach,
+      change: hasChannels ? '+24.5%' : '0%',
+      isPositive: hasChannels,
       icon: Eye,
       color: 'from-[#F26526] to-[#FF8A50]',
       shadow: 'shadow-[#F26526]/20'
     },
     {
       title: 'Engajamento Médio',
-      value: '6.4%',
-      change: '+1.8%',
-      isPositive: true,
+      value: avgEngRate,
+      change: hasChannels ? '+1.8%' : '0%',
+      isPositive: hasChannels,
       icon: Activity,
       color: 'from-[#1A73E8] to-[#60A5FA]',
       shadow: 'shadow-[#1A73E8]/20'
     },
     {
       title: 'Seguidores Ativos',
-      value: activeBrand?.followers || '12.4k',
-      change: '+3.8%',
-      isPositive: true,
+      value: activeBrand?.followers || '0',
+      change: hasChannels ? '+3.8%' : '0%',
+      isPositive: hasChannels,
       icon: Users,
       color: 'from-[#8B5CF6] to-[#A78BFA]',
       shadow: 'shadow-[#8B5CF6]/20'
     },
     {
       title: 'Canais Conectados',
-      value: '7 Redes',
-      change: '100% Ativo',
-      isPositive: true,
+      value: `${connectedList.length} Redes`,
+      change: hasChannels ? '100% Ativo' : 'Aguardando',
+      isPositive: hasChannels,
       icon: Share2,
       color: 'from-[#10B981] to-[#34D399]',
       shadow: 'shadow-[#10B981]/20'
     }
   ];
+
+  if (!activeBrand) {
+    return (
+      <div className="p-8 bg-[#F9FAFB] min-h-full flex items-center justify-center font-sans select-none animate-in fade-in duration-300">
+        <div className="bg-white rounded-3xl p-10 max-w-xl w-full border border-gray-200 shadow-xl text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#F26526] to-[#FF8A50] text-white flex items-center justify-center mx-auto shadow-lg shadow-[#F26526]/30">
+            <Sparkles className="w-8 h-8 animate-bounce" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">
+              Bem-vindo ao SocialHub PRO! 🚀
+            </h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              Você está logado no seu ambiente real de trabalho. Cadastre a sua primeira marca ou empresa clicando no seletor de marcas à esquerda para começar a monitorar suas métricas em tempo real!
+            </p>
+          </div>
+          <div className="p-5 bg-gray-50 rounded-2xl border border-gray-200/80 text-left space-y-2.5">
+            <p className="text-xs font-bold text-gray-800 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Primeiros passos recomendados:
+            </p>
+            <ul className="text-xs text-gray-600 space-y-1.5 pl-5 list-disc">
+              <li>Clique na caixa de marcas na barra lateral e selecione <strong>+ Adicionar Nova Marca</strong></li>
+              <li>Preencha o nome da sua empresa, identificador social (@) e categoria</li>
+              <li>Navegue até a aba <strong>Conexões & Canais</strong> para vincular o WhatsApp, Instagram ou YouTube</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-8 bg-[#F9FAFB] min-h-full overflow-y-auto font-sans select-none animate-in fade-in duration-300">
@@ -105,10 +171,12 @@ export default function Dashboard({ setCurrentTab }) {
               <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Performance Multi-Canal em Tempo Real
             </span>
             <h2 className="text-3xl font-extrabold tracking-tight">
-              Olá! Sua marca <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F26526] to-[#FF8A50]">{activeBrand?.name}</span> está conectada em 7 canais.
+              Olá! Sua marca <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F26526] to-[#FF8A50]">{activeBrand?.name}</span> está com {connectedList.length} {connectedList.length === 1 ? 'canal conectado' : 'canais conectados'}.
             </h2>
             <p className="text-sm text-gray-300 leading-relaxed">
-              O alcance cresceu 24.5% nos últimos 7 dias. Seu melhor canal de conversão é o WhatsApp (9.1%), seguido por Reels no TikTok (8.2%) e Shorts no YouTube (7.5%).
+              {hasChannels 
+                ? `O alcance total é de ${formattedReach} e a taxa de engajamento média está em ${avgEngRate}. Acompanhe abaixo o desempenho diário dos canais ativos.`
+                : 'Você ainda não conectou nenhuma rede social a esta marca. Conecte canais para visualizar gráficos dinâmicos de alcance e engajamento.'}
             </p>
           </div>
 
@@ -154,13 +222,13 @@ export default function Dashboard({ setCurrentTab }) {
                   {kpi.value}
                 </h3>
                 <span className={`inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full ${
-                  kpi.isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  kpi.isPositive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                 }`}>
                   {kpi.isPositive ? <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" />}
                   {kpi.change}
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400 mt-2">Versus período de 7 dias anterior</p>
+              <p className="text-[11px] text-gray-500 mt-2">Versus período de 7 dias anterior</p>
             </div>
           );
         })}
@@ -169,7 +237,7 @@ export default function Dashboard({ setCurrentTab }) {
       {/* Seção de Gráficos Recharts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Gráfico 1: Evolução de Alcance (2 Colunas) */}
-        <div className="lg:col-span-2 bg-white rounded-3xl p-7 border border-gray-200/80 shadow-lg flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-white rounded-3xl p-7 border border-gray-200/80 shadow-sm flex flex-col justify-between">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
             <div>
               <h3 className="text-lg font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
@@ -177,7 +245,7 @@ export default function Dashboard({ setCurrentTab }) {
                 <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">Últimos 7 dias</span>
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Monitoramento diário de alcance orgânico e pago em todas as 7 redes conectadas.
+                Monitoramento diário de alcance orgânico e pago nas redes ativas.
               </p>
             </div>
             <div className="flex items-center space-x-3">
@@ -190,45 +258,61 @@ export default function Dashboard({ setCurrentTab }) {
             </div>
           </div>
 
-          <div className="h-[340px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={REACH_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorReach" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F26526" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#F26526" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-                <XAxis dataKey="dia" stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val/1000}k`} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1E293B', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)' }}
-                  formatter={(value, name) => [value.toLocaleString('pt-BR'), name === 'alcance' ? 'Alcance Total' : 'Interações']}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="alcance" 
-                  stroke="#F26526" 
-                  strokeWidth={3.5} 
-                  dot={{ r: 5, fill: '#F26526', strokeWidth: 2, stroke: '#fff' }} 
-                  activeDot={{ r: 8, strokeWidth: 0, fill: '#F26526' }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="interacoes" 
-                  stroke="#1A73E8" 
-                  strokeWidth={2.5} 
-                  strokeDasharray="4 4"
-                  dot={{ r: 4, fill: '#1A73E8' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {!hasChannels ? (
+            <div className="h-[340px] w-full flex flex-col items-center justify-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-300 text-center p-6 space-y-3">
+              <Share2 className="w-10 h-10 text-gray-400 animate-pulse" />
+              <p className="text-sm font-bold text-gray-700">Nenhum canal social conectado à marca {activeBrand?.name}</p>
+              <p className="text-xs text-gray-500 max-w-md">
+                Conecte seu Instagram, WhatsApp, YouTube ou outras redes na aba <strong>Conexões & Canais</strong> para visualizar as curvas reais de crescimento e interações!
+              </p>
+              <button
+                onClick={() => setCurrentTab('connections')}
+                className="px-5 py-2.5 bg-[#F26526] hover:bg-[#d9551c] text-white font-bold text-xs rounded-xl shadow-md transition-all"
+              >
+                Conectar Canais Agora
+              </button>
+            </div>
+          ) : (
+            <div className="h-[340px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={dynamicReachData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorReach" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#F26526" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#F26526" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                  <XAxis dataKey="dia" stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val/1000}k`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1E293B', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)' }}
+                    formatter={(value, name) => [value.toLocaleString('pt-BR'), name === 'alcance' ? 'Alcance Total' : 'Interações']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="alcance" 
+                    stroke="#F26526" 
+                    strokeWidth={3.5} 
+                    dot={{ r: 5, fill: '#F26526', strokeWidth: 2, stroke: '#fff' }} 
+                    activeDot={{ r: 8, strokeWidth: 0, fill: '#F26526' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="interacoes" 
+                    stroke="#1A73E8" 
+                    strokeWidth={2.5} 
+                    strokeDasharray="4 4"
+                    dot={{ r: 4, fill: '#1A73E8' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         {/* Gráfico 2: Engajamento por Rede (1 Coluna) */}
-        <div className="bg-white rounded-3xl p-7 border border-gray-200/80 shadow-lg flex flex-col justify-between">
+        <div className="bg-white rounded-3xl p-7 border border-gray-200/80 shadow-sm flex flex-col justify-between">
           <div>
             <h3 className="text-lg font-extrabold text-gray-900 tracking-tight">
               Engajamento por Canal
@@ -238,34 +322,41 @@ export default function Dashboard({ setCurrentTab }) {
             </p>
           </div>
 
-          <div className="h-[340px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ENGAGEMENT_DATA} layout="vertical" margin={{ top: 5, right: 15, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
-                <XAxis type="number" stroke="#64748B" fontSize={11} tickLine={false} axisLine={false} unit="%" />
-                <YAxis type="category" dataKey="rede" stroke="#1E293B" fontSize={12} fontStyle="bold" tickLine={false} axisLine={false} width={80} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1E293B', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '12px' }}
-                  formatter={(value) => [`${value}%`, 'Taxa de Engajamento']}
-                />
-                <Bar 
-                  dataKey="engajamento" 
-                  fill="#1A73E8" 
-                  radius={[0, 6, 6, 0]} 
-                  barSize={20}
-                >
-                  {ENGAGEMENT_DATA.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.cor || '#1A73E8'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {!hasChannels ? (
+            <div className="h-[340px] w-full flex flex-col items-center justify-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-300 text-center p-6 space-y-3">
+              <Activity className="w-10 h-10 text-gray-400" />
+              <p className="text-xs font-bold text-gray-600">Sem dados para comparar</p>
+            </div>
+          ) : (
+            <div className="h-[340px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dynamicEngagementData} layout="vertical" margin={{ top: 5, right: 15, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
+                  <XAxis type="number" stroke="#64748B" fontSize={11} tickLine={false} axisLine={false} unit="%" />
+                  <YAxis type="category" dataKey="rede" stroke="#1E293B" fontSize={12} fontStyle="bold" tickLine={false} axisLine={false} width={80} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1E293B', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '12px' }}
+                    formatter={(value) => [`${value}%`, 'Taxa de Engajamento']}
+                  />
+                  <Bar 
+                    dataKey="engajamento" 
+                    fill="#1A73E8" 
+                    radius={[0, 6, 6, 0]} 
+                    barSize={20}
+                  >
+                    {dynamicEngagementData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.cor || '#1A73E8'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Lista Rápida de Postagens Recentes / Próximas */}
-      <div className="bg-white rounded-3xl p-7 border border-gray-200/80 shadow-lg">
+      <div className="bg-white rounded-3xl p-7 border border-gray-200/80 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-extrabold text-gray-900 tracking-tight">
@@ -285,7 +376,7 @@ export default function Dashboard({ setCurrentTab }) {
 
         <div className="divide-y divide-gray-100 overflow-x-auto">
           {activeBrandPosts.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-gray-500">
               <Share2 className="w-12 h-12 mx-auto mb-2 opacity-30" />
               <p className="text-sm font-medium">Nenhum post encontrado para esta marca.</p>
               <button
@@ -333,7 +424,7 @@ export default function Dashboard({ setCurrentTab }) {
                     {post.status === 'waiting_approval' && '🟠 Aguardando'}
                     {post.status === 'draft' && '🟡 Rascunho'}
                   </span>
-                  <p className="text-[10px] text-gray-400 mt-1">
+                  <p className="text-[10px] text-gray-500 mt-1">
                     {new Date(post.scheduled_at).toLocaleDateString('pt-BR')} às {new Date(post.scheduled_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>

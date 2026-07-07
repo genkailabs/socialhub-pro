@@ -9,6 +9,7 @@ import Scheduler from './pages/Scheduler';
 import Inbox from './pages/Inbox';
 import ApprovalView from './pages/ApprovalView';
 import Connections from './pages/Connections';
+import Reports from './pages/Reports';
 import AuthModal from './components/auth/AuthModal';
 import { 
   Share2, 
@@ -167,6 +168,7 @@ function MainAppContent() {
         {/* Corpo Dinâmico conforme Aba Ativa */}
         <main className="flex-1 overflow-y-auto bg-[#F9FAFB]">
           {currentTab === 'dashboard' && <Dashboard setCurrentTab={setCurrentTab} />}
+          {currentTab === 'reports' && <Reports setCurrentTab={setCurrentTab} />}
           {currentTab === 'connections' && <Connections setCurrentTab={setCurrentTab} />}
           {currentTab === 'calendar' && <CalendarView setCurrentTab={setCurrentTab} />}
           {currentTab === 'scheduler' && <Scheduler setCurrentTab={setCurrentTab} />}
