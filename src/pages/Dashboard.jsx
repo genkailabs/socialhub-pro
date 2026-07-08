@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   TrendingUp, 
   Users, 
@@ -51,6 +51,25 @@ export default function Dashboard({ setCurrentTab }) {
 
   const connectedList = activeBrand?.connectedChannels || [];
   const hasChannels = connectedList.length > 0;
+
+  // Busca métricas reais da Graph API para a marca ativa
+  const [realApiData, setRealApiData] = useState(null);
+
+  useEffect(() => {
+    if (!activeBrand?.id) return;
+    let isMounted = true;
+    fetch(`/api/meta/insights?brand_id=${activeBrand.id}&platform=instagram`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (isMounted && data && data.isRealApi) {
+          setRealApiData(data);
+        } else if (isMounted) {
+          setRealApiData(null);
+        }
+      })
+      .catch(() => { if (isMounted) setRealApiData(null); });
+    return () => { isMounted = false; };
+  }, [activeBrand?.id, activeBrand?.networksMetadata]);
 
   // Semente única derivada do nome da marca para gerar variação determinística e realista
   const brandSeed = useMemo(() => {
@@ -158,41 +177,48 @@ export default function Dashboard({ setCurrentTab }) {
     const engChange = isGenkai ? '+1.8%' : (hasChannels ? `+${(1.1 + brandSeed * 3.4).toFixed(1)}%` : '0%');
     const folChange = isGenkai ? '+3.8%' : (hasChannels ? `+${(2.8 + brandSeed * 5.1).toFixed(1)}%` : '0%');
 
+    // Sobrescrita com dados reais oficiais da Graph API
+    const realReach = realApiData?.analytics?.totalReach;
+    const finalReach = realReach !== undefined ? (realReach >= 1000 ? `${(realReach / 1000).toFixed(1)}k` : String(realReach)) : formattedReach;
+    const realFollowers = realApiData?.account?.followersCount;
+    const finalFollowers = realFollowers !== undefined ? (realFollowers >= 1000 ? `${(realFollowers / 1000).toFixed(1)}k` : String(realFollowers)) : (activeBrand?.followers || '0');
+    const finalEng = realApiData?.analytics?.engagementRate || activeBrand?.engagement || avgEngRate;
+
     return [
       {
         title: 'Alcance Total (7d)',
-        value: formattedReach,
-        change: reachChange,
+        value: finalReach,
+        change: realApiData ? 'API Oficial' : reachChange,
         isPositive: hasChannels,
         icon: Eye,
         color: 'from-[#F26526] to-[#FF8A50]',
         shadow: 'shadow-[#F26526]/25',
-        subtitle: 'Impressões e visualizações únicas'
+        subtitle: realApiData ? 'Sincronizado da Graph API' : 'Impressões e visualizações únicas'
       },
       {
         title: 'Engajamento Médio',
-        value: activeBrand?.engagement || avgEngRate,
-        change: engChange,
+        value: finalEng,
+        change: realApiData ? '100% Real' : engChange,
         isPositive: hasChannels,
         icon: Activity,
         color: 'from-[#1A73E8] to-[#60A5FA]',
         shadow: 'shadow-[#1A73E8]/25',
-        subtitle: 'Média ponderada nas redes ativas'
+        subtitle: realApiData ? 'Cálculo de posts reais' : 'Média ponderada nas redes ativas'
       },
       {
         title: 'Seguidores Ativos',
-        value: activeBrand?.followers || '0',
-        change: folChange,
+        value: finalFollowers,
+        change: realApiData ? `@${realApiData.account.username}` : folChange,
         isPositive: hasChannels,
         icon: Users,
         color: 'from-[#8B5CF6] to-[#A78BFA]',
         shadow: 'shadow-[#8B5CF6]/25',
-        subtitle: 'Base consolidada multi-canal'
+        subtitle: realApiData ? 'Base real do Instagram' : 'Base consolidada multi-canal'
       },
       {
         title: 'Canais Conectados',
         value: `${connectedList.length} Redes`,
-        change: hasChannels ? '100% Ativo' : 'Aguardando',
+        change: realApiData ? 'OAuth Ativo' : (hasChannels ? '100% Ativo' : 'Aguardando'),
         isPositive: hasChannels,
         icon: Share2,
         color: 'from-[#10B981] to-[#34D399]',
@@ -250,9 +276,15 @@ export default function Dashboard({ setCurrentTab }) {
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2.5 max-w-2xl">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#F26526]/20 text-[#FF8A50] border border-[#F26526]/30 backdrop-blur-md">
-                <Sparkles className="w-3.5 h-3.5 mr-1.5 animate-spin" style={{ animationDuration: '6s' }} /> Performance Inteligente em Tempo Real
-              </span>
+              {realApiData?.isRealApi ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30 backdrop-blur-md animate-pulse">
+                  ⚡ Conexão Oficial da Meta Graph API Ativa (100% Real)
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#F26526]/20 text-[#FF8A50] border border-[#F26526]/30 backdrop-blur-md">
+                  <Sparkles className="w-3.5 h-3.5 mr-1.5 animate-spin" style={{ animationDuration: '6s' }} /> Performance Inteligente em Tempo Real
+                </span>
+              )}
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-gray-300 border border-white/10">
                 Segmento: <strong className="text-white ml-1">{activeBrand?.category}</strong>
               </span>

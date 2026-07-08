@@ -230,6 +230,31 @@ export default function Connections({ setCurrentTab }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [globalBanner, setGlobalBanner] = useState(null);
 
+  // Trata o retorno real do OAuth da Meta Graph API
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    const platform = params.get('platform');
+    const username = params.get('username');
+    const error = params.get('error');
+
+    if (status === 'success' && platform) {
+      setGlobalBanner({
+        type: 'success',
+        msg: `🎉 Canal ${platform.toUpperCase()} (@${username || platform}) conectado com sucesso via API Oficial da Meta Graph! Sincronização e relatórios em tempo real ativos.`
+      });
+      setTimeout(() => setGlobalBanner(null), 8000);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error) {
+      setGlobalBanner({
+        type: 'error',
+        msg: `⚠️ Erro na autorização da Meta: ${error}`
+      });
+      setTimeout(() => setGlobalBanner(null), 8000);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Edição de bio/perfil
   const [bioModalNet, setBioModalNet] = useState(null);
   const [bioText, setBioText] = useState('');
@@ -308,7 +333,15 @@ export default function Connections({ setCurrentTab }) {
       lastSynced: new Date().toLocaleString('pt-BR')
     };
 
-    // Simulação visual em 3 etapas para encantar o usuário
+    // Para Instagram ou Facebook, executa o redirecionamento REAL para o OAuth da Meta Graph API
+    if (activeModalNet.id === 'instagram' || activeModalNet.id === 'facebook') {
+      setIsConnecting(true);
+      setOauthStep(1);
+      window.location.href = `/api/meta/oauth?brand_id=${activeBrand.id}`;
+      return;
+    }
+
+    // Simulação visual em 3 etapas para canais ainda sem API oficial integrada
     setTimeout(() => {
       setOauthStep(2);
       setTimeout(() => {

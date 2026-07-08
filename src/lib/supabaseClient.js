@@ -11,6 +11,6 @@ if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === 'sua_url_aqui') {
 }
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
+  supabaseUrl || 'https://geoqbbrlyepmhwgdbjmz.supabase.co',
+  supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdlb3FiYnJseWVwbWh3Z2Riam16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NjYzNTMsImV4cCI6MjA5OTA0MjM1M30.n7258I3YtCpF3pq6VlYkgYJ_z04fSnNVSEDKRT5tc1Q'
 );
