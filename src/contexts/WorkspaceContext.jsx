@@ -18,8 +18,20 @@ export function enrichBrandData(brand) {
   const followers = brand.followers || '0';
   const engagement = brand.engagement || '0%';
   const reach = brand.reach || '0';
-  const meta = brand.networksMetadata || brand.networks_metadata || {};
+  const rawMeta = brand.networksMetadata || brand.networks_metadata || {};
   const campaigns = brand.campaigns || [];
+
+  // Remove dados fictícios legados/mock de seguidores e engajamento para que o SaaS exiba apenas dados reais ou zerados
+  const MOCK_FOLLOWERS = ['12.4k', '8.9k', '15.2k', '45.0k', '4.8k', '6.2k', '3.1k', '2.4k', '18.5k', '45.2k', '18.7k', '1.0k'];
+  const meta = {};
+  Object.keys(rawMeta).forEach((channelId) => {
+    const chInfo = { ...rawMeta[channelId] };
+    if (chInfo && MOCK_FOLLOWERS.includes(chInfo.followers)) {
+      chInfo.followers = '0';
+      chInfo.engagement = '0%';
+    }
+    meta[channelId] = chInfo;
+  });
 
   return {
     ...brand,
@@ -196,6 +208,19 @@ export function WorkspaceProvider({ children }) {
     return savedBrand;
   };
 
+  // Valores padrão zerados/reais por tipo de canal (sem dados fictícios)
+  const CHANNEL_DEFAULTS = {
+    instagram: { followers: '0', engagement: '0%', handle: '' },
+    youtube:    { followers: '0', engagement: '0%', handle: '' },
+    facebook:   { followers: '0', engagement: '0%', handle: '' },
+    tiktok:     { followers: '0', engagement: '0%', handle: '' },
+    linkedin:   { followers: '0', engagement: '0%', handle: '' },
+    twitter:    { followers: '0', engagement: '0%', handle: '' },
+    pinterest:  { followers: '0', engagement: '0%', handle: '' },
+    whatsapp:   { followers: '0', engagement: '0%', handle: '' },
+    spotify:    { followers: '0', engagement: '0%', handle: '' },
+  };
+
   const toggleChannelConnection = async (brandId, channelId, metadata = null) => {
     let targetUpdatedBrand = null;
     setBrands((prevBrands) => {
@@ -211,10 +236,12 @@ export function WorkspaceProvider({ children }) {
         if (exists) {
           delete updatedMetadata[channelId];
         } else {
+          const baseDefaults = CHANNEL_DEFAULTS[channelId] || { followers: '0', engagement: '0%', handle: '' };
+          const handleBase = b.handle || `@${(b.name || 'marca').toLowerCase().replace(/\s+/g, '')}`;
           updatedMetadata[channelId] = metadata || {
-            handle: `${b.handle || '@' + b.name.toLowerCase().replace(/\s+/g, '')}.${channelId}`,
+            handle: baseDefaults.handle || `${handleBase}`,
             token: '',
-            bio: `Canal oficial no ${channelId}.`,
+            bio: '',
             followers: '0',
             engagement: '0%',
             status: 'connected',
@@ -343,6 +370,47 @@ export function WorkspaceProvider({ children }) {
 
   const activeBrandPosts = posts.filter((p) => p.brand_id === activeBrand?.id);
 
+  // Re-sincroniza marcas do Supabase (usado apos OAuth callback, etc.)
+  const refreshBrands = async () => {
+    try {
+      const { data: brandsData, error: brandsError } = await supabase
+        .from('brands')
+        .select('*')
+        .order('name');
+
+      if (brandsError || !brandsData || brandsData.length === 0) {
+        console.warn('refreshBrands: sem dados do Supabase');
+        return;
+      }
+
+      const refreshedBrands = brandsData.map(b => enrichBrandData({
+        id: b.id,
+        user_id: b.user_id,
+        name: b.name,
+        logo: b.logo_url || '',
+        handle: b.handle || `@${b.name.toLowerCase().replace(/\s+/g, '')}`,
+        category: b.category || 'Geral',
+        color: b.color || '#F26526',
+        followers: b.followers || '0',
+        engagement: b.engagement || '0%',
+        connectedChannels: b.connected_networks || [],
+        networksMetadata: b.networks_metadata || {}
+      }));
+
+      setBrands(refreshedBrands);
+      cacheBrands(refreshedBrands);
+
+      // Atualiza activeBrand mantendo a marca ativa atual
+      const savedActiveId = localStorage.getItem('socialhub_active_brand_id');
+      const targetActive = refreshedBrands.find(ab => ab.id === savedActiveId) || refreshedBrands[0];
+      if (targetActive) {
+        setActiveBrand(enrichBrandData(targetActive));
+      }
+    } catch (e) {
+      console.warn('refreshBrands: erro ao sincronizar:', e);
+    }
+  };
+
   const value = {
     brands,
     activeBrand,
@@ -359,6 +427,7 @@ export function WorkspaceProvider({ children }) {
     activeBrandPosts,
     addPost,
     updatePostStatus,
+    refreshBrands,
     loading
   };
 

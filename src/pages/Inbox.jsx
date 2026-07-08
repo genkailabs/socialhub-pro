@@ -140,12 +140,14 @@ export default function Inbox() {
   const [replyText, setReplyText] = useState('');
   const [networkFilter, setNetworkFilter] = useState('all');
 
-  const selectedConv = conversations.find((c) => c.id === selectedConvId) || conversations[0];
-
-  const filteredConversations = conversations.filter((c) => {
+  const connectedList = activeBrand?.connectedChannels || [];
+  const activeConversations = conversations.filter((c) => connectedList.includes(c.network));
+  const filteredConversations = activeConversations.filter((c) => {
     if (networkFilter === 'all') return true;
     return c.network === networkFilter;
   });
+
+  const selectedConv = filteredConversations.find((c) => c.id === selectedConvId) || filteredConversations[0] || null;
 
   const handleSendReply = (e) => {
     e?.preventDefault();
@@ -301,7 +303,14 @@ export default function Inbox() {
           </div>
 
           <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
-            {filteredConversations.map((conv) => {
+            {filteredConversations.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-xs font-semibold">Nenhuma mensagem recente</p>
+                <p className="text-[11px] text-gray-400 mt-1">Conecte seus canais oficiais para receber interações reais em tempo real.</p>
+              </div>
+            ) : (
+              filteredConversations.map((conv) => {
               const isSelected = conv.id === selectedConvId;
               return (
                 <div
@@ -350,14 +359,22 @@ export default function Inbox() {
                   )}
                 </div>
               );
-            })}
+            }))}
           </div>
         </div>
 
         {/* Coluna 2: Painel de Chat da Conversa Selecionada (7 Colunas) */}
         <div className="lg:col-span-7 flex flex-col bg-white h-full">
-          {/* Header do Chat */}
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/40">
+          {!selectedConv ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-gray-400">
+              <MessageSquare className="w-12 h-12 mb-3 opacity-40" />
+              <h3 className="text-sm font-bold text-gray-600">Nenhum chat selecionado</h3>
+              <p className="text-xs text-gray-400 mt-1 max-w-xs">Conecte seus canais ou selecione uma mensagem na lista à esquerda.</p>
+            </div>
+          ) : (
+            <>
+              {/* Header do Chat */}
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/40">
             <div className="flex items-center space-x-3">
               <img src={selectedConv?.avatar} alt={selectedConv?.user} className="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm" />
               <div>
@@ -460,7 +477,9 @@ export default function Inbox() {
                 <Heart className="w-3 h-3" /> Curtir interativa no canal
               </button>
             </div>
-          </form>
+            </form>
+            </>
+          )}
         </div>
       </div>
     </div>

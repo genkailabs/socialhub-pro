@@ -15,14 +15,17 @@ export default async function handler(req, res) {
   };
   const state = Buffer.from(JSON.stringify(stateObj)).toString('base64');
   
-  // Escopos que funcionam imediatamente no modo Desenvolvimento
-  // public_profile e pages_show_list são suficientes para:
-  // - Autenticar o usuário via Facebook Login
-  // - Listar as Pages do usuário
-  // - Acessar a conta Instagram Business vinculada à Page
+  // Escopos necessarios para acessar Instagram Business via Graph API
+  // public_profile: autenticacao basica do usuario
+  // pages_show_list + pages_read_engagement: listar Pages do usuario
+  // instagram_basic: CRITICO - sem ele, instagram_business_account vem sempre null
+  // instagram_content_publish: futuro agendamento de posts
   const scopes = [
     'public_profile',
-    'pages_show_list'
+    'pages_show_list',
+    'pages_read_engagement',
+    'instagram_basic',
+    'instagram_content_publish'
   ].join(',');
   
   const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(callbackUrl)}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(scopes)}&response_type=code`;

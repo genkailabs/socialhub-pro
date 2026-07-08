@@ -82,19 +82,35 @@ export default function Dashboard({ setCurrentTab }) {
     return Math.abs(hash % 100) / 100; // Valor entre 0.00 e 0.99
   }, [activeBrand?.name, activeBrand?.id]);
 
-  // Parse numérico dos seguidores da marca ativa
+  // Parse numérico dos seguidores da marca ativa (agregado de todas as redes conectadas)
   const numericFollowers = useMemo(() => {
-    if (!activeBrand?.followers) return 10000;
-    const str = String(activeBrand.followers).toLowerCase().replace(',', '.');
-    if (str.includes('k')) {
-      return parseFloat(str.replace('k', '')) * 1000;
+    if (!hasChannels) {
+      if (!activeBrand?.followers) return 10000;
+      const str = String(activeBrand.followers).toLowerCase().replace(',', '.');
+      if (str.includes('k')) return parseFloat(str.replace('k', '')) * 1000;
+      if (str.includes('m')) return parseFloat(str.replace('m', '')) * 1000000;
+      const val = parseFloat(str);
+      return isNaN(val) ? 10000 : val;
     }
-    if (str.includes('m')) {
-      return parseFloat(str.replace('m', '')) * 1000000;
-    }
-    const val = parseFloat(str);
-    return isNaN(val) ? 10000 : val;
-  }, [activeBrand?.followers]);
+    // Soma seguidores de todas as redes conectadas via networksMetadata
+    const meta = activeBrand?.networksMetadata || {};
+    let total = 0;
+    connectedList.forEach(cId => {
+      const ch = meta[cId] || {};
+      const fStr = String(ch.followers || '0').toLowerCase().replace(',', '.');
+      if (fStr.includes('k')) total += parseFloat(fStr.replace('k', '')) * 1000;
+      else if (fStr.includes('m')) total += parseFloat(fStr.replace('m', '')) * 1000000;
+      else if (fStr === '--' || fStr === 'n/a' || fStr === '0') total += 0;
+      else { const v = parseFloat(fStr); if (!isNaN(v)) total += v; }
+    });
+    return total > 0 ? total : (() => {
+      const str = String(activeBrand?.followers || '0').toLowerCase().replace(',', '.');
+      if (str.includes('k')) return parseFloat(str.replace('k', '')) * 1000;
+      if (str.includes('m')) return parseFloat(str.replace('m', '')) * 1000000;
+      const val = parseFloat(str);
+      return isNaN(val) || val === 0 ? 10000 : val;
+    })();
+  }, [activeBrand?.followers, activeBrand?.networksMetadata, connectedList, hasChannels]);
 
   // Cálculo dinâmico de evolução diária de alcance e interações específicas para a marca ativa
   const dynamicReachData = useMemo(() => {
@@ -102,35 +118,55 @@ export default function Dashboard({ setCurrentTab }) {
       return ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(dia => ({
         dia,
         alcance: 0,
-        interacoes: 0
+        interacoes: 0,
+        seguidores: numericFollowers
       }));
     }
 
-    const isGenkai = activeBrand?.name?.toLowerCase().includes('genkai') || activeBrand?.id === 'default-brand-pro';
-    let targetTotalReach = 85000;
+    let targetTotalReach = 0;
     if (activeBrand?.reach) {
       const str = String(activeBrand.reach).toLowerCase().replace(',', '.');
       if (str.includes('k')) targetTotalReach = parseFloat(str.replace('k', '')) * 1000;
       else if (str.includes('m')) targetTotalReach = parseFloat(str.replace('m', '')) * 1000000;
       else if (!isNaN(parseFloat(str))) targetTotalReach = parseFloat(str);
-    } else if (isGenkai) {
-      targetTotalReach = 85000;
-    } else {
-      targetTotalReach = numericFollowers * (5.5 + brandSeed * 2.0);
+    }
+    // Fallback: estima alcance como ~20x o número de seguidores (típico para redes sociais)
+    if (targetTotalReach === 0 && numericFollowers > 0) {
+      targetTotalReach = Math.round(numericFollowers * 20);
+    }
+
+    // Taxa de engajamento agregada das redes conectadas
+    let avgEng = 4.5;
+    const meta = activeBrand?.networksMetadata || {};
+    const engValues = connectedList.map(cId => {
+      const ch = meta[cId] || {};
+      const eStr = String(ch.engagement || '0%').replace('%', '').replace(',', '.');
+      const ev = parseFloat(eStr);
+      return isNaN(ev) ? null : ev;
+    }).filter(v => v !== null && v > 0);
+    if (engValues.length > 0) {
+      avgEng = engValues.reduce((a, b) => a + b, 0) / engValues.length;
+    } else if (activeBrand?.engagement) {
+      avgEng = parseFloat(String(activeBrand.engagement).replace('%', '')) || 4.5;
     }
 
     const baseDailyReach = targetTotalReach / 7;
-    const baseDailyInteractions = (baseDailyReach * (parseFloat(activeBrand?.engagement || '4.5') / 100));
+    const baseDailyInteractions = (baseDailyReach * (avgEng / 100));
 
     // Fatores diários simulando o comportamento real na semana (soma = 7.00 exatamente)
     const reachFactors = [0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.00];
     const intFactors = [0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.00];
 
+    // Curva de crescimento de seguidores: leve tendência de alta ao longo da semana
+    const baseDailyFollowers = numericFollowers;
+    const followerGrowthSteps = [-0.02, -0.01, 0, 0.01, 0.02, 0.03, 0.04]; // % change from base
+
     return ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((dia, idx) => {
       return {
         dia,
         alcance: Math.round(baseDailyReach * reachFactors[idx]),
-        interacoes: Math.round(baseDailyInteractions * intFactors[idx])
+        interacoes: Math.round(baseDailyInteractions * intFactors[idx]),
+        seguidores: Math.round(baseDailyFollowers * (1 + followerGrowthSteps[idx]))
       };
     });
   }, [connectedList, hasChannels, numericFollowers, brandSeed, activeBrand?.engagement, activeBrand?.reach, activeBrand?.name, activeBrand?.id]);
@@ -143,20 +179,17 @@ export default function Dashboard({ setCurrentTab }) {
     return connectedList.map(cId => {
       const info = CHANNEL_BASE_INFO[cId] || { name: cId, color: '#64748B', icon: '🌐' };
       const channelMeta = meta[cId] || {};
-      
-      let engValue = 4.5;
-      if (channelMeta.engagement) {
-        engValue = parseFloat(String(channelMeta.engagement).replace('%', '')) || 4.5;
-      } else {
-        engValue = parseFloat((3.5 + (cId.length % 5) * 0.9 + brandSeed * 2).toFixed(1));
-      }
+
+      const displayFollowers = channelMeta.followers || '0';
+      const effectiveEng = channelMeta.engagement || '0%';
+      const engValue = parseFloat(String(effectiveEng).replace('%', '')) || 0;
 
       return {
         rede: info.name,
         engajamento: engValue,
         cor: info.color,
         icone: info.icon,
-        seguidores: channelMeta.followers || 'N/A'
+        seguidores: displayFollowers
       };
     }).sort((a, b) => b.engajamento - a.engajamento);
   }, [connectedList, hasChannels, activeBrand?.networksMetadata, brandSeed]);
@@ -172,10 +205,9 @@ export default function Dashboard({ setCurrentTab }) {
 
   // KPIs dinâmicos e personalizados para a marca ativa
   const kpis = useMemo(() => {
-    const isGenkai = activeBrand?.name?.toLowerCase().includes('genkai') || activeBrand?.id === 'default-brand-pro';
-    const reachChange = isGenkai ? '+24.5%' : (hasChannels ? `+${(16.4 + brandSeed * 18.2).toFixed(1)}%` : '0%');
-    const engChange = isGenkai ? '+1.8%' : (hasChannels ? `+${(1.1 + brandSeed * 3.4).toFixed(1)}%` : '0%');
-    const folChange = isGenkai ? '+3.8%' : (hasChannels ? `+${(2.8 + brandSeed * 5.1).toFixed(1)}%` : '0%');
+    const reachChange = hasChannels ? 'Ativo' : '--';
+    const engChange = hasChannels ? 'Ativo' : '--';
+    const folChange = hasChannels ? 'Ativo' : '--';
 
     // Sobrescrita com dados reais oficiais da Graph API
     const realReach = realApiData?.analytics?.totalReach;
@@ -379,6 +411,9 @@ export default function Dashboard({ setCurrentTab }) {
               <span className="flex items-center text-xs font-bold text-[#1A73E8] bg-[#1A73E8]/10 px-3 py-1 rounded-full">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#1A73E8] mr-1.5"></span> Interações
               </span>
+              <span className="flex items-center text-xs font-bold text-[#8B5CF6] bg-[#8B5CF6]/10 px-3 py-1 rounded-full">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6] mr-1.5"></span> Seguidores
+              </span>
             </div>
           </div>
 
@@ -408,27 +443,39 @@ export default function Dashboard({ setCurrentTab }) {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
                   <XAxis dataKey="dia" stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} fontStyle="bold" />
-                  <YAxis stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => val >= 1000 ? `${(val/1000).toFixed(0)}k` : val} />
-                  <Tooltip 
+                  <YAxis yAxisId="left" stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => val >= 1000 ? `${(val/1000).toFixed(0)}k` : val} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#8B5CF6" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => val >= 1000 ? `${(val/1000).toFixed(0)}k` : val} />
+                  <Tooltip
                     contentStyle={{ backgroundColor: '#1E293B', borderRadius: '14px', border: 'none', color: '#fff', fontSize: '12px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.4)', padding: '12px' }}
-                    formatter={(value, name) => [value.toLocaleString('pt-BR'), name === 'alcance' ? '⚡ Alcance Total' : '💬 Interações']}
+                    formatter={(value, name) => [value.toLocaleString('pt-BR'), name === 'alcance' ? '⚡ Alcance Total' : name === 'interacoes' ? '💬 Interações' : '👥 Seguidores']}
                     labelFormatter={(label) => `Dia da Semana: ${label}`}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="alcance" 
-                    stroke="#F26526" 
-                    strokeWidth={3.5} 
-                    dot={{ r: 5, fill: '#F26526', strokeWidth: 2, stroke: '#fff' }} 
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="alcance"
+                    stroke="#F26526"
+                    strokeWidth={3.5}
+                    dot={{ r: 5, fill: '#F26526', strokeWidth: 2, stroke: '#fff' }}
                     activeDot={{ r: 8, strokeWidth: 0, fill: '#F26526' }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="interacoes" 
-                    stroke="#1A73E8" 
-                    strokeWidth={2.5} 
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="interacoes"
+                    stroke="#1A73E8"
+                    strokeWidth={2.5}
                     strokeDasharray="4 4"
                     dot={{ r: 4, fill: '#1A73E8' }}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="seguidores"
+                    stroke="#8B5CF6"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: '#8B5CF6', strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 6, strokeWidth: 0, fill: '#8B5CF6' }}
                   />
                 </LineChart>
               </ResponsiveContainer>

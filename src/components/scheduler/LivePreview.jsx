@@ -210,7 +210,7 @@ export default function LivePreview({ title, content, mediaUrl, selectedNetworks
                       <span className="text-[10px] bg-gray-100 text-gray-600 px-1 rounded font-normal">Empresa</span>
                     </h4>
                     <p className="text-[11px] text-gray-500 leading-tight">
-                      {activeBrand?.category || 'Tecnologia & Serviços'} • {activeBrand?.followers || '10.000'} seguidores
+                      {activeBrand?.category || 'Geral'} • {activeBrand?.followers || '0'} seguidores
                     </p>
                     <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
                       <span>Agora mesmo</span> • <Globe className="w-3 h-3" />

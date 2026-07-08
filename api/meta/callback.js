@@ -64,10 +64,15 @@ export default async function handler(req, res) {
     }
     
     const pages = accountsData.data || [];
+
+    if (pages.length === 0) {
+      return res.redirect(302, `${baseUrl}/connections?error=${encodeURIComponent('Nenhuma Pagina do Facebook encontrada. Voce precisa criar ou administrar uma Pagina no Facebook para conectar o Instagram Business.')}`);
+    }
+
     let igAccount = null;
     let pageData = null;
-    
-    // Procura uma página que tenha conta do Instagram Business vinculada
+
+    // Procura uma pagina que tenha conta do Instagram Business vinculada
     for (const page of pages) {
       if (page.instagram_business_account) {
         igAccount = page.instagram_business_account;
@@ -75,9 +80,12 @@ export default async function handler(req, res) {
         break;
       }
     }
-    
+
     if (!igAccount) {
-      return res.redirect(302, `${baseUrl}/connections?error=${encodeURIComponent('Nenhuma conta do Instagram Business encontrada vinculada às suas Páginas do Facebook. Converta seu Instagram para Business e vincule a uma Página no Facebook.')}`);
+      // Lista as paginas encontradas para ajudar no diagnostico
+      const pageNames = pages.map(p => p.name).join(', ');
+      console.log('Paginas encontradas sem IG Business:', pageNames);
+      return res.redirect(302, `${baseUrl}/connections?error=${encodeURIComponent('Nenhuma conta do Instagram Business vinculada as suas Paginas do Facebook. Passos: 1) Converta seu Instagram para conta Profissional/Business. 2) No Instagram, va em Editar Perfil > Negocios > Conectar a uma Pagina do Facebook. Paginas encontradas: ' + pageNames)}`);
     }
     
     // 4. Salvar token na tabela social_tokens
