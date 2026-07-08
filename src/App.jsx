@@ -10,6 +10,7 @@ import Inbox from './pages/Inbox';
 import ApprovalView from './pages/ApprovalView';
 import Connections from './pages/Connections';
 import Reports from './pages/Reports';
+import WhiteLabel from './pages/WhiteLabel';
 import AuthModal from './components/auth/AuthModal';
 import { 
   Share2, 
@@ -174,6 +175,7 @@ function MainAppContent() {
           {currentTab === 'scheduler' && <Scheduler setCurrentTab={setCurrentTab} />}
           {currentTab === 'inbox' && <Inbox setCurrentTab={setCurrentTab} />}
           {currentTab === 'approvals' && <InternalApprovalsPanel setCurrentTab={setCurrentTab} />}
+          {currentTab === 'whitelabel' && <WhiteLabel />}
         </main>
       </div>
 

@@ -174,11 +174,25 @@ export default function Sidebar({ currentTab, setCurrentTab }) {
           );
         })}
 
-        {/* Link rápido de visualização do Portal do Cliente */}
+        {/* Links Externo / Cliente */}
         <div className="pt-6">
           <p className="px-3 pb-2 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
             Externo / Cliente
           </p>
+          {/* Portal White-Label */}
+          <button
+            onClick={() => setCurrentTab('whitelabel')}
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all duration-200 text-gray-400 hover:bg-[#F26526]/10 hover:text-[#F26526] border border-dashed border-gray-700 hover:border-[#F26526]/50 mb-1 ${
+              currentTab === 'whitelabel' ? 'bg-[#F26526]/15 text-[#F26526] border-[#F26526]' : ''
+            }`}
+          >
+            <div className="flex items-center space-x-3.5 truncate">
+              <Sparkles className="w-5 h-5 shrink-0 text-[#F26526]" />
+              <span className="text-sm font-medium truncate">Portal White-Label</span>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-500" />
+          </button>
+          {/* Simular Tela Cliente */}
           <button
             onClick={() => setCurrentTab('approvals_client_view')}
             className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all duration-200 text-gray-400 hover:bg-[#1A73E8]/10 hover:text-[#1A73E8] border border-dashed border-gray-700 hover:border-[#1A73E8]/50 ${
