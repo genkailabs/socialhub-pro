@@ -73,19 +73,40 @@ async function publishToInstagram(caption, mediaUrl, tokenRecord) {
 
     const creationId = containerData.id;
 
-    // 2. Publicação do container via Graph API v21.0
+    // 2. Aguarda o processamento do container nos servidores do Instagram (Polling status_code)
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 1500)); // aguarda 1.5 segundo
+      const statusRes = await fetch(`https://graph.facebook.com/v21.0/${creationId}?fields=status_code&access_token=${token}`);
+      const statusData = await statusRes.json();
+      const code = statusData?.status_code;
+      if (code === 'FINISHED') {
+        break;
+      }
+      if (code === 'ERROR') {
+        throw new Error('A imagem não pôde ser processada pelos servidores do Instagram.');
+      }
+    }
+
+    // 3. Publicação do container via Graph API v21.0 com retentativa
     const publishUrl = `https://graph.facebook.com/v21.0/${igId}/media_publish`;
     const pubParams = new URLSearchParams({
       creation_id: creationId,
       access_token: token
     });
 
-    const publishRes = await fetch(`${publishUrl}?${pubParams.toString()}`, {
-      method: 'POST'
-    });
-    const publishData = await publishRes.json();
+    let publishData = null;
+    for (let pubAttempt = 0; pubAttempt < 3; pubAttempt++) {
+      const publishRes = await fetch(`${publishUrl}?${pubParams.toString()}`, {
+        method: 'POST'
+      });
+      publishData = await publishRes.json();
+      if (!publishData.error) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
 
-    if (publishData.error) {
+    if (publishData?.error) {
       throw new Error(`Erro ao publicar na Graph API: ${publishData.error.message}`);
     }
 
