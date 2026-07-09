@@ -11,7 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function syncMetaPlatform(tokenRecord, platform) {
   const { access_token: token, platform_user_id: igId } = tokenRecord;
-  const profileUrl = `https://graph.facebook.com/v19.0/${igId}?fields=followers_count,media_count,name,username,profile_picture_url,biography&access_token=${token}`;
+  const profileUrl = `https://graph.facebook.com/v21.0/${igId}?fields=followers_count,media_count,name,username,profile_picture_url,biography&access_token=${token}`;
   const profileRes = await fetch(profileUrl);
   const profileData = await profileRes.json();
 
@@ -19,7 +19,7 @@ async function syncMetaPlatform(tokenRecord, platform) {
     throw new Error(`Meta Graph API Erro: ${profileData.error.message}`);
   }
 
-  const mediaUrl = `https://graph.facebook.com/v19.0/${igId}/media?fields=id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count&limit=15&access_token=${token}`;
+  const mediaUrl = `https://graph.facebook.com/v21.0/${igId}/media?fields=id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count&limit=15&access_token=${token}`;
   const mediaRes = await fetch(mediaUrl);
   const mediaData = await mediaRes.json();
   const mediaList = mediaData.data || [];

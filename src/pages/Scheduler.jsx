@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import LivePreview from '../components/scheduler/LivePreview';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import { SocialPublishService } from '../services/SocialPublishService';
 
 export default function Scheduler({ setCurrentTab }) {
   const { activeBrand, addPost } = useWorkspace();
@@ -161,16 +162,25 @@ export default function Scheduler({ setCurrentTab }) {
 
     try {
       if (publishNow) {
-        // Simulando passos do modal de publicação para WOW do cliente
-        await new Promise((r) => setTimeout(r, 1200));
-        setPublishingStep(2); // Enviando mídia...
-
-        await new Promise((r) => setTimeout(r, 1500));
-        setPublishingStep(3); // Publicando via API oficial...
-
-        await new Promise((r) => setTimeout(r, 1500));
+        // 1. Salva o post no Supabase e inicia validação
         const res = await addPost(postData);
         if (!res) throw new Error('Erro ao salvar post no Supabase.');
+
+        await new Promise((r) => setTimeout(r, 800));
+        setPublishingStep(2); // Enviando mídia...
+
+        await new Promise((r) => setTimeout(r, 900));
+        setPublishingStep(3); // Publicando via API oficial...
+
+        // 2. Aciona o endpoint oficial de publicação via Meta Graph API
+        await SocialPublishService.publishPost({
+          brandId: activeBrand.id,
+          postId: res.id,
+          title: postData.title,
+          content: postData.content,
+          mediaUrl: postData.media_url,
+          networks: postData.networks
+        });
 
         setPublishingStep(4); // Sucesso!
 

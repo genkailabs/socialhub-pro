@@ -104,6 +104,14 @@ export default function Connections({ setCurrentTab }) {
 
   const handleConfirmRealConnection = (method) => {
     if (!activeModalNet || !activeBrand) return;
+
+    if (method === 'cloud' && (activeModalNet.id === 'instagram' || activeModalNet.id === 'facebook')) {
+      setIsConnecting(true);
+      setOauthStep(1);
+      window.location.href = `/api/meta/oauth?brand_id=${encodeURIComponent(activeBrand.id)}`;
+      return;
+    }
+
     setIsConnecting(true);
     setOauthStep(1);
 
