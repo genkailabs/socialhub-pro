@@ -16,7 +16,8 @@ import {
   UserCheck,
   Shield,
   Lock,
-  LogIn
+  LogIn,
+  LayoutGrid
 } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -36,6 +37,7 @@ export default function Sidebar({ currentTab, setCurrentTab }) {
     { id: 'reports', label: 'Relatórios por Rede', icon: BarChart3, badge: 'Analytics' },
     { id: 'connections', label: 'Conexões & Canais', icon: Share2, badge: 'Tutorias & QR' },
     { id: 'calendar', label: 'Calendário Editorial', icon: Calendar },
+    { id: 'grid_planner', label: 'Planejador de Feed', icon: LayoutGrid, badge: 'Grid 3x3' },
     { id: 'scheduler', label: 'Agendar Post', icon: PlusCircle, badge: 'Ação Rápida' },
     { id: 'inbox', label: 'Social Inbox', icon: MessageSquare, count: '3' },
     { id: 'approvals', label: 'Aprovações', icon: CheckCircle2 }

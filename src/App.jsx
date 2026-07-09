@@ -11,6 +11,7 @@ import ApprovalView from './pages/ApprovalView';
 import Connections from './pages/Connections';
 import Reports from './pages/Reports';
 import WhiteLabel from './pages/WhiteLabel';
+import VisualGridPlanner from './pages/VisualGridPlanner';
 import AuthModal from './components/auth/AuthModal';
 import { 
   Share2, 
@@ -172,6 +173,7 @@ function MainAppContent() {
           {currentTab === 'reports' && <Reports setCurrentTab={setCurrentTab} />}
           {currentTab === 'connections' && <Connections setCurrentTab={setCurrentTab} />}
           {currentTab === 'calendar' && <CalendarView setCurrentTab={setCurrentTab} />}
+          {currentTab === 'grid_planner' && <VisualGridPlanner setCurrentTab={setCurrentTab} />}
           {currentTab === 'scheduler' && <Scheduler setCurrentTab={setCurrentTab} />}
           {currentTab === 'inbox' && <Inbox setCurrentTab={setCurrentTab} />}
           {currentTab === 'approvals' && <InternalApprovalsPanel setCurrentTab={setCurrentTab} />}

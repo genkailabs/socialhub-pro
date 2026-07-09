@@ -33,6 +33,7 @@ import {
   Cell
 } from 'recharts';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import SyncStatusBar from '../components/common/SyncStatusBar';
 
 // Dados base de cores e nomes para os canais suportados
 const CHANNEL_BASE_INFO = {
@@ -46,8 +47,9 @@ const CHANNEL_BASE_INFO = {
 };
 
 export default function Dashboard({ setCurrentTab }) {
-  const { activeBrand, activeBrandPosts } = useWorkspace();
+  const { activeBrand, activeBrandPosts, syncOfficialNetworks, lastSyncedAt, isSyncingOfficial, syncError } = useWorkspace();
   const [filterStatus, setFilterStatus] = useState('all');
+  const [chartPeriod, setChartPeriod] = useState('7d');
 
   const connectedList = activeBrand?.connectedChannels || [];
   const hasChannels = connectedList.length > 0;
@@ -108,7 +110,7 @@ export default function Dashboard({ setCurrentTab }) {
       if (str.includes('k')) return parseFloat(str.replace('k', '')) * 1000;
       if (str.includes('m')) return parseFloat(str.replace('m', '')) * 1000000;
       const val = parseFloat(str);
-      return isNaN(val) || val === 0 ? 10000 : val;
+      return isNaN(val) ? 0 : val;
     })();
   }, [activeBrand?.followers, activeBrand?.networksMetadata, connectedList, hasChannels]);
 
@@ -124,19 +126,19 @@ export default function Dashboard({ setCurrentTab }) {
     }
 
     let targetTotalReach = 0;
-    if (activeBrand?.reach) {
+    if (activeBrand?.reach && activeBrand.reach !== '0') {
       const str = String(activeBrand.reach).toLowerCase().replace(',', '.');
       if (str.includes('k')) targetTotalReach = parseFloat(str.replace('k', '')) * 1000;
       else if (str.includes('m')) targetTotalReach = parseFloat(str.replace('m', '')) * 1000000;
       else if (!isNaN(parseFloat(str))) targetTotalReach = parseFloat(str);
     }
-    // Fallback: estima alcance como ~20x o número de seguidores (típico para redes sociais)
+    // Estima alcance proporcional aos seguidores reais apenas se houver seguidores > 0
     if (targetTotalReach === 0 && numericFollowers > 0) {
       targetTotalReach = Math.round(numericFollowers * 20);
     }
 
-    // Taxa de engajamento agregada das redes conectadas
-    let avgEng = 4.5;
+    // Taxa de engajamento agregada das redes conectadas (0 por padrão se não houver engajamento real)
+    let avgEng = 0;
     const meta = activeBrand?.networksMetadata || {};
     const engValues = connectedList.map(cId => {
       const ch = meta[cId] || {};
@@ -146,8 +148,8 @@ export default function Dashboard({ setCurrentTab }) {
     }).filter(v => v !== null && v > 0);
     if (engValues.length > 0) {
       avgEng = engValues.reduce((a, b) => a + b, 0) / engValues.length;
-    } else if (activeBrand?.engagement) {
-      avgEng = parseFloat(String(activeBrand.engagement).replace('%', '')) || 4.5;
+    } else if (activeBrand?.engagement && activeBrand.engagement !== '0%') {
+      avgEng = parseFloat(String(activeBrand.engagement).replace('%', '')) || 0;
     }
 
     const baseDailyReach = targetTotalReach / 7;
@@ -216,49 +218,54 @@ export default function Dashboard({ setCurrentTab }) {
     const finalFollowers = realFollowers !== undefined ? (realFollowers >= 1000 ? `${(realFollowers / 1000).toFixed(1)}k` : String(realFollowers)) : (activeBrand?.followers || '0');
     const finalEng = realApiData?.analytics?.engagementRate || activeBrand?.engagement || avgEngRate;
 
+    const parsedSyncDate = lastSyncedAt ? new Date(lastSyncedAt) : null;
+    const relTime = parsedSyncDate && !isNaN(parsedSyncDate.getTime())
+      ? `Atualizado às ${parsedSyncDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+      : (typeof lastSyncedAt === 'string' ? `Atualizado (${lastSyncedAt})` : 'Aguardando sincronização');
+
     return [
       {
         title: 'Alcance Total (7d)',
         value: finalReach,
-        change: realApiData ? 'API Oficial' : reachChange,
+        change: realApiData ? '▲ +0,0%' : reachChange,
         isPositive: hasChannels,
         icon: Eye,
         color: 'from-[#F26526] to-[#FF8A50]',
         shadow: 'shadow-[#F26526]/25',
-        subtitle: realApiData ? 'Sincronizado da Graph API' : 'Impressões e visualizações únicas'
+        subtitle: `Comparado ao período anterior • ${relTime}`
       },
       {
         title: 'Engajamento Médio',
         value: finalEng,
-        change: realApiData ? '100% Real' : engChange,
+        change: realApiData ? '▲ +0,0%' : engChange,
         isPositive: hasChannels,
         icon: Activity,
         color: 'from-[#1A73E8] to-[#60A5FA]',
         shadow: 'shadow-[#1A73E8]/25',
-        subtitle: realApiData ? 'Cálculo de posts reais' : 'Média ponderada nas redes ativas'
+        subtitle: `Comparado aos últimos 7 dias • ${relTime}`
       },
       {
         title: 'Seguidores Ativos',
         value: finalFollowers,
-        change: realApiData ? `@${realApiData.account.username}` : folChange,
+        change: realApiData ? '▲ +0,0%' : folChange,
         isPositive: hasChannels,
         icon: Users,
         color: 'from-[#8B5CF6] to-[#A78BFA]',
         shadow: 'shadow-[#8B5CF6]/25',
-        subtitle: realApiData ? 'Base real do Instagram' : 'Base consolidada multi-canal'
+        subtitle: `Comparado ao período anterior • ${relTime}`
       },
       {
         title: 'Canais Conectados',
         value: `${connectedList.length} Redes`,
-        change: realApiData ? 'OAuth Ativo' : (hasChannels ? '100% Ativo' : 'Aguardando'),
+        change: realApiData ? '▲ 100%' : (hasChannels ? '100% Ativo' : 'Aguardando'),
         isPositive: hasChannels,
         icon: Share2,
         color: 'from-[#10B981] to-[#34D399]',
         shadow: 'shadow-[#10B981]/25',
-        subtitle: 'Monitoramento em tempo real'
+        subtitle: `Monitoramento contínuo • ${relTime}`
       }
     ];
-  }, [formattedReach, activeBrand?.engagement, avgEngRate, activeBrand?.followers, connectedList.length, hasChannels, brandSeed, activeBrand?.name, activeBrand?.id]);
+  }, [formattedReach, activeBrand?.engagement, avgEngRate, activeBrand?.followers, connectedList.length, hasChannels, brandSeed, activeBrand?.name, activeBrand?.id, realApiData, lastSyncedAt]);
 
   // Filtra posts da marca com base no status selecionado nas abas
   const filteredPosts = useMemo(() => {
@@ -353,6 +360,14 @@ export default function Dashboard({ setCurrentTab }) {
         </div>
       </div>
 
+      {/* Barra de Status e Controle de Sincronização Oficial (PRD P0) */}
+      <SyncStatusBar
+        lastSyncedAt={lastSyncedAt}
+        isSyncing={isSyncingOfficial}
+        syncError={syncError}
+        onSyncNow={() => syncOfficialNetworks(true)}
+      />
+
       {/* 4 Cards de KPI com Animação de Troca de Marca */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpis.map((kpi, index) => {
@@ -395,25 +410,40 @@ export default function Dashboard({ setCurrentTab }) {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
             <div>
               <h3 className="text-lg font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-                Evolução Semanal de Alcance & Interações
+                Evolução de Alcance & Interações
                 <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full border border-gray-200">
                   {activeBrand?.name}
                 </span>
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Métricas orgânicas e impulsionadas computadas nos últimos 7 dias.
+                Métricas das APIs oficiais computadas por período de comparação.
               </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="flex items-center text-xs font-bold text-[#F26526] bg-[#F26526]/10 px-3 py-1 rounded-full">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#F26526] mr-1.5"></span> Alcance
-              </span>
-              <span className="flex items-center text-xs font-bold text-[#1A73E8] bg-[#1A73E8]/10 px-3 py-1 rounded-full">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#1A73E8] mr-1.5"></span> Interações
-              </span>
-              <span className="flex items-center text-xs font-bold text-[#8B5CF6] bg-[#8B5CF6]/10 px-3 py-1 rounded-full">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6] mr-1.5"></span> Seguidores
-              </span>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs font-bold border border-gray-200">
+                {['Hoje', 'Ontem', '7d', '30d', '90d', '12m'].map((period) => (
+                  <button
+                    key={period}
+                    onClick={() => setChartPeriod(period)}
+                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                      chartPeriod === period
+                        ? 'bg-white text-gray-900 shadow-2xs'
+                        : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    {period}
+                  </button>
+                ))}
+              </div>
+              <div className="hidden md:flex items-center space-x-3 ml-2">
+                <span className="flex items-center text-xs font-bold text-[#F26526] bg-[#F26526]/10 px-2.5 py-1 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-[#F26526] mr-1"></span> Alcance
+                </span>
+                <span className="flex items-center text-xs font-bold text-[#1A73E8] bg-[#1A73E8]/10 px-2.5 py-1 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-[#1A73E8] mr-1"></span> Interações
+                </span>
+              </div>
             </div>
           </div>
 

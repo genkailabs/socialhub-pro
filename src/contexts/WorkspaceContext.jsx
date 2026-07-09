@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
+import { SocialSyncService } from '../services/SocialSyncService';
 
 const WorkspaceContext = createContext({});
 
@@ -63,6 +64,32 @@ export function WorkspaceProvider({ children }) {
   const [activeBrand, setActiveBrand] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Estados de Sincronização Oficial (PRD P0 Zero Mocks)
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [isSyncingOfficial, setIsSyncingOfficial] = useState(false);
+  const [syncError, setSyncError] = useState(null);
+
+  const syncOfficialNetworks = async (forceRefresh = false) => {
+    if (!activeBrand?.id) return null;
+    setIsSyncingOfficial(true);
+    setSyncError(null);
+    try {
+      const res = await SocialSyncService.syncBrandNetworks(activeBrand.id, { forceRefresh });
+      if (res && res.syncedAt) {
+        setLastSyncedAt(res.syncedAt);
+      }
+      if (res && res.error) {
+        setSyncError(res.errorMessage);
+      }
+      setIsSyncingOfficial(false);
+      return res;
+    } catch (e) {
+      setIsSyncingOfficial(false);
+      setSyncError('Erro na sincronização oficial das APIs.');
+      return null;
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -245,7 +272,7 @@ export function WorkspaceProvider({ children }) {
             followers: '0',
             engagement: '0%',
             status: 'connected',
-            lastSynced: new Date().toLocaleString('pt-BR')
+            lastSynced: new Date().toISOString()
           };
         }
 
@@ -338,6 +365,7 @@ export function WorkspaceProvider({ children }) {
       status: newPostData.status || 'scheduled',
       networks: newPostData.networks || ['instagram'],
       scheduled_at: newPostData.scheduled_at || new Date().toISOString(),
+      instagram_format: newPostData.instagram_format || 'feed',
       likes: 0,
       comments: 0,
       shares: 0
@@ -365,6 +393,17 @@ export function WorkspaceProvider({ children }) {
     }
     setPosts((prev) =>
       prev.map((p) => (p.id === postId ? { ...p, status: newStatus } : p))
+    );
+  };
+
+  const updatePostScheduledDate = async (postId, newDate) => {
+    try {
+      await supabase.from('posts').update({ scheduled_at: newDate }).eq('id', postId);
+    } catch (e) {
+      console.warn('Atualizando data apenas no estado local');
+    }
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, scheduled_at: newDate } : p))
     );
   };
 
@@ -427,7 +466,12 @@ export function WorkspaceProvider({ children }) {
     activeBrandPosts,
     addPost,
     updatePostStatus,
+    updatePostScheduledDate,
     refreshBrands,
+    syncOfficialNetworks,
+    lastSyncedAt,
+    isSyncingOfficial,
+    syncError,
     loading
   };
 

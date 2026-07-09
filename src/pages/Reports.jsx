@@ -47,6 +47,7 @@ import {
   Cell,
 } from 'recharts';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import SyncStatusBar from '../components/common/SyncStatusBar';
 
 // Ícones SVG customizados para X/Twitter e Pinterest para consistência visual absoluta
 const IconX = ({ className }) => (
@@ -436,7 +437,7 @@ const parseFollowers = (str) => {
 };
 
 export default function Reports({ setCurrentTab }) {
-  const { activeBrand, activeBrandPosts } = useWorkspace();
+  const { activeBrand, activeBrandPosts, syncOfficialNetworks, lastSyncedAt, isSyncingOfficial, syncError } = useWorkspace();
   const [activeNet, setActiveNet] = useState('instagram');
   const [exported, setExported] = useState(false);
 
@@ -517,15 +518,14 @@ export default function Reports({ setCurrentTab }) {
     const totalComments = displayPosts.reduce((acc, p) => acc + (Number(p.comments) || 0), 0);
     const totalReach = displayPosts.reduce((acc, p) => acc + (Number(p.reach || p.views) || 0), 0);
 
-    // Para redes conectadas, injeta dados reais do metadata nos KPIs
+    // Para redes conectadas, injeta dados reais do metadata nos KPIs sem estimativa mock
     if (isConnected && parsedFollowers > 0) {
-      const engChange = parseFloat(String(realEngagement).replace('%', '')) || 5.0;
-      const reachEstimate = Math.round(parsedFollowers * 22); // ~22x seguidores = alcance semanal típico
+      const engChange = parseFloat(String(realEngagement).replace('%', '')) || 0;
       return [
         {
           title: 'Seguidores',
           value: realFollowers,
-          change: net.growth || 5.0,
+          change: 0,
           icon: Users,
           color: 'from-[#F26526] to-[#FF8A50]',
           desc: 'Seguidores conectados via API'
@@ -533,7 +533,7 @@ export default function Reports({ setCurrentTab }) {
         {
           title: 'Engajamento',
           value: realEngagement,
-          change: engChange > 0 ? engChange * 1.1 : 3.0,
+          change: engChange,
           icon: Heart,
           color: 'from-purple-500 to-pink-500',
           desc: 'Taxa de engajamento do perfil'
@@ -541,18 +541,18 @@ export default function Reports({ setCurrentTab }) {
         {
           title: 'Total Publicado',
           value: `${totalPosts}`,
-          change: totalPosts > 0 ? totalPosts * 5 : 0,
+          change: totalPosts,
           icon: BarChart3,
           color: 'from-blue-500 to-indigo-600',
-          desc: 'Posts publicados nesta rede'
+          desc: 'Posts reais nesta rede'
         },
         {
-          title: 'Alcance Est. Semanal',
-          value: fmt(reachEstimate),
-          change: 8.5,
+          title: 'Alcance Oficial (7d)',
+          value: netMeta?.reach || '0',
+          change: 0,
           icon: Eye,
           color: 'from-emerald-500 to-teal-600',
-          desc: 'Alcance estimado (7 dias)'
+          desc: 'Métrica oficial sincronizada'
         }
       ];
     }
@@ -665,6 +665,14 @@ export default function Reports({ setCurrentTab }) {
           </button>
         </div>
       </div>
+
+      {/* Barra de Sincronização Oficial multi-canal */}
+      <SyncStatusBar
+        lastSyncedAt={lastSyncedAt}
+        isSyncing={isSyncingOfficial}
+        syncError={syncError}
+        onSyncNow={() => syncOfficialNetworks(true)}
+      />
 
       {/* Seletor de Abas das 9 Redes Sociais com Indicador de Conexão */}
       <div className="bg-white p-2 rounded-3xl border border-gray-200/80 shadow-md mb-8 flex flex-wrap items-center gap-2">
@@ -779,7 +787,10 @@ export default function Reports({ setCurrentTab }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {kpisToDisplay.map((kpi, idx) => {
               const KIcon = kpi.icon;
-              const positive = kpi.change >= 0;
+              const changeNum = typeof kpi.change === 'number'
+                ? kpi.change
+                : (parseFloat(String(kpi?.change || 0).replace(/[^0-9.-]/g, '')) || 0);
+              const positive = changeNum >= 0;
               return (
                 <div 
                   key={idx} 
@@ -803,7 +814,7 @@ export default function Reports({ setCurrentTab }) {
                       positive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' : 'bg-red-50 text-red-700 border border-red-200/80'
                     }`}>
                       {positive ? <TrendingUp className="w-3 h-3 mr-1 text-emerald-600" /> : <TrendingDown className="w-3 h-3 mr-1 text-red-600" />}
-                      {positive ? '+' : ''}{kpi.change.toFixed(1)}% vs 7d
+                      {positive ? '+' : ''}{changeNum.toFixed(1)}% vs 7d
                     </span>
                     <span className="text-[10px] text-gray-400 truncate max-w-[120px]" title={kpi.desc}>
                       {kpi.desc}

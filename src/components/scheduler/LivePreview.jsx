@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 
-export default function LivePreview({ title, content, mediaUrl, selectedNetworks = ['instagram'] }) {
+export default function LivePreview({ title, content, mediaUrl, mediaType = 'image', instagramFormat = 'feed', selectedNetworks = ['instagram'] }) {
   const { activeBrand } = useWorkspace();
   const [activeTab, setActiveTab] = useState(
     selectedNetworks && selectedNetworks.length > 0 ? selectedNetworks[0] : 'instagram'
@@ -121,76 +121,211 @@ export default function LivePreview({ title, content, mediaUrl, selectedNetworks
         <div className="w-full max-w-[360px] transition-all duration-300">
           {/* 1. INSTAGRAM PREVIEW */}
           {activeTab === 'instagram' && (
-            <div className="bg-white border border-gray-200 rounded-3xl shadow-2xl overflow-hidden font-sans animate-in fade-in duration-200">
-              {/* Top Bar Simulação Insta */}
-              <div className="p-3.5 flex items-center justify-between border-b border-gray-100">
-                <div className="flex items-center space-x-2.5">
-                  <div className="p-0.5 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600">
+            instagramFormat === 'reels' ? (
+              /* INSTAGRAM REELS (VERTICAL 9:16) */
+              <div className="bg-black border border-gray-800 rounded-[2.5rem] shadow-2xl overflow-hidden font-sans relative aspect-[9/16] w-full max-w-[320px] select-none text-white animate-in fade-in duration-200 mx-auto">
+                {/* Reels Header */}
+                <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20 text-white drop-shadow-md">
+                  <span className="text-xs font-extrabold flex items-center gap-1 bg-black/35 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10">
+                    <Video className="w-3 h-3 text-pink-500" /> Reels
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    <Volume2 className="w-4 h-4 bg-black/35 backdrop-blur-sm p-1.5 rounded-full border border-white/10" />
+                    <MoreVertical className="w-4 h-4 text-white cursor-pointer" />
+                  </div>
+                </div>
+
+                {/* Reels Media Container */}
+                <div className="absolute inset-0 bg-slate-950 flex items-center justify-center overflow-hidden">
+                  {mediaUrl ? (
+                    mediaType === 'video' ? (
+                      <video
+                        src={mediaUrl}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        <div 
+                          className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-110" 
+                          style={{ backgroundImage: `url(${mediaUrl})` }}
+                        />
+                        <img
+                          src={mediaUrl}
+                          alt="Mídia"
+                          className="w-full h-full object-contain relative z-10"
+                        />
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-center p-6 text-gray-500 flex flex-col items-center justify-center">
+                      <Sparkles className="w-8 h-8 mb-2 text-pink-500 animate-bounce" />
+                      <p className="text-xs font-bold text-gray-400">Nenhum vídeo selecionado</p>
+                    </div>
+                  )}
+                  {/* Play Overlay */}
+                  {mediaUrl && (
+                    <div className="absolute inset-0 bg-black/10 hover:bg-black/25 transition-all flex items-center justify-center z-10 cursor-pointer group">
+                      <Play className="w-12 h-12 text-white/80 opacity-0 group-hover:opacity-100 transition-opacity bg-black/35 p-3 rounded-full border border-white/20" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Floating Actions */}
+                <div className="absolute bottom-20 right-3.5 flex flex-col items-center space-y-4.5 z-20 text-white drop-shadow-lg">
+                  {/* Profile Pic with "+" */}
+                  <div className="flex flex-col items-center relative">
                     <img
                       src={activeBrand?.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80'}
                       alt={activeBrand?.name}
-                      className="w-8 h-8 rounded-full object-cover border-2 border-white"
+                      className="w-8.5 h-8.5 rounded-full object-cover border-2 border-white"
                     />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-bold text-gray-900 leading-none">
-                        {activeBrand?.handle?.replace('@', '') || 'suamarca'}
-                      </span>
-                      <CheckCircle2 className="w-3 h-3 text-[#1A73E8] fill-[#1A73E8] text-white" />
+                    <div className="absolute -bottom-1 bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center border border-white text-[8px] font-extrabold leading-none text-white select-none">
+                      +
                     </div>
-                    <span className="text-[10px] text-gray-400 leading-none block mt-0.5">Patrocinado • São Paulo</span>
+                  </div>
+
+                  {/* Likes */}
+                  <div className="flex flex-col items-center cursor-pointer group">
+                    <Heart className="w-6 h-6 text-white hover:text-red-500 hover:fill-red-500 transition-colors" />
+                    <span className="text-[10px] font-extrabold mt-1">12.4k</span>
+                  </div>
+
+                  {/* Comments */}
+                  <div className="flex flex-col items-center cursor-pointer">
+                    <MessageCircle className="w-6 h-6 text-white hover:text-gray-200 transition-colors" />
+                    <span className="text-[10px] font-extrabold mt-1">382</span>
+                  </div>
+
+                  {/* Share */}
+                  <div className="flex flex-col items-center cursor-pointer">
+                    <Send className="w-6 h-6 text-white -rotate-12 hover:text-gray-200 transition-colors" />
+                    <span className="text-[10px] font-bold mt-1">Partilhar</span>
+                  </div>
+
+                  {/* Bookmark */}
+                  <div className="flex flex-col items-center cursor-pointer">
+                    <Bookmark className="w-6 h-6 text-white hover:text-gray-200 transition-colors" />
+                  </div>
+
+                  {/* Spinning Audio Disk */}
+                  <div className="w-7 h-7 rounded-full bg-slate-900 border border-white/20 flex items-center justify-center animate-spin animate-duration-[4000ms] overflow-hidden">
+                    <Disc className="w-4 h-4 text-gray-400" />
                   </div>
                 </div>
-                <MoreHorizontal className="w-4 h-4 text-gray-500 cursor-pointer" />
-              </div>
 
-              {/* Mídia do Post */}
-              <div className="w-full aspect-square bg-gray-100 overflow-hidden relative group flex items-center justify-center">
-                {mediaUrl ? (
-                  <img
-                    src={mediaUrl}
-                    alt="Mídia"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
-                    }}
-                  />
-                ) : (
-                  <div className="text-center p-6 bg-gradient-to-br from-gray-50 to-gray-200 w-full h-full flex flex-col items-center justify-center text-gray-400">
-                    <Sparkles className="w-10 h-10 mb-2 text-[#F26526] animate-bounce" />
-                    <p className="text-xs font-medium">Nenhuma imagem carregada</p>
+                {/* Bottom Overlay Text */}
+                <div className="absolute bottom-4 left-4 right-14 z-20 text-left text-white drop-shadow-md space-y-2.5">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-extrabold truncate max-w-[140px] tracking-wide">
+                      {activeBrand?.handle || '@suamarca'}
+                    </span>
+                    <span className="px-2.5 py-0.5 border border-white/30 rounded-lg text-[9px] font-extrabold uppercase bg-white/15 backdrop-blur-sm select-none">
+                      Seguir
+                    </span>
                   </div>
-                )}
-              </div>
 
-              {/* Ações / Ícones Insta */}
-              <div className="p-3.5">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center space-x-4">
-                    <Heart className="w-6 h-6 text-gray-800 hover:text-red-500 hover:fill-red-500 transition-colors cursor-pointer" />
-                    <MessageCircle className="w-6 h-6 text-gray-800 hover:text-gray-600 transition-colors cursor-pointer" />
-                    <Send className="w-6 h-6 text-gray-800 hover:text-gray-600 transition-colors cursor-pointer -rotate-12" />
+                  {/* Reels Caption */}
+                  <div className="text-[11px] text-gray-100 line-clamp-3 leading-relaxed font-normal">
+                    {content ? renderFormattedText(content) : <span className="text-gray-300 italic">Escreva a legenda do seu Reels...</span>}
                   </div>
-                  <Bookmark className="w-6 h-6 text-gray-800 hover:text-gray-600 transition-colors cursor-pointer" />
+
+                  {/* Audio Track marquee */}
+                  <div className="flex items-center space-x-1.5 text-[9px] font-bold text-gray-200 bg-black/35 backdrop-blur-sm py-1 px-2 rounded-lg max-w-[180px] overflow-hidden whitespace-nowrap">
+                    <Music className="w-2.5 h-2.5 text-pink-500 shrink-0" />
+                    <span className="animate-pulse">Áudio original - {activeBrand?.name || 'SocialHub'}</span>
+                  </div>
                 </div>
 
-                {/* Curtidas */}
-                <p className="text-xs font-bold text-gray-900 mb-1.5">
-                  Curtido por <span className="underline">mariana_marketing</span> e <span className="underline">outras 1.482 pessoas</span>
-                </p>
-
-                {/* Legenda com Hashtags formatadas */}
-                <div className="text-xs text-gray-800 leading-relaxed max-h-28 overflow-y-auto pr-1">
-                  <span className="font-bold text-gray-900 mr-1.5">
-                    {activeBrand?.handle?.replace('@', '') || 'suamarca'}
-                  </span>
-                  {renderFormattedText(content)}
+                {/* Vignette Overlay */}
+                <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10 pointer-events-none" />
+              </div>
+            ) : (
+              /* INSTAGRAM FEED PREVIEW */
+              <div className="bg-white border border-gray-200 rounded-3xl shadow-2xl overflow-hidden font-sans animate-in fade-in duration-200 mx-auto w-full max-w-[340px]">
+                {/* Top Bar Simulação Insta */}
+                <div className="p-3.5 flex items-center justify-between border-b border-gray-100">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="p-0.5 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600">
+                      <img
+                        src={activeBrand?.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80'}
+                        alt={activeBrand?.name}
+                        className="w-8 h-8 rounded-full object-cover border-2 border-white"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-bold text-gray-900 leading-none">
+                          {activeBrand?.handle?.replace('@', '') || 'suamarca'}
+                        </span>
+                        <CheckCircle2 className="w-3 h-3 text-[#1A73E8] fill-[#1A73E8] text-white" />
+                      </div>
+                      <span className="text-[10px] text-gray-400 leading-none block mt-0.5">Patrocinado • São Paulo</span>
+                    </div>
+                  </div>
+                  <MoreHorizontal className="w-4 h-4 text-gray-500 cursor-pointer" />
                 </div>
 
-                <p className="text-[10px] text-gray-400 mt-2 uppercase">Há 2 minutos • Ver tradução</p>
+                {/* Mídia do Post */}
+                <div className="w-full aspect-square bg-gray-100 overflow-hidden relative group flex items-center justify-center">
+                  {mediaUrl ? (
+                    mediaType === 'video' ? (
+                      <video
+                        src={mediaUrl}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 bg-black"
+                        muted
+                        controls
+                        playsInline
+                      />
+                    ) : (
+                      <img
+                        src={mediaUrl}
+                        alt="Mídia"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        onError={(e) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
+                        }}
+                      />
+                    )
+                  ) : (
+                    <div className="text-center p-6 bg-gradient-to-br from-gray-50 to-gray-200 w-full h-full flex flex-col items-center justify-center text-gray-400">
+                      <Sparkles className="w-10 h-10 mb-2 text-[#F26526] animate-bounce" />
+                      <p className="text-xs font-medium">Nenhuma imagem ou vídeo carregado</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Ações / Ícones Insta */}
+                <div className="p-3.5">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center space-x-4">
+                      <Heart className="w-6 h-6 text-gray-800 hover:text-red-500 hover:fill-red-500 transition-colors cursor-pointer" />
+                      <MessageCircle className="w-6 h-6 text-gray-800 hover:text-gray-600 transition-colors cursor-pointer" />
+                      <Send className="w-6 h-6 text-gray-800 hover:text-gray-600 transition-colors cursor-pointer -rotate-12" />
+                    </div>
+                    <Bookmark className="w-6 h-6 text-gray-800 hover:text-gray-600 transition-colors cursor-pointer" />
+                  </div>
+
+                  {/* Curtidas */}
+                  <p className="text-xs font-bold text-gray-900 mb-1.5">
+                    Curtido por <span className="underline">mariana_marketing</span> e <span className="underline">outras 1.482 pessoas</span>
+                  </p>
+
+                  {/* Legenda com Hashtags formatadas */}
+                  <div className="text-xs text-gray-800 leading-relaxed max-h-28 overflow-y-auto pr-1">
+                    <span className="font-bold text-gray-900 mr-1.5">
+                      {activeBrand?.handle?.replace('@', '') || 'suamarca'}
+                    </span>
+                    {renderFormattedText(content)}
+                  </div>
+
+                  <p className="text-[10px] text-gray-400 mt-2 uppercase">Há 2 minutos • Ver tradução</p>
+                </div>
               </div>
-            </div>
+            )
           )}
 
           {/* 2. LINKEDIN PREVIEW */}
@@ -234,17 +369,27 @@ export default function LivePreview({ title, content, mediaUrl, selectedNetworks
                 {renderFormattedText(content)}
               </div>
 
-              {/* Imagem LinkedIn */}
+              {/* Mídia LinkedIn */}
               <div className="w-full aspect-[16/10] bg-gray-100 overflow-hidden relative border-y border-gray-100">
                 {mediaUrl ? (
-                  <img
-                    src={mediaUrl}
-                    alt="Mídia LinkedIn"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
-                    }}
-                  />
+                  mediaType === 'video' ? (
+                    <video
+                      src={mediaUrl}
+                      className="w-full h-full object-cover bg-black"
+                      muted
+                      controls
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={mediaUrl}
+                      alt="Mídia LinkedIn"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
+                      }}
+                    />
+                  )
                 ) : (
                   <div className="text-center p-6 bg-gradient-to-br from-gray-50 to-gray-200 w-full h-full flex flex-col items-center justify-center text-gray-400">
                     <Linkedin className="w-10 h-10 mb-2 text-[#0A66C2] opacity-40" />
@@ -316,17 +461,27 @@ export default function LivePreview({ title, content, mediaUrl, selectedNetworks
                 {renderFormattedText(content)}
               </div>
 
-              {/* Imagem Facebook */}
+              {/* Mídia Facebook */}
               <div className="w-full aspect-[4/3] bg-gray-100 overflow-hidden relative border-y border-gray-100">
                 {mediaUrl ? (
-                  <img
-                    src={mediaUrl}
-                    alt="Mídia Facebook"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
-                    }}
-                  />
+                  mediaType === 'video' ? (
+                    <video
+                      src={mediaUrl}
+                      className="w-full h-full object-cover bg-black"
+                      muted
+                      controls
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={mediaUrl}
+                      alt="Mídia Facebook"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
+                      }}
+                    />
+                  )
                 ) : (
                   <div className="text-center p-6 bg-gray-50 w-full h-full flex flex-col items-center justify-center text-gray-400">
                     <Facebook className="w-10 h-10 mb-2 text-[#1877F2] opacity-40" />

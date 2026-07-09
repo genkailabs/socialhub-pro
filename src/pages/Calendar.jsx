@@ -242,11 +242,18 @@ export default function CalendarView({ setCurrentTab }) {
                             {new Date(post.scheduled_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 mt-0.5 opacity-90">
-                          <span className="text-[9px]">{badge.label.split(' ')[0]}</span>
-                          <span className="text-[9px] uppercase font-mono tracking-tighter truncate">
-                            {post.networks?.join(' • ')}
-                          </span>
+                        <div className="flex items-center justify-between gap-1 mt-0.5 opacity-90">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px]">{badge.label.split(' ')[0]}</span>
+                            <span className="text-[9px] uppercase font-mono tracking-tighter truncate">
+                              {post.networks?.join(' • ')}
+                            </span>
+                          </div>
+                          {post.instagram_format === 'reels' && (
+                            <span className="text-[8px] px-1 bg-purple-100 text-purple-700 rounded border border-purple-200 shrink-0 font-extrabold">
+                              🎬 Reels
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
@@ -303,26 +310,40 @@ export default function CalendarView({ setCurrentTab }) {
                 </div>
                 <div>
                   <strong className="text-gray-500 uppercase block text-[10px] mb-1">Redes:</strong>
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1.5 items-center">
                     {selectedPost.networks?.map((n) => (
                       <span key={n} className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-bold uppercase text-[10px]">
                         {n}
                       </span>
                     ))}
+                    {selectedPost.instagram_format === 'reels' && (
+                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-extrabold uppercase text-[10px] border border-purple-200">
+                        🎬 Reels
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div>
                 <strong className="text-gray-500 uppercase block text-[10px] mb-1">Mídia:</strong>
-                <img 
-                  src={selectedPost.media_url} 
-                  alt="Mídia" 
-                  className="w-full h-44 object-cover rounded-xl border border-gray-200"
-                  onError={(e) => {
-                    e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
-                  }}
-                />
+                {selectedPost.instagram_format === 'reels' || selectedPost.media_url?.includes('.mp4') ? (
+                  <video 
+                    src={selectedPost.media_url} 
+                    className="w-full h-44 object-cover rounded-xl border border-gray-200 bg-black"
+                    controls
+                    muted
+                  />
+                ) : (
+                  <img 
+                    src={selectedPost.media_url} 
+                    alt="Mídia" 
+                    className="w-full h-44 object-cover rounded-xl border border-gray-200"
+                    onError={(e) => {
+                      e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
+                    }}
+                  />
+                )}
               </div>
             </div>
 

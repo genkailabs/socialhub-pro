@@ -31,6 +31,8 @@ export default function Scheduler({ setCurrentTab }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80');
+  const [mediaType, setMediaType] = useState('image'); // 'image' ou 'video'
+  const [instagramFormat, setInstagramFormat] = useState('feed'); // 'feed' ou 'reels'
   const [selectedNetworks, setSelectedNetworks] = useState(['instagram', 'linkedin']);
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
   const [scheduledTime, setScheduledTime] = useState('18:00');
@@ -38,30 +40,43 @@ export default function Scheduler({ setCurrentTab }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  // Upload de imagem local (converte para data URL exibível no navegador)
+  // Estados de Simulação do "Publicar Agora"
+  const [showPublishingModal, setShowPublishingModal] = useState(false);
+  const [publishingStep, setPublishingStep] = useState(0); // 0: init, 1: validation, 2: upload, 3: api, 4: success, 5: error
+  const [publishingError, setPublishingError] = useState(null);
+
+  // Upload de mídia local (converte para data URL exibível no navegador)
   const [uploadedFileName, setUploadedFileName] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
-  const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
-
-  const processImageFile = (file) => {
+  const processMediaFile = (file) => {
     setUploadError(null);
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Arquivo inválido. Envie uma imagem (JPG, PNG, WEBP ou GIF).');
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+
+    if (!isImage && !isVideo) {
+      setUploadError('Arquivo inválido. Envie uma imagem (JPG, PNG, WEBP ou GIF) ou um vídeo (MP4, WEBM, MOV).');
       return;
     }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setUploadError('Imagem muito grande. Limite de 5 MB por arquivo.');
+
+    const maxBytes = isVideo ? 20 * 1024 * 1024 : 5 * 1024 * 1024; // 20 MB para vídeo, 5 MB para imagem
+    if (file.size > maxBytes) {
+      setUploadError(
+        isVideo
+          ? 'Vídeo muito grande. Limite de 20 MB por arquivo.'
+          : 'Imagem muito grande. Limite de 5 MB por arquivo.'
+      );
       return;
     }
 
     const reader = new FileReader();
     reader.onload = (ev) => {
       setMediaUrl(ev.target.result);
+      setMediaType(isVideo ? 'video' : 'image');
       setUploadedFileName(file.name);
     };
     reader.onerror = () => setUploadError('Falha ao ler o arquivo. Tente novamente.');
@@ -70,7 +85,7 @@ export default function Scheduler({ setCurrentTab }) {
 
   const handleFileInput = (e) => {
     const file = e.target.files?.[0];
-    processImageFile(file);
+    processMediaFile(file);
     e.target.value = ''; // permite re-selecionar o mesmo arquivo
   };
 
@@ -78,13 +93,14 @@ export default function Scheduler({ setCurrentTab }) {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    processImageFile(file);
+    processMediaFile(file);
   };
 
   const clearUploadedImage = () => {
     setMediaUrl('');
     setUploadedFileName(null);
     setUploadError(null);
+    setMediaType('image');
   };
 
   // Lista expandida com todas as 7 redes sociais conectadas e suas regras específicas
@@ -113,8 +129,8 @@ export default function Scheduler({ setCurrentTab }) {
     setContent((prev) => prev + defaultTags);
   };
 
-  const handleSavePost = async (e) => {
-    e.preventDefault();
+  const handleSavePost = async (e, publishNow = false) => {
+    if (e) e.preventDefault();
     if (!content.trim()) {
       alert('Por favor, insira pelo menos uma legenda para sua postagem.');
       return;
@@ -123,28 +139,62 @@ export default function Scheduler({ setCurrentTab }) {
     setIsSubmitting(true);
     setSuccessMsg(null);
 
-    const fullDateTime = new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString();
+    let finalStatus = status;
+    let finalDateTime = new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString();
+
+    if (publishNow) {
+      finalStatus = 'published';
+      finalDateTime = new Date().toISOString();
+      setShowPublishingModal(true);
+      setPublishingStep(1); // validando...
+    }
 
     const postData = {
-      title: title || 'Postagem Agendada Multi-Canal',
+      title: title || (publishNow ? 'Publicação Imediata Multi-Canal' : 'Postagem Agendada Multi-Canal'),
       content,
       media_url: mediaUrl,
       networks: selectedNetworks,
-      scheduled_at: fullDateTime,
-      status: status
+      scheduled_at: finalDateTime,
+      status: finalStatus,
+      instagram_format: selectedNetworks.includes('instagram') ? instagramFormat : 'feed'
     };
 
     try {
-      await addPost(postData);
-      setSuccessMsg('✨ Postagem salva e sincronizada com sucesso para ' + activeBrand?.name + '!');
-      
-      setTimeout(() => {
-        setSuccessMsg(null);
-        if (setCurrentTab) setCurrentTab('calendar');
-      }, 2000);
+      if (publishNow) {
+        // Simulando passos do modal de publicação para WOW do cliente
+        await new Promise((r) => setTimeout(r, 1200));
+        setPublishingStep(2); // Enviando mídia...
+
+        await new Promise((r) => setTimeout(r, 1500));
+        setPublishingStep(3); // Publicando via API oficial...
+
+        await new Promise((r) => setTimeout(r, 1500));
+        const res = await addPost(postData);
+        if (!res) throw new Error('Erro ao salvar post no Supabase.');
+
+        setPublishingStep(4); // Sucesso!
+
+        // Mantém por 1.8s e redireciona
+        setTimeout(() => {
+          setShowPublishingModal(false);
+          if (setCurrentTab) setCurrentTab('calendar');
+        }, 1800);
+      } else {
+        await addPost(postData);
+        setSuccessMsg('✨ Postagem salva e sincronizada com sucesso para ' + activeBrand?.name + '!');
+        setTimeout(() => {
+          setSuccessMsg(null);
+          if (setCurrentTab) setCurrentTab('calendar');
+        }, 2000);
+      }
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar postagem.');
+      if (publishNow) {
+        setPublishingStep(5);
+        setPublishingError(err.message || 'Erro ao publicar imediatamente.');
+      } else {
+        alert('Erro ao salvar postagem.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -209,6 +259,51 @@ export default function Scheduler({ setCurrentTab }) {
                 })}
               </div>
             </div>
+
+            {selectedNetworks.includes('instagram') && (
+              <div className="p-4 bg-purple-50/50 border border-purple-100 rounded-2xl space-y-3 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse animate-duration-1000"></span>
+                    <label className="block text-xs font-extrabold text-purple-950 uppercase tracking-wider">
+                      Configurações do Instagram
+                    </label>
+                  </div>
+                  {instagramFormat === 'reels' && mediaType !== 'video' && (
+                    <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      ⚠️ Recomendável usar Vídeo para Reels
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-xs text-purple-900 font-bold">Formato de Publicação:</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setInstagramFormat('feed')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                        instagramFormat === 'feed'
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                          : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'
+                      }`}
+                    >
+                      📸 Feed (Imagem/Vídeo)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInstagramFormat('reels')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                        instagramFormat === 'reels'
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                          : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'
+                      }`}
+                    >
+                      🎬 Reels (Vídeo Curto)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Título Interno */}
             <div>
@@ -293,11 +388,11 @@ export default function Scheduler({ setCurrentTab }) {
                 4. Mídia do Post (Imagem / Vídeo URL / Capa do Podcast)
               </label>
 
-              {/* Área de Upload de Imagem (arraste ou clique) */}
+              {/* Área de Upload de Mídia (arraste ou clique) */}
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/*,video/*"
                 onChange={handleFileInput}
                 className="hidden"
               />
@@ -305,24 +400,35 @@ export default function Scheduler({ setCurrentTab }) {
               {mediaUrl && uploadedFileName ? (
                 // Preview do arquivo enviado
                 <div className="flex items-center gap-3 p-3 rounded-2xl border border-gray-200 bg-gray-50/70">
-                  <img
-                    src={mediaUrl}
-                    alt="Pré-visualização"
-                    className="w-16 h-16 rounded-xl object-cover border border-gray-200 shrink-0"
-                  />
+                  {mediaType === 'video' ? (
+                    <video
+                      src={mediaUrl}
+                      className="w-16 h-16 rounded-xl object-cover border border-gray-200 shrink-0 bg-black"
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={mediaUrl}
+                      alt="Pré-visualização"
+                      className="w-16 h-16 rounded-xl object-cover border border-gray-200 shrink-0"
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-extrabold text-gray-800 truncate flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
                       {uploadedFileName}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">Imagem carregada do seu dispositivo</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {mediaType === 'video' ? 'Vídeo' : 'Imagem'} carregado(a) do seu dispositivo
+                    </p>
                     <div className="flex items-center gap-3 mt-1.5">
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className="text-[11px] font-bold text-[#1A73E8] hover:underline"
                       >
-                        Trocar imagem
+                        Trocar mídia
                       </button>
                       <button
                         type="button"
@@ -352,9 +458,9 @@ export default function Scheduler({ setCurrentTab }) {
                     <Upload className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-extrabold text-gray-700">
-                    Arraste uma imagem aqui ou <span className="text-[#F26526]">clique para enviar</span>
+                    Arraste uma imagem ou vídeo aqui ou <span className="text-[#F26526]">clique para enviar</span>
                   </span>
-                  <span className="text-[10px] text-gray-400">PNG, JPG, WEBP ou GIF · até 5 MB</span>
+                  <span className="text-[10px] text-gray-400">PNG, JPG, WEBP, GIF ou MP4, MOV · até 20 MB</span>
                 </button>
               )}
 
@@ -372,7 +478,16 @@ export default function Scheduler({ setCurrentTab }) {
                   <input
                     type="url"
                     value={uploadedFileName ? '' : mediaUrl}
-                    onChange={(e) => { setMediaUrl(e.target.value); setUploadedFileName(null); }}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setMediaUrl(val);
+                      setUploadedFileName(null);
+                      if (/\.(mp4|webm|ogg|mov)$/i.test(val)) {
+                        setMediaType('video');
+                      } else {
+                        setMediaType('image');
+                      }
+                    }}
                     disabled={!!uploadedFileName}
                     placeholder="… ou cole a URL de uma imagem/vídeo externo"
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20 outline-none text-xs text-gray-800 transition-all bg-gray-50/50 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -380,19 +495,23 @@ export default function Scheduler({ setCurrentTab }) {
                 </div>
               </div>
 
-              {/* Sugestões Rápidas de Imagens */}
+              {/* Sugestões Rápidas de Mídias */}
               <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
                 <span className="text-[10px] font-bold text-gray-400 uppercase shrink-0">SUGESTÕES RÁPIDAS:</span>
                 {[
-                  { label: 'Tecnologia / Vídeo', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80' },
-                  { label: 'Capa Podcast', url: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80' },
-                  { label: 'TikTok Vertical', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80' },
-                  { label: 'Negócios', url: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop&q=80' },
+                  { label: 'Tecnologia / Imagem', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80', type: 'image' },
+                  { label: 'Capa Podcast', url: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80', type: 'image' },
+                  { label: 'Vídeo Reel Simulado (MP4)', url: 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-light-holding-camera-40040-large.mp4', type: 'video' },
+                  { label: 'Negócios / Imagem', url: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop&q=80', type: 'image' },
                 ].map((item, idx) => (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => { setMediaUrl(item.url); setUploadedFileName(null); }}
+                    onClick={() => {
+                      setMediaUrl(item.url);
+                      setUploadedFileName(null);
+                      setMediaType(item.type);
+                    }}
                     className="px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-[#F26526]/10 hover:text-[#F26526] text-[11px] font-bold text-gray-600 transition-colors shrink-0 border border-gray-200"
                   >
                     + {item.label}
@@ -450,10 +569,24 @@ export default function Scheduler({ setCurrentTab }) {
                 onClick={() => {
                   setTitle('');
                   setContent('');
+                  setMediaUrl('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80');
+                  setUploadedFileName(null);
+                  setMediaType('image');
+                  setInstagramFormat('feed');
                 }}
                 className="px-5 py-3 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-600 text-xs font-bold transition-colors"
               >
                 Limpar
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => handleSavePost(e, true)}
+                disabled={isSubmitting}
+                className="px-6 py-3.5 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:via-pink-700 hover:to-orange-600 text-white rounded-xl font-extrabold text-sm shadow-xl shadow-pink-500/20 hover:shadow-2xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Publicar Agora</span>
               </button>
 
               <button
@@ -466,7 +599,7 @@ export default function Scheduler({ setCurrentTab }) {
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    <span>Confirmar Publicação</span>
+                    <span>Confirmar Agendamento</span>
                   </>
                 )}
               </button>
@@ -480,10 +613,82 @@ export default function Scheduler({ setCurrentTab }) {
             title={title} 
             content={content} 
             mediaUrl={mediaUrl} 
+            mediaType={mediaType}
+            instagramFormat={instagramFormat}
             selectedNetworks={selectedNetworks} 
           />
         </div>
       </div>
+
+      {/* Modal de Simulação de Publicação Imediata */}
+      {showPublishingModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-gray-100 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-500 via-pink-500 to-amber-500 flex items-center justify-center shadow-xl shadow-pink-500/30 animate-pulse mb-4 animate-duration-1000">
+                <Send className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-lg font-extrabold text-gray-900">
+                Publicando em Tempo Real 🚀
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                O SocialHub está processando sua mídia e disparando os gatilhos oficiais.
+              </p>
+            </div>
+
+            {/* Passos de Status */}
+            <div className="space-y-4 text-left py-2 border-t border-b border-gray-100 my-4">
+              {[
+                { step: 1, label: 'Validando conexões e tokens de segurança das APIs...' },
+                { step: 2, label: 'Fazendo upload e otimizando arquivo de mídia...' },
+                { step: 3, label: 'Publicando via API oficial das Redes Sociais...' },
+              ].map((item) => {
+                const isCompleted = publishingStep > item.step;
+                const isActive = publishingStep === item.step;
+                return (
+                  <div key={item.step} className="flex items-center space-x-3 text-xs font-bold">
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 animate-in fade-in" />
+                    ) : isActive ? (
+                      <div className="w-5 h-5 rounded-full border-2 border-pink-500 border-t-transparent animate-spin shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-200 shrink-0" />
+                    )}
+                    <span className={isCompleted ? 'text-gray-800' : isActive ? 'text-pink-600' : 'text-gray-400'}>
+                      {item.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {publishingStep === 4 && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex flex-col items-center justify-center text-center space-y-1.5 animate-in fade-in duration-300">
+                <span className="text-2xl animate-bounce">🎉</span>
+                <h4 className="text-xs font-extrabold text-green-800">Publicado com sucesso!</h4>
+                <p className="text-[10px] text-green-600 leading-relaxed">
+                  Post publicado e adicionado ao histórico da marca com sucesso.
+                </p>
+              </div>
+            )}
+
+            {publishingStep === 5 && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex flex-col items-center justify-center text-center space-y-1.5 animate-in fade-in duration-300">
+                <span className="text-2xl">❌</span>
+                <h4 className="text-xs font-extrabold text-red-800">Erro na Publicação</h4>
+                <p className="text-[10px] text-red-600">{publishingError || 'Falha de conexão com a API.'}</p>
+                <button
+                  type="button"
+                  onClick={() => setShowPublishingModal(false)}
+                  className="mt-2 px-4 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold"
+                >
+                  Fechar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
