@@ -22,7 +22,8 @@ export default async function handler(req, res) {
     'pages_show_list',
     'pages_read_engagement',
     'instagram_basic',
-    'instagram_content_publish'
+    'instagram_content_publish',
+    'business_management'
   ].join(',');
 
   const scopes = req.query.scopes || process.env.META_OAUTH_SCOPES || defaultScopes;
