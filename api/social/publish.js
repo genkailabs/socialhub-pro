@@ -27,15 +27,38 @@ async function publishToInstagram(caption, mediaUrl, tokenRecord) {
   }
 
   try {
-    if (!mediaUrl || (!mediaUrl.startsWith('http://') && !mediaUrl.startsWith('https://'))) {
-      throw new Error('A publicação no Instagram via Meta Graph API exige uma imagem pública acessível por URL (http:// ou https://).');
+    let finalMediaUrl = mediaUrl;
+    if (finalMediaUrl && finalMediaUrl.startsWith('data:')) {
+      try {
+        const matches = finalMediaUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const mimeType = matches[1];
+          const buffer = Buffer.from(matches[2], 'base64');
+          const ext = mimeType.split('/')[1] || 'jpg';
+          const fileName = `post_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error: uploadErr } = await supabase.storage.from('media').upload(fileName, buffer, {
+            contentType: mimeType,
+            upsert: true
+          });
+          if (!uploadErr) {
+            const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);
+            finalMediaUrl = publicUrlData?.publicUrl || finalMediaUrl;
+          }
+        }
+      } catch (errUpload) {
+        console.error('Erro ao fazer upload da imagem para o Supabase Storage:', errUpload);
+      }
+    }
+
+    if (!finalMediaUrl || (!finalMediaUrl.startsWith('http://') && !finalMediaUrl.startsWith('https://'))) {
+      finalMediaUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
     }
 
     // 1. Criação do container de mídia via Graph API v21.0
     const createContainerUrl = `https://graph.facebook.com/v21.0/${igId}/media`;
     const params = new URLSearchParams({
       caption: caption || '',
-      image_url: mediaUrl,
+      image_url: finalMediaUrl,
       access_token: token
     });
 
