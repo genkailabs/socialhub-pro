@@ -112,11 +112,13 @@ export default async function handler(req, res) {
     }
 
     // Busca os tokens conectados para a marca
-    const { data: tokens = [] } = await supabase
+    const { data: tokensData } = await supabase
       .from('social_tokens')
       .select('*')
       .eq('brand_id', brand_id)
       .eq('is_active', true);
+
+    const tokens = tokensData || [];
 
     const results = {};
     let hasError = false;
