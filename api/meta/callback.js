@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://geoqbbrlyepmhwgdbjmz.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdlb3FiYnJseWVwbWh3Z2Riam16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NjYzNTMsImV4cCI6MjA5OTA0MjM1M30.n7258I3YtCpF3pq6VlYkgYJ_z04fSnNVSEDKRT5tc1Q';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdlb3FiYnJseWVwbWh3Z2Riam16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NjYzNTMsImV4cCI6MjA5OTA0MjM1M30.n7258I3YtCpF3pq6VlYkgYJ_z04fSnNVSEDKRT5tc1Q';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
@@ -105,9 +105,14 @@ export default async function handler(req, res) {
       last_synced_at: new Date().toISOString()
     };
     
-    await supabase
+    const { error: upsertErr } = await supabase
       .from('social_tokens')
       .upsert(tokenRecord, { onConflict: 'brand_id,platform' });
+
+    if (upsertErr) {
+      console.error('Erro ao gravar token em social_tokens:', upsertErr);
+      throw new Error(`Erro ao salvar token no banco: ${upsertErr.message}`);
+    }
       
     // Também atualiza a tabela brands para reflexo imediato na interface
     const { data: brand } = await supabase

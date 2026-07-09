@@ -2,8 +2,8 @@
 // Endpoint Serverless da Vercel para consultar métricas e insights REAIS da Graph API do Instagram
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://qmubkbszgjnaeeeyylgz.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWJrYnN6Z2puYWVlZXl5bGd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNTk5OTksImV4cCI6MjA5ODkzNTk5OX0.Kj2q4K3uwiZwsdx9ZXgIKByNj25PsVJ3nFhwUweWW0k';
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://geoqbbrlyepmhwgdbjmz.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdlb3FiYnJseWVwbWh3Z2Riam16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NjYzNTMsImV4cCI6MjA5OTA0MjM1M30.n7258I3YtCpF3pq6VlYkgYJ_z04fSnNVSEDKRT5tc1Q';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
