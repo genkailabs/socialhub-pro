@@ -9,13 +9,29 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 export default async function handler(req, res) {
   const { code, state, error, error_description } = req.query;
   const baseUrl = process.env.VITE_APP_URL || 'https://socialhub-pro-steel.vercel.app';
-  
+
+  async function logAudit(brandId, status, msg) {
+    try {
+      await supabase.from('social_sync_logs').insert({
+        brand_id: brandId || 'default-brand-pro',
+        platform: 'instagram_oauth',
+        status,
+        error_message: msg,
+        synced_at: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error('Falha no logAudit:', e);
+    }
+  }
+
   if (error) {
     console.error('Meta OAuth Error:', error, error_description);
+    await logAudit('default-brand-pro', 'error', `Meta OAuth Error: ${error_description || error}`);
     return res.redirect(302, `${baseUrl}/connections?error=${encodeURIComponent(error_description || 'Falha na autorização do Instagram')}`);
   }
   
   if (!code) {
+    await logAudit('default-brand-pro', 'error', 'Código de autorização não recebido da Meta');
     return res.redirect(302, `${baseUrl}/connections?error=${encodeURIComponent('Código de autorização não recebido da Meta')}`);
   }
   
@@ -145,10 +161,13 @@ export default async function handler(req, res) {
         .eq('id', brandId);
     }
     
+    await logAudit(brandId, 'success', `Token gravado com sucesso para @${igAccount.username || igAccount.name} (IG ID: ${igAccount.id})`);
+
     // Redireciona para a tela de conexões com sucesso
     res.redirect(302, `${baseUrl}/connections?status=success&platform=instagram&username=${encodeURIComponent(igAccount.username || igAccount.name)}`);
   } catch (err) {
     console.error('Erro no callback OAuth Meta:', err);
+    await logAudit('default-brand-pro', 'error', `Exceção no callback: ${err.message || err}`);
     res.redirect(302, `${baseUrl}/connections?error=${encodeURIComponent(err.message || 'Erro interno ao processar autorização')}`);
   }
 }
