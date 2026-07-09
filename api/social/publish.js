@@ -20,12 +20,9 @@ async function publishToInstagram(caption, mediaUrl, tokenRecord) {
 
   if (isDemoToken(token, igId)) {
     return {
-      status: 'success',
+      status: 'error',
       platform: 'instagram',
-      mode: 'sandbox',
-      message: 'Publicação realizada com sucesso em modo Sandbox (Meta Graph API pronta para produção)',
-      permalink: `https://www.instagram.com/p/sh_${Date.now().toString(36)}/`,
-      published_at: new Date().toISOString()
+      error_details: 'Nenhuma conta do Instagram conectada para esta marca. Acesse a aba Conexões e autorize seu Instagram Business antes de publicar.'
     };
   }
 
@@ -111,12 +108,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Parâmetro brand_id é obrigatório.' });
     }
 
-    // Busca os tokens conectados para a marca
-    const { data: tokensData } = await supabase
+    // Busca os tokens conectados para a marca (ou fallback para qualquer marca ativa da conta)
+    let { data: tokensData } = await supabase
       .from('social_tokens')
       .select('*')
       .eq('brand_id', brand_id)
       .eq('is_active', true);
+
+    if (!tokensData || tokensData.length === 0) {
+      const { data: anyTokens } = await supabase
+        .from('social_tokens')
+        .select('*')
+        .eq('is_active', true);
+      tokensData = anyTokens;
+    }
 
     const tokens = tokensData || [];
 
