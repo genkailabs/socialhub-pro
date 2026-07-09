@@ -82,7 +82,14 @@ export default async function handler(req, res) {
     const pages = accountsData.data || [];
 
     if (pages.length === 0) {
-      return res.redirect(302, `${baseUrl}/connections?error=${encodeURIComponent('Nenhuma Pagina do Facebook encontrada. Voce precisa criar ou administrar uma Pagina no Facebook para conectar o Instagram Business.')}`);
+      let debugPerms = '';
+      try {
+        const permsRes = await fetch(`https://graph.facebook.com/v21.0/me/permissions?access_token=${longToken}`);
+        const permsData = await permsRes.json();
+        debugPerms = JSON.stringify(permsData.data || permsData);
+      } catch(e) {}
+      await logAudit(brandId, 'error', `Nenhuma Pagina retornada pela Meta (/me/accounts retornou []). Permissoes concedidas: ${debugPerms}`);
+      return res.redirect(302, `${baseUrl}/connections?error=${encodeURIComponent('Nenhuma Página retornada pelo Facebook. Na janela de autorização do Facebook, clique em "Editar Configurações" e marque TODAS as caixas das suas Páginas e do Instagram.')}`);
     }
 
     let igAccount = null;
