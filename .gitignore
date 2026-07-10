@@ -35,3 +35,6 @@ Thumbs.db
 *.sw?
 
 .vercel
+
+# Superpowers brainstorming visual companion (mockups persistidos localmente)
+.superpowers/
