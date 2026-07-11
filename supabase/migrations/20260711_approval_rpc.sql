@@ -13,12 +13,14 @@ CREATE TABLE IF NOT EXISTS public.approval_comments (
 );
 ALTER TABLE public.approval_comments ENABLE ROW LEVEL SECURITY;
 
--- 2. RLS: comentário externo só em post existente; leitura pública para o painel
+-- 2. RLS: comentário externo público (o FK post_id já garante post existente).
+--    NÃO usar EXISTS(posts) aqui: o anon não enxerga posts (RLS do dono), então
+--    o EXISTS daria falso e bloquearia o comentário do revisor.
 DROP POLICY IF EXISTS "Qualquer pessoa com acesso ao post pode criar comentários" ON public.approval_comments;
 DROP POLICY IF EXISTS "Comentário só em post existente" ON public.approval_comments;
-CREATE POLICY "Comentário só em post existente"
+CREATE POLICY "Comentário público de aprovação"
   ON public.approval_comments FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM public.posts WHERE posts.id = post_id));
+  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Ver comentários de aprovação" ON public.approval_comments;
 CREATE POLICY "Ver comentários de aprovação"
