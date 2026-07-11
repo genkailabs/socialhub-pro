@@ -18,7 +18,7 @@ export function PlatformCard({ platformId, connected, activeBrandId }) {
           <p className="text-[11px] text-muted">{connected ? `@${connected.platform_username || ''}` : platform.subtitle}</p>
         </div>
         {connected && <span className="ml-auto rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-extrabold text-emerald-700">● real</span>}
-        {!platform.integrated && <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-extrabold text-gray-500">Em breve</span>}
+        {!platform.integrated && <span className="ml-auto rounded-full bg-app px-2 py-0.5 text-[9px] font-extrabold text-muted">Em breve</span>}
       </div>
 
       <div className="mt-3">
@@ -30,10 +30,10 @@ export function PlatformCard({ platformId, connected, activeBrandId }) {
             <a href={`/api/meta/oauth?brand_id=${activeBrandId}`}
               className="block w-full rounded-lg bg-accent py-2 text-center text-[11px] font-extrabold text-white hover:bg-accent/90">Conectar (OAuth real)</a>
           ) : (
-            <div className="w-full rounded-lg bg-gray-100 py-2 text-center text-[11px] font-bold text-gray-400">Crie/selecione uma marca</div>
+            <div className="w-full rounded-lg bg-app py-2 text-center text-[11px] font-bold text-muted">Crie/selecione uma marca</div>
           )
         ) : (
-          <div className="w-full rounded-lg bg-gray-100 py-2 text-center text-[11px] font-bold text-gray-400">Indisponível</div>
+          <div className="w-full rounded-lg bg-app py-2 text-center text-[11px] font-bold text-muted">Indisponível</div>
         )}
       </div>
     </div>

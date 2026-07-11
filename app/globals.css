@@ -2,6 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+:root {
+  --c-app: 247 248 250;
+  --c-surface: 255 255 255;
+  --c-line: 236 238 242;
+  --c-ink: 31 36 48;
+  --c-muted: 122 131 148;
+  --c-accent: 99 102 241;
+  --c-accent-soft: 168 85 247;
+  --c-accent-tint: 238 240 255;
+  --c-shadow: 16 20 40;
+  color-scheme: light;
+}
+
+.dark {
+  --c-app: 8 11 20;
+  --c-surface: 17 22 36;
+  --c-line: 34 42 60;
+  --c-ink: 231 236 245;
+  --c-muted: 138 149 170;
+  --c-accent: 129 140 248;
+  --c-accent-soft: 192 132 252;
+  --c-accent-tint: 31 35 60;
+  --c-shadow: 0 0 0;
+  color-scheme: dark;
+}
+
 html, body { height: 100%; }
 body { @apply bg-app text-ink antialiased; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
