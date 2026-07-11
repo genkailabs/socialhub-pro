@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const PUBLIC = ['/login', '/auth', '/approve'];
+// Rotas que o guard de página não redireciona.
+// /api/* se autentica sozinha (sessão via cookies, CRON_SECRET, etc.) — nunca redirecionar.
+const PUBLIC = ['/login', '/auth', '/approve', '/api'];
 
 export async function middleware(request) {
   let response = NextResponse.next({ request });
