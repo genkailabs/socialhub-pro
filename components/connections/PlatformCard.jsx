@@ -1,6 +1,9 @@
 'use client';
+import { platformById } from '@/data/platforms';
 
-export function PlatformCard({ platform, connected, activeBrandId }) {
+export function PlatformCard({ platformId, connected, activeBrandId }) {
+  const platform = platformById(platformId);
+  if (!platform) return null;
   const Icon = platform.icon;
   const canConnect = platform.integrated && activeBrandId;
 

@@ -19,7 +19,7 @@ export default async function ConnectionsPage() {
     <div className="mb-8">
       <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-muted">{title}</h2>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((p) => <PlatformCard key={p.id} platform={p} connected={connectedMap[p.id]} activeBrandId={active?.id} />)}
+        {items.map((p) => <PlatformCard key={p.id} platformId={p.id} connected={connectedMap[p.id]} activeBrandId={active?.id} />)}
       </div>
     </div>
   ) : null;
