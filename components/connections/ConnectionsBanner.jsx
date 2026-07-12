@@ -21,10 +21,10 @@ export function ConnectionsBanner() {
   if (!msg) return null;
   const ok = msg.type === 'ok';
   return (
-    <div className={`mb-4 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
-      {ok ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+    <div className={`animate-pop flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-semibold text-ink ${ok ? 'border-success/30 bg-success/10' : 'border-danger/30 bg-danger/10'}`}>
+      {ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" /> : <AlertCircle className="h-4 w-4 shrink-0 text-danger" />}
       <span className="flex-1">{msg.text}</span>
-      <button onClick={() => setMsg(null)}><X className="h-4 w-4" /></button>
+      <button onClick={() => setMsg(null)} className="text-muted transition-colors hover:text-ink"><X className="h-4 w-4" /></button>
     </div>
   );
 }

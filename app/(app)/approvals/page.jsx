@@ -1,3 +1,5 @@
+import { Sparkles, CheckSquare } from 'lucide-react';
+import Link from 'next/link';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ApprovalsList } from '@/components/approvals/ApprovalsList';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
@@ -12,19 +14,20 @@ export default async function ApprovalsPage() {
   pending = await Promise.all(pending.map(async (p) => ({ ...p, comments: await getPostComments(p.id) })));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-extrabold">Aprovações</h1>
-        <p className="text-xs text-muted">
-          {active ? <>Posts de <strong>{active.name}</strong> aguardando decisão do cliente</> : 'Crie uma marca primeiro.'}
+        <h1 className="text-2xl font-extrabold tracking-tight">Aprovações</h1>
+        <p className="mt-1 text-sm text-muted">
+          {active ? <>Posts de <strong className="text-ink">{active.name}</strong> aguardando decisão do cliente</> : 'Crie uma marca primeiro.'}
         </p>
       </div>
 
       {!active ? (
-        <EmptyState title="Nenhuma marca">Crie/selecione uma marca no topo.</EmptyState>
+        <EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState>
       ) : pending.length === 0 ? (
-        <EmptyState title="Nada em aprovação">
-          Gere um link de aprovação abrindo um post no <strong>Calendário</strong>. Ele aparece aqui até o cliente responder.
+        <EmptyState title="Nada em aprovação" icon={CheckSquare}>
+          Gere um link de aprovação abrindo um post no{' '}
+          <Link href="/calendar" className="font-semibold text-accent hover:underline">Calendário</Link>. Ele aparece aqui até o cliente responder.
         </EmptyState>
       ) : (
         <ApprovalsList posts={pending} />

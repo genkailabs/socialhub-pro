@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CalendarGrid } from '@/components/calendar/CalendarGrid';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
@@ -15,13 +16,13 @@ export default async function CalendarPage() {
   ));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-extrabold">Calendário</h1>
-        <p className="text-xs text-muted">{active ? <>Posts de <strong>{active.name}</strong></> : 'Crie uma marca primeiro.'}</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">Calendário</h1>
+        <p className="mt-1 text-sm text-muted">{active ? <>Posts de <strong className="text-ink">{active.name}</strong> — clique num post para abrir os detalhes.</> : 'Crie uma marca primeiro.'}</p>
       </div>
       {!active ? (
-        <EmptyState title="Nenhuma marca">Crie/selecione uma marca no topo.</EmptyState>
+        <EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState>
       ) : (
         <CalendarGrid posts={posts} />
       )}

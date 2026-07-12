@@ -17,8 +17,15 @@ node_modules/
 dist/
 dist-ssr/
 build/
+.next/
 .cache/
 .parcel-cache/
+
+# Test / tooling artifacts
+test-results/
+.tokensave/
+.claude/
+.agents/
 
 # OS generated files
 .DS_Store

@@ -3,34 +3,114 @@
 @tailwind utilities;
 
 :root {
-  --c-app: 247 248 250;
+  /* neutros */
+  --c-app: 246 247 251;
   --c-surface: 255 255 255;
-  --c-line: 236 238 242;
-  --c-ink: 31 36 48;
-  --c-muted: 122 131 148;
+  --c-surface-2: 250 251 253;
+  --c-line: 232 235 241;
+  --c-line-strong: 214 219 228;
+  --c-ink: 24 28 40;
+  --c-muted: 104 113 132;
+  --c-faint: 148 156 173;
+
+  /* acento (indigo → violeta) */
   --c-accent: 99 102 241;
-  --c-accent-soft: 168 85 247;
+  --c-accent-soft: 139 92 246;
   --c-accent-tint: 238 240 255;
-  --c-shadow: 16 20 40;
+  --c-accent-ink: 67 56 202;
+
+  /* estados semânticos (viram cores Tailwind theme-aware) */
+  --c-success: 16 163 127;
+  --c-warning: 202 138 4;
+  --c-danger: 220 62 62;
+  --c-info: 37 110 235;
+
+  --c-shadow: 20 26 52;
   color-scheme: light;
 }
 
 .dark {
   --c-app: 8 11 20;
-  --c-surface: 17 22 36;
-  --c-line: 34 42 60;
-  --c-ink: 231 236 245;
-  --c-muted: 138 149 170;
+  --c-surface: 18 23 37;
+  --c-surface-2: 24 30 47;
+  --c-line: 33 41 60;
+  --c-line-strong: 48 58 82;
+  --c-ink: 233 238 247;
+  --c-muted: 148 158 179;
+  --c-faint: 108 119 142;
+
   --c-accent: 129 140 248;
-  --c-accent-soft: 192 132 252;
-  --c-accent-tint: 31 35 60;
+  --c-accent-soft: 167 139 250;
+  --c-accent-tint: 34 38 66;
+  --c-accent-ink: 199 205 255;
+
+  --c-success: 45 212 168;
+  --c-warning: 251 191 36;
+  --c-danger: 248 113 113;
+  --c-info: 96 165 250;
+
   --c-shadow: 0 0 0;
   color-scheme: dark;
 }
 
 html, body { height: 100%; }
-body { @apply bg-app text-ink antialiased; }
+body {
+  @apply bg-app text-ink antialiased;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+}
+
+/* seleção + foco coerentes com o acento */
+::selection { background: rgb(var(--c-accent) / 0.24); }
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--c-accent) / 0.55);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* scrollbar discreta */
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--c-line-strong)) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-line-strong));
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-faint)); background-clip: content-box; }
+
+/* movimento */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@keyframes livepulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--c-success) / 0.5); }
+  50% { box-shadow: 0 0 0 5px rgb(var(--c-success) / 0); }
+}
+
+.animate-rise { animation: rise .4s cubic-bezier(.22,1,.36,1) both; }
+.animate-fade { animation: fade .3s ease both; }
+.animate-pop { animation: pop .18s cubic-bezier(.22,1,.36,1) both; }
+
+/* ponto "ao vivo" p/ redes conectadas */
+.live-dot { position: relative; }
+.live-dot::after {
+  content: ''; position: absolute; inset: 0; border-radius: 999px;
+  animation: livepulse 2s ease-in-out infinite;
+}
+
+/* skeleton */
+.skeleton { position: relative; overflow: hidden; background: rgb(var(--c-line) / 0.7); }
+.skeleton::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(var(--c-surface) / 0.6), transparent);
+  animation: shimmer 1.4s infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

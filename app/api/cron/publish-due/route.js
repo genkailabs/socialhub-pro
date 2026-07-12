@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createAdmin } from '@/lib/supabase/admin';
-import { publishInstagramImage } from '@/lib/meta/graph';
+import { publishInstagramImage, publishInstagramCarousel } from '@/lib/meta/graph';
+import { runDailyAutopilot } from '@/lib/autopilot';
+
+export const maxDuration = 60;
 
 export async function GET(request) {
   // Autenticação do cron (Vercel envia Authorization: Bearer $CRON_SECRET)
@@ -14,7 +17,7 @@ export async function GET(request) {
 
   const { data: due, error } = await admin
     .from('posts')
-    .select('id, brand_id, content, media_url')
+    .select('id, brand_id, content, media_url, media_urls')
     .eq('status', 'scheduled')
     .lte('scheduled_at', nowIso)
     .limit(10);
@@ -34,10 +37,10 @@ export async function GET(request) {
       continue;
     }
     try {
-      const igId = await publishInstagramImage({
-        igId: token.platform_user_id, token: token.access_token,
-        caption: post.content || '', imageUrl: post.media_url
-      });
+      const urls = (post.media_urls && post.media_urls.length) ? post.media_urls : (post.media_url ? [post.media_url] : []);
+      const igId = urls.length > 1
+        ? await publishInstagramCarousel({ igId: token.platform_user_id, token: token.access_token, caption: post.content || '', imageUrls: urls })
+        : await publishInstagramImage({ igId: token.platform_user_id, token: token.access_token, caption: post.content || '', imageUrl: urls[0] });
       await admin.from('posts').update({ status: 'published' }).eq('id', post.id);
       results.push({ id: post.id, status: 'published', igId });
     } catch (e) {
@@ -46,5 +49,13 @@ export async function GET(request) {
     }
   }
 
-  return NextResponse.json({ ok: true, processed: results.length, results });
+  // Piloto automático: gera os criativos do dia (rascunhos p/ aprovação).
+  // Só roda se a chave da IA estiver configurada; falha aqui não quebra a publicação.
+  let autopilot = [];
+  if (process.env.DEEPSEEK_API_KEY) {
+    try { autopilot = await runDailyAutopilot(admin); }
+    catch (e) { autopilot = [{ error: e.message }]; }
+  }
+
+  return NextResponse.json({ ok: true, processed: results.length, results, autopilot });
 }

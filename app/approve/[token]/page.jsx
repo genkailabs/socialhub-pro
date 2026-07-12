@@ -1,3 +1,4 @@
+import { Sparkles, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ApprovalForm } from '@/components/approve/ApprovalForm';
 
@@ -9,27 +10,50 @@ export default async function ApprovePage({ params }) {
 
   if (error || !post) {
     return (
-      <div className="min-h-screen grid place-items-center bg-app px-4">
-        <p className="text-sm text-muted">Link de aprovação inválido ou expirado.</p>
+      <div className="grid min-h-screen place-items-center bg-app px-4">
+        <div className="rounded-2xl border border-line bg-surface p-8 text-center shadow-soft">
+          <p className="text-sm font-bold text-ink">Link inválido ou expirado</p>
+          <p className="mt-1 text-xs text-muted">Peça um novo link de aprovação para a agência.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-app px-4 py-10">
+    <div className="min-h-screen bg-app px-4 py-8">
       <div className="mx-auto max-w-md space-y-4">
-        <div className="flex items-center gap-2">
-          <span className="h-6 w-6 rounded-lg bg-gradient-to-br from-accent to-accent-soft" />
-          <span className="text-sm font-extrabold">SocialHub · Aprovação</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-soft text-white">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <span className="text-sm font-extrabold">SocialHub</span>
+          </div>
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted">
+            <ShieldCheck className="h-3.5 w-3.5 text-success" /> Aprovação segura
+          </span>
         </div>
-        <div className="rounded-xl border border-line bg-surface p-5 shadow-soft space-y-4">
-          {post.media_url && <img src={post.media_url} alt="" className="max-h-72 w-full rounded-xl border border-line object-cover" />}
-          <p className="text-sm text-ink whitespace-pre-wrap">{post.content || '(sem legenda)'}</p>
-          <div className="border-t border-line pt-4">
-            <p className="mb-2 text-xs font-bold text-ink">O que você achou?</p>
-            <ApprovalForm postId={post.id} />
+
+        <div className="animate-rise overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
+          <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+            <span className="h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent-soft" />
+            <div>
+              <p className="text-xs font-bold text-ink">Prévia da publicação</p>
+              <p className="text-[11px] text-muted">Revise e responda abaixo</p>
+            </div>
+          </div>
+          {post.media_url && <img src={post.media_url} alt="" className="max-h-80 w-full object-cover" />}
+          <div className="p-4">
+            <p className="whitespace-pre-wrap text-sm text-ink">{post.content || '(sem legenda)'}</p>
           </div>
         </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
+          <p className="mb-3 text-sm font-extrabold text-ink">O que você achou?</p>
+          <ApprovalForm postId={post.id} />
+        </div>
+
+        <p className="text-center text-[11px] text-faint">Suas respostas voltam em tempo real para a agência.</p>
       </div>
     </div>
   );

@@ -1,10 +1,14 @@
-import { LayoutDashboard, PenSquare, Calendar, Share2, CheckSquare, Inbox, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, PenSquare, Calendar, Share2, CheckSquare, Inbox, BarChart3, Palette, Wand2 } from 'lucide-react';
 
 export const NAV_GROUPS = [
   { label: 'Conteúdo', items: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/composer', label: 'Composer', icon: PenSquare },
     { href: '/calendar', label: 'Calendário', icon: Calendar }
+  ]},
+  { label: 'IA', items: [
+    { href: '/brand-kit', label: 'Brand Kit', icon: Palette },
+    { href: '/autopilot', label: 'Piloto', icon: Wand2 }
   ]},
   { label: 'Redes', items: [
     { href: '/connections', label: 'Conexões', icon: Share2 }

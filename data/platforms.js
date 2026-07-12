@@ -1,16 +1,26 @@
-import { Instagram, Facebook, Youtube, Linkedin, Music, MessageSquare, Video } from 'lucide-react';
+import { Instagram, Facebook, Youtube, Linkedin, Music2, MessageCircle, Video, Twitter, Send } from 'lucide-react';
 
 // integrated=true → conectável de verdade no v1. false → mostrado como "Em breve".
+// gradient: stops da identidade da marca (usado no header do card). caps: o que dá pra publicar.
 export const PLATFORMS = [
-  { id: 'instagram', name: 'Instagram', subtitle: 'Feed, Reels & Stories', icon: Instagram, color: '#E1306C', integrated: true },
-  { id: 'facebook', name: 'Facebook', subtitle: 'Página comercial', icon: Facebook, color: '#1877F2', integrated: true },
-  { id: 'youtube', name: 'YouTube', subtitle: 'Canal & Shorts', icon: Youtube, color: '#FF0000', integrated: false },
-  { id: 'tiktok', name: 'TikTok', subtitle: 'Creator / Business', icon: Video, color: '#010101', integrated: false },
-  { id: 'linkedin', name: 'LinkedIn', subtitle: 'Company Page', icon: Linkedin, color: '#0A66C2', integrated: false },
-  { id: 'twitter', name: 'X / Twitter', subtitle: 'Posts & métricas', icon: MessageSquare, color: '#111111', integrated: false },
-  { id: 'pinterest', name: 'Pinterest', subtitle: 'Pins & pastas', icon: Music, color: '#E60023', integrated: false },
-  { id: 'whatsapp', name: 'WhatsApp', subtitle: 'Business API', icon: MessageSquare, color: '#25D366', integrated: false },
-  { id: 'spotify', name: 'Spotify', subtitle: 'Podcasts & músicas', icon: Music, color: '#1DB954', integrated: false }
+  { id: 'instagram', name: 'Instagram', subtitle: 'Feed, Reels & Stories', icon: Instagram, color: '#E1306C',
+    gradient: ['#FEDA75', '#FA7E1E', '#D62976', '#962FBF'], caps: ['Feed', 'Reels', 'Stories'], integrated: true },
+  { id: 'facebook', name: 'Facebook', subtitle: 'Página comercial', icon: Facebook, color: '#1877F2',
+    gradient: ['#1877F2', '#0A5DC2'], caps: ['Página', 'Grupos'], integrated: true },
+  { id: 'youtube', name: 'YouTube', subtitle: 'Canal & Shorts', icon: Youtube, color: '#FF0000',
+    gradient: ['#FF4E45', '#C4302B'], caps: ['Vídeos', 'Shorts'], integrated: false },
+  { id: 'tiktok', name: 'TikTok', subtitle: 'Creator / Business', icon: Video, color: '#FE2C55',
+    gradient: ['#25F4EE', '#111111', '#FE2C55'], caps: ['Vídeos', 'Lives'], integrated: false },
+  { id: 'linkedin', name: 'LinkedIn', subtitle: 'Company Page', icon: Linkedin, color: '#0A66C2',
+    gradient: ['#0A66C2', '#004182'], caps: ['Company', 'Artigos'], integrated: false },
+  { id: 'twitter', name: 'X / Twitter', subtitle: 'Posts & threads', icon: Twitter, color: '#111111',
+    gradient: ['#2B2B2B', '#000000'], caps: ['Posts', 'Threads'], integrated: false },
+  { id: 'pinterest', name: 'Pinterest', subtitle: 'Pins & pastas', icon: Music2, color: '#E60023',
+    gradient: ['#E60023', '#AD081B'], caps: ['Pins', 'Pastas'], integrated: false },
+  { id: 'whatsapp', name: 'WhatsApp', subtitle: 'Business API', icon: MessageCircle, color: '#25D366',
+    gradient: ['#25D366', '#128C7E'], caps: ['Broadcast', 'Catálogo'], integrated: false },
+  { id: 'spotify', name: 'Spotify', subtitle: 'Podcasts & músicas', icon: Send, color: '#1DB954',
+    gradient: ['#1DB954', '#1AA34A'], caps: ['Podcasts', 'Playlists'], integrated: false }
 ];
 
 export function integratedPlatforms() {
@@ -23,4 +33,9 @@ export function isIntegrated(id) {
 
 export function platformById(id) {
   return PLATFORMS.find((p) => p.id === id) || null;
+}
+
+export function platformGradient(p) {
+  const stops = p?.gradient?.length ? p.gradient : [p?.color || '#6366F1', p?.color || '#6366F1'];
+  return `linear-gradient(135deg, ${stops.join(', ')})`;
 }
