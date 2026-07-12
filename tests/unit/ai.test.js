@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeSpec, parseSpec } from '@/lib/ai/spec';
-import { estimateCostUsd, formatUsd } from '@/lib/ai/cost';
+import { estimateCostUsd, formatUsd, deapiImageCostUsd } from '@/lib/ai/cost';
 import { buildContentPrompt } from '@/lib/ai/prompt';
 import { resolvePalette, TEMPLATES } from '@/lib/ai/templates';
 import { renderNode, slideCount } from '@/lib/ai/render';
@@ -24,6 +24,11 @@ describe('normalizeSpec', () => {
   });
   it('headline vazio recebe fallback', () => {
     expect(normalizeSpec({}).headline).toBe('Sem título');
+  });
+  it('captura image_prompt (deAPI) e limita tamanho', () => {
+    expect(normalizeSpec({ image_prompt: 'cozy cafe, warm light' }).imagePrompt).toBe('cozy cafe, warm light');
+    expect(normalizeSpec({ image_prompt: 'x'.repeat(900) }).imagePrompt.length).toBe(600);
+    expect(normalizeSpec({}).imagePrompt).toBe('');
   });
 });
 
@@ -49,6 +54,16 @@ describe('estimateCostUsd', () => {
   });
 });
 
+describe('deapiImageCostUsd', () => {
+  it('multiplica pelo nº de imagens', () => {
+    expect(deapiImageCostUsd(0)).toBe(0);
+    expect(deapiImageCostUsd(4)).toBeCloseTo(deapiImageCostUsd(1) * 4, 6);
+  });
+  it('trata entrada inválida como zero', () => {
+    expect(deapiImageCostUsd('x')).toBe(0);
+  });
+});
+
 describe('buildContentPrompt', () => {
   it('inclui nicho e tema no user prompt', () => {
     const { user, system, format } = buildContentPrompt({ brandKit: { niche: 'cafeteria' }, brief: { topic: 'grãos especiais', format: 'tips_carousel' } });
@@ -59,6 +74,9 @@ describe('buildContentPrompt', () => {
   });
   it('formato inválido cai p/ quote', () => {
     expect(buildContentPrompt({ brief: { format: 'zzz' } }).format).toBe('quote');
+  });
+  it('pede image_prompt no system (p/ a deAPI)', () => {
+    expect(buildContentPrompt({}).system).toContain('image_prompt');
   });
 });
 

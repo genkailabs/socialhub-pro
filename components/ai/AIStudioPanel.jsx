@@ -34,7 +34,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
       setCaption(res.spec.caption || '');
       setHashtags((res.spec.hashtags || []).join(' '));
       setSlide(0);
-      setMsg({ type: 'ok', text: `Gerado! Custo de texto: ${formatUsd(res.cost)}. Revise e escolha o destino.` });
+      setMsg({ type: 'ok', text: `Gerado (imagem: ${res.imageProvider === 'deapi' ? 'deAPI' : 'render on-brand'})! Custo: ${formatUsd(res.cost)}. Revise e escolha o destino.` });
     } catch (e) {
       setMsg({ type: 'err', text: e.message });
     } finally { setBusy(''); }
@@ -169,7 +169,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
           </div>
           {gen && (
             <div className="p-3">
-              <p className="text-[11px] text-faint">Template: <span className="font-semibold text-muted">{TEMPLATE_LABELS[gen.spec?.template] || gen.spec?.template}</span> · {urls.length} imagem(ns) · texto {formatUsd(gen.cost)}</p>
+              <p className="text-[11px] text-faint">Template: <span className="font-semibold text-muted">{TEMPLATE_LABELS[gen.spec?.template] || gen.spec?.template}</span> · {urls.length} imagem(ns) · custo {formatUsd(gen.cost)}</p>
             </div>
           )}
         </div>
