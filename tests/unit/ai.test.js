@@ -89,6 +89,15 @@ describe('buildContentPrompt', () => {
   it('pede image_prompt no system (p/ a deAPI)', () => {
     expect(buildContentPrompt({}).system).toContain('image_prompt');
   });
+  it('injeta campos do Brand DNA no user prompt', () => {
+    const { user } = buildContentPrompt({
+      brandKit: { tone: 'x', personality: ['consultivo'], cta_policy: 'sempre', emoji_usage: 'poucos', storytelling: true, caption_length: 'longa' },
+      brief: {}
+    });
+    expect(user).toContain('consultivo');
+    expect(user).toMatch(/CTA|chamada para ação/i);
+    expect(user).toMatch(/emoji/i);
+  });
 });
 
 describe('resolvePalette', () => {
