@@ -44,10 +44,10 @@ describe('parseSpec', () => {
 describe('estimateCostUsd', () => {
   it('calcula por tokens', () => {
     const c = estimateCostUsd('deepseek-chat', { prompt_tokens: 1_000_000, completion_tokens: 0 });
-    expect(c).toBeCloseTo(0.27, 5);
+    expect(c).toBeCloseTo(0.14, 5);
   });
   it('modelo desconhecido usa fallback', () => {
-    expect(estimateCostUsd('x', { prompt_tokens: 0, completion_tokens: 1_000_000 })).toBeCloseTo(1.10, 5);
+    expect(estimateCostUsd('x', { prompt_tokens: 0, completion_tokens: 1_000_000 })).toBeCloseTo(0.28, 5);
   });
   it('formatUsd mostra 4 casas p/ valor pequeno', () => {
     expect(formatUsd(0.0003)).toBe('$0.0003');

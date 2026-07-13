@@ -34,7 +34,10 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
       setCaption(res.spec.caption || '');
       setHashtags((res.spec.hashtags || []).join(' '));
       setSlide(0);
-      setMsg({ type: 'ok', text: `Gerado (imagem: ${res.imageProvider === 'deapi' ? 'deAPI' : 'render on-brand'})! Custo: ${formatUsd(res.cost)}. Revise e escolha o destino.` });
+      setMsg({
+        type: 'ok',
+        text: `Gerado! Custo total: ${formatUsd(res.cost)} (DeepSeek texto: ${formatUsd(res.textCost || 0)} · Imagem ${res.imageProvider === 'deapi' ? 'deAPI' : 'render'}: ${formatUsd(res.imageCost || 0)}).`
+      });
     } catch (e) {
       setMsg({ type: 'err', text: e.message });
     } finally { setBusy(''); }
@@ -168,8 +171,21 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
             )}
           </div>
           {gen && (
-            <div className="p-3">
-              <p className="text-[11px] text-faint">Template: <span className="font-semibold text-muted">{TEMPLATE_LABELS[gen.spec?.template] || gen.spec?.template}</span> · {urls.length} imagem(ns) · custo {formatUsd(gen.cost)}</p>
+            <div className="space-y-1.5 border-t border-line bg-surface-2/40 p-3">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted">Template: <strong className="text-ink">{TEMPLATE_LABELS[gen.spec?.template] || gen.spec?.template}</strong></span>
+                <span className="font-extrabold text-accent">Total: {formatUsd(gen.cost)}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-line/60 bg-surface px-2.5 py-1.5 text-[11px]">
+                <span className="flex items-center gap-1.5 text-muted">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  DeepSeek (texto): <strong className="text-ink">{formatUsd(gen.textCost || 0)}</strong>
+                </span>
+                <span className="flex items-center gap-1.5 text-muted">
+                  <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                  {gen.imageProvider === 'deapi' ? 'deAPI (imagem)' : 'Render (imagem)'}: <strong className="text-ink">{formatUsd(gen.imageCost || 0)}</strong>
+                </span>
+              </div>
             </div>
           )}
         </div>

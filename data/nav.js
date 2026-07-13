@@ -1,4 +1,4 @@
-import { LayoutDashboard, PenSquare, Calendar, Share2, CheckSquare, Inbox, BarChart3, Palette, Wand2 } from 'lucide-react';
+import { LayoutDashboard, PenSquare, Calendar, Share2, CheckSquare, Inbox, BarChart3, Palette, Wand2, Coins } from 'lucide-react';
 
 export const NAV_GROUPS = [
   { label: 'Conteúdo', items: [
@@ -8,7 +8,8 @@ export const NAV_GROUPS = [
   ]},
   { label: 'IA', items: [
     { href: '/brand-kit', label: 'Brand Kit', icon: Palette },
-    { href: '/autopilot', label: 'Piloto', icon: Wand2 }
+    { href: '/autopilot', label: 'Piloto', icon: Wand2 },
+    { href: '/ai-costs', label: 'Custos IA', icon: Coins }
   ]},
   { label: 'Redes', items: [
     { href: '/connections', label: 'Conexões', icon: Share2 }
