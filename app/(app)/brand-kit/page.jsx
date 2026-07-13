@@ -1,6 +1,6 @@
 import { Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { BrandKitForm } from '@/components/brand-kit/BrandKitForm';
+import { BrandKitTabs } from '@/components/brand-kit/BrandKitTabs';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { getBrandKit } from '@/lib/brand-kit-data';
@@ -21,7 +21,7 @@ export default async function BrandKitPage() {
       {!active ? (
         <EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState>
       ) : (
-        <BrandKitForm brandId={active.id} brandColor={active.color} kit={kit} />
+        <BrandKitTabs brandId={active.id} brandName={active.name} brandColor={active.color} kit={kit} />
       )}
     </div>
   );

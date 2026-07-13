@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { CheckCircle2, AlertCircle, Palette } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Palette, Pipette } from 'lucide-react';
 import { saveBrandKit } from '@/lib/brand-kit-actions';
+import { dominantColorFromImageUrl } from '@/lib/color/dominant';
 import { DEFAULT_PALETTE } from '@/lib/ai/templates';
 import { Button } from '@/components/ui/Button';
 
@@ -14,6 +15,14 @@ export function BrandKitForm({ brandId, brandColor, kit }) {
   const [pillars, setPillars] = useState(joinLines(kit?.pillars));
   const [dos, setDos] = useState(joinLines(kit?.dos));
   const [donts, setDonts] = useState(joinLines(kit?.donts));
+  const [personality, setPersonality] = useState(joinLines(kit?.personality));
+  const [emotions, setEmotions] = useState(joinLines(kit?.emotions));
+  const [formality, setFormality] = useState(kit?.formality || '');
+  const [emojiUsage, setEmojiUsage] = useState(kit?.emoji_usage || '');
+  const [ctaPolicy, setCtaPolicy] = useState(kit?.cta_policy || '');
+  const [visualStyle, setVisualStyle] = useState(kit?.visual_style || '');
+  const [captionLength, setCaptionLength] = useState(kit?.caption_length || '');
+  const [storytelling, setStorytelling] = useState(Boolean(kit?.storytelling));
   const [palette, setPalette] = useState({
     accent: kit?.palette?.accent || brandColor || DEFAULT_PALETTE.accent,
     bg: kit?.palette?.bg || DEFAULT_PALETTE.bg,
@@ -21,17 +30,40 @@ export function BrandKitForm({ brandId, brandColor, kit }) {
     ink: kit?.palette?.ink || DEFAULT_PALETTE.ink
   });
   const [logoUrl, setLogoUrl] = useState(kit?.logo_url || '');
+  const [pick, setPick] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
   async function save() {
     setBusy(true); setMsg(null);
-    const res = await saveBrandKit({ brandId, niche, audience, tone, pillars, dos, donts, palette, logoUrl });
+    const res = await saveBrandKit({
+      brandId, niche, audience, tone, pillars, dos, donts, palette, logoUrl,
+      personality, emotions, formality, emojiUsage, ctaPolicy, storytelling, visualStyle, captionLength
+    });
     setBusy(false);
     setMsg(res?.error ? { type: 'err', text: res.error } : { type: 'ok', text: 'Brand Kit salvo!' });
   }
 
+  async function extractColor() {
+    if (!logoUrl) return;
+    setPick(true); setMsg(null);
+    try {
+      const hex = await dominantColorFromImageUrl(logoUrl);
+      setPalette((p) => ({ ...p, accent: hex }));
+    } catch {
+      setMsg({ type: 'err', text: 'Não deu p/ ler a cor da logo (CORS ou URL inválida).' });
+    } finally {
+      setPick(false);
+    }
+  }
+
   const field = 'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
+  const select = (value, setter, opts) => (
+    <select value={value} onChange={(e) => setter(e.target.value)} className={field}>
+      <option value="">—</option>
+      {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
   const swatch = (key, label) => (
     <label className="flex items-center gap-2 rounded-lg border border-line bg-surface px-2.5 py-2">
       <input type="color" value={palette[key]} onChange={(e) => setPalette((p) => ({ ...p, [key]: e.target.value }))}
@@ -72,9 +104,50 @@ export function BrandKitForm({ brandId, brandColor, kit }) {
             <textarea value={donts} onChange={(e) => setDonts(e.target.value)} rows={4} placeholder={'um por linha'} className={field} />
           </div>
         </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-ink">Personalidade</label>
+            <textarea value={personality} onChange={(e) => setPersonality(e.target.value)} rows={3} placeholder={'uma por linha:\nespecialista\nacessível'} className={field} />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-ink">Emoções que evoca</label>
+            <textarea value={emotions} onChange={(e) => setEmotions(e.target.value)} rows={3} placeholder={'uma por linha:\nconfiança\naconchego'} className={field} />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-ink">Formalidade</label>
+            {select(formality, setFormality, ['baixa', 'média', 'alta'])}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-ink">Uso de emojis</label>
+            {select(emojiUsage, setEmojiUsage, ['nunca', 'poucos', 'muitos'])}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-ink">Política de CTA</label>
+            {select(ctaPolicy, setCtaPolicy, ['sempre', 'só vendas', 'nunca'])}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-ink">Estilo visual</label>
+            {select(visualStyle, setVisualStyle, ['premium', 'moderno', 'minimalista', 'criativo'])}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-ink">Tamanho da legenda</label>
+            {select(captionLength, setCaptionLength, ['curta', 'média', 'longa'])}
+          </div>
+          <label className="flex cursor-pointer items-end gap-2 pb-2.5">
+            <input type="checkbox" checked={storytelling} onChange={(e) => setStorytelling(e.target.checked)} className="h-4 w-4" />
+            <span className="text-sm text-ink">Usa storytelling</span>
+          </label>
+        </div>
         <div>
           <label className="mb-1.5 block text-xs font-bold text-ink">URL do logo (opcional)</label>
-          <input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…" className={field} />
+          <div className="flex gap-2">
+            <input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…" className={field} />
+            <Button type="button" variant="outline" size="sm" onClick={extractColor} disabled={pick || !logoUrl} className="shrink-0">
+              <Pipette className="h-3.5 w-3.5" />{pick ? '…' : 'Extrair cor'}
+            </Button>
+          </div>
         </div>
 
         {msg && (
