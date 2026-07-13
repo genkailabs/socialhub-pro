@@ -37,7 +37,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
       setSlide(0);
       setMsg({
         type: 'ok',
-        text: `Gerado! Custo total: ${formatUsd(res.cost)} (Gemini texto: ${formatUsd(res.textCost || 0)} · Imagem ${res.imageProvider === 'gemini' ? 'Gemini' : 'render'}: ${formatUsd(res.imageCost || 0)}).`
+        text: `Gerado! Custo total: ${formatUsd(res.cost)} (DeepSeek texto: ${formatUsd(res.textCost || 0)} · Imagem ${res.imageProvider === 'deapi' ? 'deAPI' : 'render'}: ${formatUsd(res.imageCost || 0)}).`
       });
     } catch (e) {
       setMsg({ type: 'err', text: e.message });
@@ -110,7 +110,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
         </label>
 
         <Button onClick={generate} disabled={busy === 'gen'} className="w-full">
-          <Wand2 className="h-4 w-4" /> {busy === 'gen' ? 'Gerando com Gemini…' : gen ? 'Gerar outra ideia' : 'Gerar com IA'}
+          <Wand2 className="h-4 w-4" /> {busy === 'gen' ? 'Gerando com IA…' : gen ? 'Gerar outra ideia' : 'Gerar com IA'}
         </Button>
 
         {gen && (
@@ -185,11 +185,11 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
               <div className="flex items-center justify-between rounded-lg border border-line/60 bg-surface px-2.5 py-1.5 text-[11px]">
                 <span className="flex items-center gap-1.5 text-muted">
                   <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  Gemini (texto): <strong className="text-ink">{formatUsd(gen.textCost || 0)}</strong>
+                  DeepSeek (texto): <strong className="text-ink">{formatUsd(gen.textCost || 0)}</strong>
                 </span>
                 <span className="flex items-center gap-1.5 text-muted">
                   <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                  {gen.imageProvider === 'gemini' ? 'Gemini (imagem)' : 'Render (imagem)'}: <strong className="text-ink">{formatUsd(gen.imageCost || 0)}</strong>
+                  {gen.imageProvider === 'deapi' ? 'deAPI (imagem)' : 'Render (imagem)'}: <strong className="text-ink">{formatUsd(gen.imageCost || 0)}</strong>
                 </span>
               </div>
             </div>
