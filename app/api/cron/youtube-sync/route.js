@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdmin } from '@/lib/supabase/admin';
-import { refreshAccessToken, getChannel, getChannelStats, listChannelVideos, getVideoStats } from '@/lib/youtube/google';
+import { refreshAccessToken, getChannel, getChannelStats, listChannelVideos, getVideosStats } from '@/lib/youtube/google';
 
 export const maxDuration = 60;
 
@@ -48,11 +48,13 @@ export async function GET(request) {
         total_reach: chStats.views
       }, { onConflict: 'brand_id,platform,snapshot_date' });
 
-      // 2) Vídeos → youtube_video_stats
+      // 2) Vídeos → youtube_video_stats (uma única chamada ao Analytics com dimensions=video)
       const videos = await listChannelVideos(accessToken, 25);
       const start = firstDate(videos);
+      const statsList = await getVideosStats(accessToken, videos.map((v) => v.videoId), start, today);
+      const statsById = new Map(statsList.map((s) => [s.videoId, s]));
       for (const v of videos) {
-        const vs = await getVideoStats(accessToken, v.videoId, start, today);
+        const vs = statsById.get(v.videoId) || { views: 0, likes: 0, comments: 0, avgViewPct: 0, watchTimeMin: 0 };
         await admin.from('youtube_video_stats').upsert({
           brand_id: tok.brand_id,
           video_id: v.videoId,
