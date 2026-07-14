@@ -3,10 +3,14 @@ import Link from 'next/link';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatTile } from '@/components/dashboard/StatTile';
 import { FollowerTrend } from '@/components/dashboard/FollowerTrend';
+import { YoutubePanel } from '@/components/dashboard/YoutubePanel';
+import { PipelineProgress } from '@/components/onboarding/PipelineProgress';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { getBrandInstagramMetrics, getFollowerHistory } from '@/lib/metrics-data';
+import { getPipeline } from '@/lib/pipeline';
+import { hasYoutube, getYoutubeFollowerHistory, getYoutubeVideos, getYoutubeBestTimes } from '@/lib/youtube-data';
 
 function fmt(n) {
   if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k';
@@ -33,6 +37,15 @@ export default async function DashboardPage() {
 
   const result = await getBrandInstagramMetrics(active.id);
   const history = result?.ok ? await getFollowerHistory(active.id) : [];
+  const pipeline = await getPipeline(active.id);
+
+  const yt = await hasYoutube(active.id);
+  const ytData = yt ? {
+    account: yt,
+    history: await getYoutubeFollowerHistory(active.id),
+    videos: await getYoutubeVideos(active.id),
+    bestTimes: await getYoutubeBestTimes(active.id)
+  } : null;
 
   return (
     <div className="space-y-6">
@@ -47,6 +60,8 @@ export default async function DashboardPage() {
           </p>
         </div>
       </div>
+
+      <PipelineProgress pipeline={pipeline} />
 
       {result?.ok ? (
         <>
@@ -69,6 +84,15 @@ export default async function DashboardPage() {
           <Link href="/connections" className="font-semibold text-accent hover:underline">Conexões</Link>{' '}
           para ver seguidores, engajamento e posts reais. Nada aqui é simulado.
         </EmptyState>
+      )}
+
+      {ytData && (
+        <YoutubePanel
+          account={ytData.account}
+          history={ytData.history}
+          videos={ytData.videos}
+          bestTimes={ytData.bestTimes}
+        />
       )}
     </div>
   );
