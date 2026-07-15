@@ -34,11 +34,11 @@
 
 .dark {
   /* Sales-Ops Emerald & Slate — Dark Mode Canvas & Tokens */
-  --c-app: 22 22 24; /* #161618 - Slate-Navy profundo */
-  --c-surface: 31 31 35; /* #1F1F23 - Cartões elevados escuros */
-  --c-surface-2: 39 39 45; /* #27272D - Hover e inputs */
-  --c-line: 255 255 255; /* usado com opacidade 0.08 a 0.12 nas bordas */
-  --c-line-strong: 82 82 91; /* #52525B */
+  --c-app: 10 10 12; /* #0A0A0C - Pitch-Navy ultra escuro (Sales-Ops) */
+  --c-surface: 18 19 22; /* #121316 - Cartões elevados escuros */
+  --c-surface-2: 31 32 37; /* #1F2025 - Hover e inputs dark pill */
+  --c-line: 34 35 40; /* #222328 - Bordas finas de precisão sem marcação quadrada branca */
+  --c-line-strong: 63 63 70; /* #3F3F46 */
   --c-ink: 244 244 246; /* #F4F4F6 - Crisp Text Ink */
   --c-muted: 156 163 175; /* #9CA3AF - Muted Lavender Gray */
   --c-faint: 113 113 122;
@@ -77,8 +77,8 @@
 }
 
 .dark .glass {
-  background: rgb(var(--c-surface) / 0.88);
-  border: 1px solid rgb(var(--c-line) / 0.08);
+  background: rgb(var(--c-surface) / 0.90);
+  border: 1px solid rgb(var(--c-line));
 }
 
 .glow-accent {
