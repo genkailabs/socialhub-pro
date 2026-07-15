@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -33,123 +33,58 @@
 }
 
 .dark {
-  /* Finly High-End Dashboard — Dark Mode Canvas & Tokens */
-  --c-app: 24 24 28; /* #18181C - Matte Graphite (sempre sem preto puro #000000) */
-  --c-surface: 35 35 41; /* #232329 - Cartões elevados escuros */
-  --c-surface-2: 46 46 54; /* #2E2E36 - Hover e inputs */
-  --c-line: 255 255 255; /* usado com opacidade 0.07 nas bordas */
-  --c-line-strong: 82 82 91;
+  /* Sales-Ops Emerald & Slate — Dark Mode Canvas & Tokens */
+  --c-app: 22 22 24; /* #161618 - Slate-Navy profundo */
+  --c-surface: 31 31 35; /* #1F1F23 - Cartões elevados escuros */
+  --c-surface-2: 39 39 45; /* #27272D - Hover e inputs */
+  --c-line: 255 255 255; /* usado com opacidade 0.08 a 0.12 nas bordas */
+  --c-line-strong: 82 82 91; /* #52525B */
   --c-ink: 244 244 246; /* #F4F4F6 - Crisp Text Ink */
   --c-muted: 156 163 175; /* #9CA3AF - Muted Lavender Gray */
   --c-faint: 113 113 122;
 
-  /* acento — Violeta calibrado (#8B5CF6) */
-  --c-accent: 139 92 246;
-  --c-accent-soft: 167 139 250;
-  --c-accent-tint: 36 28 61;
-  --c-accent-ink: 221 214 254;
+  /* acento — Verde Esmeralda/Mint calibrado (#10B981) */
+  --c-accent: 16 185 129;
+  --c-accent-soft: 52 211 153;
+  --c-accent-tint: 18 42 36;
+  --c-accent-ink: 209 250 229;
 
   /* estados semânticos */
-  --c-success: 52 211 153;
-  --c-warning: 251 191 36;
-  --c-danger: 251 113 133;
-  --c-info: 139 92 246;
+  --c-success: 16 185 129;
+  --c-warning: 245 158 11;
+  --c-danger: 244 63 94;
+  --c-info: 16 185 129;
 
   --c-shadow: 0 0 0;
-  --c-glow: 139 92 246;
+  --c-glow: 16 185 129;
   color-scheme: dark;
 }
 
-html, body { height: 100%; }
-body {
-  @apply bg-app text-ink antialiased;
-  /* Fonte Outfit primária e fallback limpo */
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'SF Pro Display',
-    'Segoe UI', Roboto, system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  letter-spacing: -0.015em;
-}
-
-/* seleção + foco coerentes com o acento */
-::selection { background: rgb(var(--c-accent) / 0.24); }
-:where(a, button, input, textarea, select, [tabindex]):focus-visible {
-  outline: 2px solid rgb(var(--c-accent) / 0.55);
-  outline-offset: 2px;
-  border-radius: 8px;
-}
-
-/* scrollbar discreta */
-* { scrollbar-width: thin; scrollbar-color: rgb(var(--c-line-strong)) transparent; }
-*::-webkit-scrollbar { width: 10px; height: 10px; }
-*::-webkit-scrollbar-thumb {
-  background: rgb(var(--c-line-strong));
-  border: 3px solid transparent;
-  background-clip: content-box;
-  border-radius: 999px;
-}
-*::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-faint)); background-clip: content-box; }
-
-/* movimento */
-@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
-@keyframes shimmer { 100% { transform: translateX(100%); } }
-@keyframes livepulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--c-success) / 0.5); }
-  50% { box-shadow: 0 0 0 5px rgb(var(--c-success) / 0); }
-}
-
-.animate-rise { animation: rise .4s cubic-bezier(.22,1,.36,1) both; }
-.animate-fade { animation: fade .3s ease both; }
-.animate-pop { animation: pop .18s cubic-bezier(.22,1,.36,1) both; }
-
-/* ponto "ao vivo" p/ redes conectadas */
-.live-dot { position: relative; }
-.live-dot::after {
-  content: ''; position: absolute; inset: 0; border-radius: 999px;
-  animation: livepulse 2s ease-in-out infinite;
-}
-
-/* skeleton */
-.skeleton { position: relative; overflow: hidden; background: rgb(var(--c-line) / 0.7); }
-.skeleton::after {
-  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgb(var(--c-surface) / 0.6), transparent);
-  animation: shimmer 1.4s infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+/* Base resets & utilities */
+@layer base {
+  body {
+    background-color: rgb(var(--c-app));
+    color: rgb(var(--c-ink));
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-/* ─── Finly High-End Utilitários & Cards ─────────────────────────── */
-
-/* Cartão Finly: cantos arredondados, fundo de superfície pura com borda sutil e sombra suave */
 .glass {
-  background: rgb(var(--c-surface));
-  border: 1px solid rgb(var(--c-line) / 0.7);
-  box-shadow: 0 4px 24px -2px rgb(24 24 27 / 0.04);
+  background: rgb(var(--c-surface) / 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgb(var(--c-line) / 0.12);
 }
+
 .dark .glass {
-  background: rgb(var(--c-surface));
-  border: 1px solid rgb(var(--c-line) / 0.07);
-  box-shadow: none;
+  background: rgb(var(--c-surface) / 0.88);
+  border: 1px solid rgb(var(--c-line) / 0.08);
 }
 
-/* Sombra e realce controlados sem neon glow excessivo */
 .glow-accent {
-  box-shadow: 0 4px 14px -2px rgb(var(--c-accent) / 0.25);
+  box-shadow: 0 0 0 1px rgb(var(--c-accent) / 0.25), 0 10px 30px -10px rgb(var(--c-accent) / 0.35);
 }
 
-/* Fundo limpo acinzentado do app com suave gradiente de profundidade */
-.app-glow {
-  position: relative;
-  background:
-    radial-gradient(1200px 600px at 15% -10%, rgb(var(--c-accent) / 0.06), transparent 60%),
-    rgb(var(--c-app));
+.dark .font-theme {
+  font-family: 'DM Sans', system-ui, sans-serif;
 }
