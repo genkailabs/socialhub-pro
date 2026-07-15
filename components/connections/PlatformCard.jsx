@@ -1,5 +1,5 @@
 import { Check, RefreshCw, Lock, ArrowUpRight } from 'lucide-react';
-import { platformById, platformGradient } from '@/data/platforms';
+import { platformById, platformGradient, connectHref } from '@/data/platforms';
 
 export function PlatformCard({ platformId, connected, activeBrandId }) {
   const platform = platformById(platformId);
@@ -8,6 +8,7 @@ export function PlatformCard({ platformId, connected, activeBrandId }) {
   const soon = !platform.integrated;
   const canConnect = platform.integrated && activeBrandId;
   const gradient = platformGradient(platform);
+  const oauthHref = connectHref(platform, activeBrandId);
 
   return (
     <div
@@ -81,7 +82,7 @@ export function PlatformCard({ platformId, connected, activeBrandId }) {
         <div className="mt-auto pt-1">
           {connected ? (
             <a
-              href={`/api/meta/oauth?brand_id=${activeBrandId}`}
+              href={oauthHref}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-line bg-surface-2 py-2 text-[11px] font-bold text-ink transition-colors hover:border-accent/40 hover:text-accent"
             >
               <RefreshCw className="h-3.5 w-3.5" /> Reconectar
@@ -92,7 +93,7 @@ export function PlatformCard({ platformId, connected, activeBrandId }) {
             </div>
           ) : canConnect ? (
             <a
-              href={`/api/meta/oauth?brand_id=${activeBrandId}`}
+              href={oauthHref}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[11px] font-extrabold text-white shadow-soft transition-transform hover:scale-[1.02]"
               style={{ backgroundImage: gradient }}
             >

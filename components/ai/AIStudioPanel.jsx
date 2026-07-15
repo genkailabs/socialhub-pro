@@ -72,7 +72,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
     setCopied(true); setTimeout(() => setCopied(false), 1500);
   }
 
-  const field = 'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
+  const field = 'w-full rounded-xl glass px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
   const tab = (active) => `flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all ${active ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'}`;
   const urls = gen?.imageUrls || [];
 
@@ -157,7 +157,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
       {/* prévia dos slides gerados */}
       <div className="lg:sticky lg:top-4">
         <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted"><Sparkles className="h-3.5 w-3.5 text-accent" /> Prévia gerada</p>
-        <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
+        <div className="overflow-hidden rounded-2xl glass shadow-soft">
           <div className="relative aspect-square w-full bg-surface-2">
             {urls.length ? (
               <img src={urls[slide]} alt="" className="h-full w-full object-cover" />

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdmin } from '@/lib/supabase/admin';
-import { publishInstagramImage, publishInstagramCarousel } from '@/lib/meta/graph';
+import { publishInstagramImage, publishInstagramCarousel, publishFacebookPhoto } from '@/lib/meta/graph';
 import { runDailyAutopilot } from '@/lib/autopilot';
 
 export const maxDuration = 60;
@@ -17,7 +17,7 @@ export async function GET(request) {
 
   const { data: due, error } = await admin
     .from('posts')
-    .select('id, brand_id, content, media_url, media_urls')
+    .select('id, brand_id, content, media_url, media_urls, networks')
     .eq('status', 'scheduled')
     .lte('scheduled_at', nowIso)
     .limit(10);
@@ -25,28 +25,44 @@ export async function GET(request) {
 
   const results = [];
   for (const post of due || []) {
-    const { data: token } = await admin
-      .from('social_tokens')
-      .select('access_token, platform_user_id')
-      .eq('brand_id', post.brand_id).eq('platform', 'instagram').eq('is_active', true)
-      .maybeSingle();
-
-    if (!token) {
+    const urls = (post.media_urls && post.media_urls.length) ? post.media_urls : (post.media_url ? [post.media_url] : []);
+    // Redes de imagem que sabemos publicar automaticamente hoje.
+    const networks = (post.networks && post.networks.length ? post.networks : ['instagram'])
+      .filter((n) => n === 'instagram' || n === 'facebook');
+    if (!networks.length) {
       await admin.from('posts').update({ status: 'error' }).eq('id', post.id);
-      results.push({ id: post.id, status: 'error', reason: 'sem token' });
+      results.push({ id: post.id, status: 'error', reason: 'nenhuma rede publicável' });
       continue;
     }
-    try {
-      const urls = (post.media_urls && post.media_urls.length) ? post.media_urls : (post.media_url ? [post.media_url] : []);
-      const igId = urls.length > 1
-        ? await publishInstagramCarousel({ igId: token.platform_user_id, token: token.access_token, caption: post.content || '', imageUrls: urls })
-        : await publishInstagramImage({ igId: token.platform_user_id, token: token.access_token, caption: post.content || '', imageUrl: urls[0] });
-      await admin.from('posts').update({ status: 'published' }).eq('id', post.id);
-      results.push({ id: post.id, status: 'published', igId });
-    } catch (e) {
-      await admin.from('posts').update({ status: 'error' }).eq('id', post.id);
-      results.push({ id: post.id, status: 'error', reason: e.message });
+
+    const posted = [];
+    const failed = [];
+    for (const platform of networks) {
+      const { data: token } = await admin
+        .from('social_tokens')
+        .select('access_token, platform_user_id')
+        .eq('brand_id', post.brand_id).eq('platform', platform).eq('is_active', true)
+        .maybeSingle();
+      if (!token) { failed.push({ platform, reason: 'sem token' }); continue; }
+      try {
+        let mediaId;
+        if (platform === 'facebook') {
+          mediaId = await publishFacebookPhoto({ pageId: token.platform_user_id, pageToken: token.access_token, message: post.content || '', imageUrl: urls[0] });
+        } else {
+          mediaId = urls.length > 1
+            ? await publishInstagramCarousel({ igId: token.platform_user_id, token: token.access_token, caption: post.content || '', imageUrls: urls })
+            : await publishInstagramImage({ igId: token.platform_user_id, token: token.access_token, caption: post.content || '', imageUrl: urls[0] });
+        }
+        posted.push({ platform, mediaId });
+      } catch (e) {
+        failed.push({ platform, reason: e.message });
+      }
     }
+
+    // Publicado se ao menos uma rede deu certo (evita reprocessar num loop de cron).
+    const status = posted.length ? 'published' : 'error';
+    await admin.from('posts').update({ status }).eq('id', post.id);
+    results.push({ id: post.id, status, posted, failed });
   }
 
   // Piloto automático: gera os criativos do dia (rascunhos p/ aprovação).

@@ -2,6 +2,8 @@
 
 Gerenciador de redes sociais multi-marca (SaaS) para agências: workspaces por marca/cliente, agendamento de posts, calendário, relatórios e workflow de aprovação externa por link.
 
+> 📚 Documentação completa (arquitetura, banco de dados, motor de IA, decisões de projeto) na [wiki](./wiki/overview.md).
+
 > **Status:** rewrite em andamento para **Next.js (App Router)** — base "Núcleo Honesto". A integração **real do Instagram** (OAuth Meta + publicação + métricas via Graph API v21.0) é preservada; as demais redes aparecem como **"Em breve"** até terem integração real. **Nada de dados simulados.** Ver [docs/superpowers/specs/2026-07-10-rewrite-nucleo-honesto-design.md](docs/superpowers/specs/2026-07-10-rewrite-nucleo-honesto-design.md).
 >
 > Milestone atual: **M1 (Fundação)** — Next.js, auth Supabase, shell Studio Light. Milestones seguintes (M2–M5) portam marcas, conexões reais do IG, composer/agendamento, calendário/aprovação/dashboard. O código Vite anterior está em `legacy/` como referência para portar.

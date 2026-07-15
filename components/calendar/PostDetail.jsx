@@ -29,7 +29,7 @@ export function PostDetail({ post, onClose }) {
 
   return (
     <div className="animate-fade fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="animate-pop w-full max-w-md overflow-hidden rounded-2xl border border-line bg-surface shadow-lift" onClick={(e) => e.stopPropagation()}>
+      <div className="animate-pop w-full max-w-md overflow-hidden rounded-2xl glass shadow-lift" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-5 py-3">
           <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold text-white" style={{ backgroundColor: meta.color }}>
             <span className="h-1.5 w-1.5 rounded-full bg-white/80" /> {meta.label}
@@ -47,7 +47,7 @@ export function PostDetail({ post, onClose }) {
               <Button size="sm" onClick={onRequest} disabled={busy} className="w-full">{busy ? 'Gerando…' : 'Gerar link de aprovação'}</Button>
             ) : (
               <div className="flex items-center gap-2">
-                <input readOnly value={link} className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[11px] text-muted" />
+                <input readOnly value={link} className="min-w-0 flex-1 rounded-lg glass px-2.5 py-1.5 text-[11px] text-muted" />
                 <button onClick={copy} className="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 text-white transition-transform hover:scale-105">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button>
               </div>
             )}

@@ -25,12 +25,21 @@ module.exports = {
         info: c('--c-info')
       },
       boxShadow: {
-        soft: '0 1px 2px rgb(var(--c-shadow) / 0.05), 0 4px 14px rgb(var(--c-shadow) / 0.06)',
-        lift: '0 2px 4px rgb(var(--c-shadow) / 0.06), 0 12px 32px rgb(var(--c-shadow) / 0.10)',
-        glow: '0 0 0 1px rgb(var(--c-accent) / 0.20), 0 8px 28px rgb(var(--c-accent) / 0.18)'
+        /* Neon Glass: sombras difusas + brilho violeta do acento */
+        soft: '0 1px 2px rgb(var(--c-shadow) / 0.06), 0 8px 24px rgb(var(--c-shadow) / 0.10)',
+        lift: '0 4px 14px rgb(var(--c-shadow) / 0.10), 0 28px 60px rgb(var(--c-shadow) / 0.18)',
+        glow: '0 0 0 4px rgb(var(--c-accent) / 0.15)',
+        neon: '0 10px 34px -8px rgb(var(--c-glow) / 0.45), 0 0 0 1px rgb(var(--c-glow) / 0.14)'
       },
-      borderRadius: { xl: '14px', '2xl': '18px' },
-      fontFamily: { sans: ['ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'sans-serif'] },
+      borderRadius: { lg: '16px', xl: '20px', '2xl': '24px', '3xl': '32px', '4xl': '40px' },
+      fontFamily: {
+        sans: [
+          'Outfit', 'Geist', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'SF Pro Display',
+          'Segoe UI', 'Roboto', 'system-ui', 'sans-serif'
+        ],
+        display: ['Outfit', 'Geist', 'SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Geist Mono', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+      },
       transitionTimingFunction: { emphasized: 'cubic-bezier(.22,1,.36,1)' }
     }
   },

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { buildAuthUrl } from '@/lib/meta/graph';
 
 const DEFAULT_SCOPES = [
-  'public_profile', 'pages_show_list', 'pages_read_engagement',
+  'public_profile', 'pages_show_list', 'pages_read_engagement', 'pages_manage_posts',
   'instagram_basic', 'instagram_content_publish', 'business_management'
 ].join(',');
 

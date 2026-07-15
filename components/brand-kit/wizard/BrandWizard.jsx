@@ -10,7 +10,7 @@ import {
   OBJECTIVES, TONES, PERSONALITIES, STORYTELLING, EMOJIS, CAPTIONS, CTAS, STYLES, STEP_TITLES
 } from './options';
 
-const field = 'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
+const field = 'w-full rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent focus:ring-4 focus:ring-accent/15';
 const norm = (o) => (typeof o === 'string' ? { value: o.toLowerCase(), label: o } : o);
 const labelOf = (arr, v) => norm(arr.find((o) => norm(o).value === v) || {}).label || '';
 
@@ -174,14 +174,14 @@ export function BrandWizard({ brandId, brandName, brandColor, kit, onComplete })
   }
 
   const swatch = (key, label) => (
-    <label className="flex items-center gap-2 rounded-lg border border-line bg-surface px-2.5 py-2">
+    <label className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-2.5 py-2">
       <input type="color" value={palette[key]} onChange={(e) => setPalette((p) => ({ ...p, [key]: e.target.value }))}
         className="h-7 w-7 cursor-pointer rounded border-0 bg-transparent p-0" />
       <span className="text-xs font-semibold text-ink">{label}</span>
     </label>
   );
   const src = (checked, set, Icon, label) => (
-    <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface px-3.5 py-3">
+    <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface-2 px-3.5 py-3">
       <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} className="h-4 w-4" />
       <Icon className="h-4 w-4 text-accent" />
       <span className="text-sm font-semibold text-ink">{label}</span>
@@ -191,27 +191,29 @@ export function BrandWizard({ brandId, brandName, brandColor, kit, onComplete })
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {/* progresso */}
-      <div>
-        <div className="mb-1.5 flex items-center justify-between text-xs font-semibold">
-          <span className="text-ink">{STEP_TITLES[step]}</span>
-          <span className="text-faint">Passo {step + 1} de 6 · {pct}%</span>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-[13px] font-semibold">
+          <span className="text-accent">Passo {step + 1} de 6</span>
+          <span className="text-faint">{pct}%</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-line">
-          <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
-        </div>
-        <div className="mt-2 flex gap-1.5">
+        <div className="flex gap-1.5">
           {STEP_TITLES.map((_, i) => (
-            <button key={i} type="button" onClick={() => setStep(i)}
-              className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? 'bg-accent/60' : 'bg-line'}`} />
+            <button key={i} type="button" onClick={() => setStep(i)} aria-label={`Ir ao passo ${i + 1}`}
+              className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ease-emphasized ${i <= step ? 'bg-accent' : 'bg-line'}`} />
           ))}
         </div>
       </div>
 
-      <div className="rounded-2xl border border-line bg-surface/40 p-5 sm:p-6 space-y-5">
+      {/* hero — pergunta grande, respiro Apple */}
+      <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink sm:text-[34px]">
+        {STEP_TITLES[step]}
+      </h1>
+
+      <div className="rounded-2xl glass p-5 shadow-soft sm:p-6 space-y-5">
         {step === 0 && (
           <>
             <Q title="Nome da marca">
-              <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-muted">
+              <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-muted">
                 <User className="h-4 w-4 text-accent" />{brandName}
               </div>
             </Q>

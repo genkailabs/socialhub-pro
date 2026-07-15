@@ -5,6 +5,8 @@ import { ApprovalsList } from '@/components/approvals/ApprovalsList';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listPostsForBrand, getPostComments } from '@/lib/posts-data';
+import { getPipeline } from '@/lib/pipeline';
+import { PipelineProgress } from '@/components/onboarding/PipelineProgress';
 
 export default async function ApprovalsPage() {
   const brands = await listBrands();
@@ -12,6 +14,7 @@ export default async function ApprovalsPage() {
   const all = active ? await listPostsForBrand(active.id) : [];
   let pending = all.filter((p) => p.status === 'waiting_approval');
   pending = await Promise.all(pending.map(async (p) => ({ ...p, comments: await getPostComments(p.id) })));
+  const pipeline = active ? await getPipeline(active.id) : null;
 
   return (
     <div className="space-y-6">
@@ -21,6 +24,8 @@ export default async function ApprovalsPage() {
           {active ? <>Posts de <strong className="text-ink">{active.name}</strong> aguardando decisão do cliente</> : 'Crie uma marca primeiro.'}
         </p>
       </div>
+
+      {active && <PipelineProgress pipeline={pipeline} />}
 
       {!active ? (
         <EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState>

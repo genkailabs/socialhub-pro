@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 
 function Card({ title, children }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface/40 p-4">
+    <div className="rounded-2xl glass p-4 shadow-soft">
       <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-accent">{title}</h3>
       {children}
     </div>
@@ -19,6 +19,22 @@ const Row = ({ k, v }) => (
 const Tick = ({ children }) => (
   <li className="flex items-center gap-1.5 text-sm text-ink"><Check className="h-3.5 w-3.5 text-success" />{children}</li>
 );
+
+// Anel de progresso circular (estilo Activity Ring da Apple).
+function Ring({ pct }) {
+  const r = 32, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
+  return (
+    <div className="relative h-[84px] w-[84px] shrink-0">
+      <svg viewBox="0 0 84 84" className="h-full w-full -rotate-90">
+        <circle cx="42" cy="42" r={r} fill="none" strokeWidth="8" className="stroke-line" />
+        <circle cx="42" cy="42" r={r} fill="none" strokeWidth="8" strokeLinecap="round"
+          className="stroke-accent transition-[stroke-dashoffset] duration-700 ease-emphasized"
+          strokeDasharray={c} strokeDashoffset={off} />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-lg font-bold tracking-tight text-ink">{pct}%</span>
+    </div>
+  );
+}
 
 function diagnose(s) {
   const traits = (s.personality || []).slice(0, 3).join(', ').toLowerCase();
@@ -56,9 +72,7 @@ export function DnaDashboard({ summary, onEditKit }) {
 
         <Card title="Confiança do Brand DNA">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 flex-col items-center justify-center rounded-2xl bg-accent/10">
-              <span className="text-2xl font-extrabold text-accent">{conf}%</span>
-            </div>
+            <Ring pct={conf} />
             <p className="text-xs text-muted">
               Quanto mais fontes forem conectadas, mais preciso será o Brand DNA.
             </p>

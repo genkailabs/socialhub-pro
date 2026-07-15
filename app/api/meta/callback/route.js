@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { exchangeCodeForToken, exchangeForLongLivedToken, discoverInstagramAccount } from '@/lib/meta/graph';
+import { exchangeCodeForToken, exchangeForLongLivedToken, discoverPages } from '@/lib/meta/graph';
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
@@ -35,24 +35,46 @@ export async function GET(request) {
 
     const shortToken = await exchangeCodeForToken({ code, appId, appSecret, redirectUri });
     const { token: longToken, expiresIn } = await exchangeForLongLivedToken({ shortToken, appId, appSecret });
-    const { igAccount, page } = await discoverInstagramAccount(longToken);
+    const { page } = await discoverPages(longToken);
 
-    const { error: upErr } = await supabase.from('social_tokens').upsert({
+    const now = new Date().toISOString();
+    // Page access tokens derivados de um user token long-lived não expiram.
+    const rows = [{
       user_id: user.id,
       brand_id: brandId,
-      platform: 'instagram',
-      access_token: longToken,
-      token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
-      platform_user_id: igAccount.id,
-      platform_username: igAccount.username || igAccount.name,
-      platform_data: { page_id: page.id, page_name: page.name, profile_picture_url: igAccount.profile_picture_url || null },
+      platform: 'facebook',
+      access_token: page.access_token,
+      token_expires_at: null,
+      platform_user_id: page.id,
+      platform_username: page.name,
+      platform_data: { page_id: page.id, page_name: page.name },
       is_active: true,
-      last_synced_at: new Date().toISOString()
-    }, { onConflict: 'brand_id,platform' });
+      last_synced_at: now
+    }];
+
+    // Se a Página tiver IG Business vinculado, conecta o Instagram no mesmo fluxo.
+    const igAccount = page.instagram_business_account;
+    if (igAccount) {
+      rows.push({
+        user_id: user.id,
+        brand_id: brandId,
+        platform: 'instagram',
+        access_token: longToken,
+        token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+        platform_user_id: igAccount.id,
+        platform_username: igAccount.username || igAccount.name,
+        platform_data: { page_id: page.id, page_name: page.name, profile_picture_url: igAccount.profile_picture_url || null },
+        is_active: true,
+        last_synced_at: now
+      });
+    }
+
+    const { error: upErr } = await supabase.from('social_tokens').upsert(rows, { onConflict: 'brand_id,platform' });
     if (upErr) throw new Error(`Erro ao salvar token: ${upErr.message}`);
 
-    const uname = igAccount.username || igAccount.name;
-    return NextResponse.redirect(`${appUrl}/connections?status=success&platform=instagram&username=${encodeURIComponent(uname)}`);
+    const connected = igAccount ? 'instagram' : 'facebook';
+    const uname = igAccount ? (igAccount.username || igAccount.name) : page.name;
+    return NextResponse.redirect(`${appUrl}/connections?status=success&platform=${connected}&username=${encodeURIComponent(uname)}`);
   } catch (e) {
     return back(e.message || 'Erro interno ao processar autorização.');
   }

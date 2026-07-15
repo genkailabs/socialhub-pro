@@ -5,6 +5,8 @@ import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { getContentPlan } from '@/lib/content-plan-data';
 import { getBrandKit } from '@/lib/brand-kit-data';
+import { getPipeline } from '@/lib/pipeline';
+import { PipelineProgress } from '@/components/onboarding/PipelineProgress';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
 
 export default async function AutopilotPage() {
@@ -13,6 +15,7 @@ export default async function AutopilotPage() {
   const [plan, kit] = active
     ? await Promise.all([getContentPlan(active.id), getBrandKit(active.id)])
     : [null, null];
+  const pipeline = active ? await getPipeline(active.id) : null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -41,8 +44,10 @@ export default async function AutopilotPage() {
         {active && <BrandBadge name={active.name} color={active.color} size={44} />}
       </div>
 
+      {active && <PipelineProgress pipeline={pipeline} />}
+
       {/* Como funciona (Guia Visual Interativo UX) */}
-      <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
+      <div className="overflow-hidden rounded-2xl glass shadow-soft">
         <div className="border-b border-line bg-surface-2/60 px-5 py-3">
           <p className="text-xs font-extrabold uppercase tracking-wider text-muted">
             💡 Como funciona o Piloto Automático?

@@ -11,7 +11,7 @@ export function ConnectionsSummary({ brandName, connected, available, soon }) {
   ];
 
   return (
-    <div className="animate-rise overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
+    <div className="animate-rise overflow-hidden rounded-2xl glass shadow-soft">
       <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-muted">

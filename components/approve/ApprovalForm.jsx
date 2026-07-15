@@ -28,7 +28,7 @@ export function ApprovalForm({ postId }) {
     );
   }
 
-  const field = 'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
+  const field = 'w-full rounded-xl glass px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
 
   return (
     <div className="space-y-3">

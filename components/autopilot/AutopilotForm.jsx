@@ -4,7 +4,7 @@ import {
   Wand2, CheckCircle2, AlertCircle, CalendarClock, Plus, X,
   Sliders, LayoutTemplate, Sparkles, Clock, Layers, ShieldAlert
 } from 'lucide-react';
-import { saveContentPlan } from '@/lib/content-plan-actions';
+import { saveContentPlan, setAutopilotActive } from '@/lib/content-plan-actions';
 import { TEMPLATES, TEMPLATE_LABELS } from '@/lib/ai/templates';
 import { Button } from '@/components/ui/Button';
 
@@ -24,7 +24,30 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
   const [newPillar, setNewPillar] = useState('');
   const [times, setTimes] = useState((plan?.preferred_times || []).join(', '));
   const [busy, setBusy] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [msg, setMsg] = useState(null);
+
+  // Ativa/pausa em 1 clique e salva na hora (independente do botão "Salvar").
+  async function toggleActive() {
+    if (toggling) return;
+    const next = !active;
+    setActive(next); // otimista
+    setToggling(true);
+    setMsg(null);
+    const res = await setAutopilotActive({ brandId, active: next });
+    setToggling(false);
+    if (res?.error) {
+      setActive(!next); // reverte se falhar
+      setMsg({ type: 'err', text: res.error });
+    } else {
+      setMsg({
+        type: 'ok',
+        text: next
+          ? 'Piloto ATIVADO ✓ A IA vai gerar posts diários (execução às 09:00) na sua fila de Aprovações.'
+          : 'Piloto pausado. A IA não vai gerar novos posts.'
+      });
+    }
+  }
 
   function addPillar(text) {
     const val = text.trim();
@@ -53,7 +76,7 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
   }
 
   const field =
-    'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
+    'w-full rounded-xl glass px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
 
   return (
     <div className="space-y-6">
@@ -70,10 +93,14 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
         </div>
       )}
 
-      {/* 1. Ativação Principal */}
+      {/* 1. Ativação Principal — salva na hora */}
       <div
-        onClick={() => setActive((v) => !v)}
-        className={`cursor-pointer rounded-2xl border p-5 transition-all shadow-soft ${
+        role="button"
+        tabIndex={0}
+        onClick={toggleActive}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleActive(); } }}
+        aria-busy={toggling}
+        className={`cursor-pointer rounded-2xl border p-5 transition-all shadow-soft ${toggling ? 'opacity-70' : ''} ${
           active
             ? 'border-accent bg-accent/5 dark:bg-accent/10'
             : 'border-line bg-surface hover:border-line-strong'
@@ -125,7 +152,7 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
       </div>
 
       {/* 2. Quantidade e Formato */}
-      <div className="grid gap-6 rounded-2xl border border-line bg-surface p-5 shadow-soft sm:grid-cols-2">
+      <div className="grid gap-6 rounded-2xl glass p-5 shadow-soft sm:grid-cols-2">
         <div className="space-y-2">
           <label className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-ink">
             <Sliders className="h-3.5 w-3.5 text-accent" /> Ritmo de Geração Diária
@@ -168,7 +195,7 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
       </div>
 
       {/* 3. Rodízio de Pilares de Conteúdo */}
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft space-y-4">
+      <div className="rounded-2xl glass p-5 shadow-soft space-y-4">
         <div>
           <label className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-ink">
             <Layers className="h-3.5 w-3.5 text-accent" /> Rodízio de Pilares de Conteúdo
@@ -248,7 +275,7 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
       </div>
 
       {/* 4. Horários preferidos */}
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft space-y-2">
+      <div className="rounded-2xl glass p-5 shadow-soft space-y-2">
         <label className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-ink">
           <Clock className="h-3.5 w-3.5 text-accent" /> Horários de Agendamento Preferidos (Opcional)
         </label>

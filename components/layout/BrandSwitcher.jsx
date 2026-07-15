@@ -27,7 +27,7 @@ export function BrandSwitcher({ brands = [], activeId }) {
       </button>
 
       {open && (
-        <div className="animate-pop absolute left-0 top-full z-40 mt-1.5 w-60 rounded-xl border border-line bg-surface p-1.5 shadow-lift">
+        <div className="animate-pop absolute left-0 top-full z-40 mt-1.5 w-60 rounded-xl glass p-1.5 shadow-lift">
           {brands.length === 0 && <p className="px-2.5 py-2 text-xs text-muted">Nenhuma marca ainda.</p>}
           {brands.map((b) => (
             <button key={b.id}

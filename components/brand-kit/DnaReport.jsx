@@ -18,7 +18,7 @@ const CONF = {
 function List({ icon: Icon, title, items, tone }) {
   if (!items?.length) return null;
   return (
-    <div className="rounded-xl border border-line bg-surface p-4">
+    <div className="rounded-xl glass p-4">
       <p className={`mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${tone}`}>
         <Icon className="h-3.5 w-3.5" /> {title}
       </p>
@@ -37,7 +37,7 @@ export function DnaReport({ report }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 rounded-xl border border-line bg-surface p-5">
+      <div className="flex items-center gap-4 rounded-xl glass p-5">
         <div className="flex h-16 w-16 flex-col items-center justify-center rounded-2xl bg-accent/10">
           <span className="text-2xl font-extrabold text-accent">{Number(overall).toFixed(1)}</span>
           <span className="text-[10px] font-semibold uppercase text-faint">/ 10</span>
@@ -51,7 +51,7 @@ export function DnaReport({ report }) {
       {categories.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
           {categories.map((c, i) => (
-            <div key={i} className="rounded-xl border border-line bg-surface p-4">
+            <div key={i} className="rounded-xl glass p-4">
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="text-sm font-bold text-ink">{CAT_LABELS[c.key] || c.key}</span>
                 <span className="text-sm font-extrabold text-accent">{Number(c.score).toFixed(1)}<span className="text-[10px] text-faint">/10</span></span>

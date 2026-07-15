@@ -87,7 +87,7 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
     setCopied(true); setTimeout(() => setCopied(false), 1500);
   }
 
-  const field = 'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
+  const field = 'w-full rounded-xl glass px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
   const tab = (active) => `flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all ${active ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'}`;
   const view = media[slide] || media[0];
 
@@ -196,7 +196,7 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
       {/* prévia estilo Instagram */}
       <div className="lg:sticky lg:top-4">
         <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted">Prévia</p>
-        <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
+        <div className="overflow-hidden rounded-2xl glass shadow-soft">
           <div className="flex items-center gap-2 p-3">
             <span className="h-7 w-7 rounded-full bg-gradient-to-br from-accent to-accent-soft" />
             <span className="text-xs font-bold text-ink">{brandName}</span>

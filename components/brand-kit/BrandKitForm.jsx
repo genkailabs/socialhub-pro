@@ -90,7 +90,7 @@ function Field({ label, tip, desc, impact, children }) {
 
 function Section({ title, children }) {
   return (
-    <section className="space-y-4 rounded-2xl border border-line bg-surface/40 p-4">
+    <section className="space-y-4 rounded-2xl glass p-5 shadow-soft">
       <h3 className="text-[11px] font-bold uppercase tracking-wider text-accent">{title}</h3>
       {children}
     </section>
@@ -146,7 +146,7 @@ export function BrandKitForm({ brandId, brandColor, kit }) {
     }
   }
 
-  const field = 'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
+  const field = 'w-full rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent focus:ring-4 focus:ring-accent/15';
   const select = (value, setter, opts) => (
     <select value={value} onChange={(e) => setter(e.target.value)} className={field}>
       <option value="">—</option>
@@ -154,7 +154,7 @@ export function BrandKitForm({ brandId, brandColor, kit }) {
     </select>
   );
   const swatch = (key, label) => (
-    <label className="flex items-center gap-2 rounded-lg border border-line bg-surface px-2.5 py-2">
+    <label className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-2.5 py-2">
       <input type="color" value={palette[key]} onChange={(e) => setPalette((p) => ({ ...p, [key]: e.target.value }))}
         className="h-7 w-7 cursor-pointer rounded border-0 bg-transparent p-0" />
       <span className="text-xs font-semibold text-ink">{label}</span>

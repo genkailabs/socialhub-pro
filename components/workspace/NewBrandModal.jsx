@@ -37,11 +37,11 @@ export function NewBrandModal({ open, onClose }) {
     onClose();
   }
 
-  const field = 'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
+  const field = 'w-full rounded-xl glass px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
 
   return (
     <div className="animate-fade fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="animate-pop w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-lift" onClick={(e) => e.stopPropagation()}>
+      <div className="animate-pop w-full max-w-md rounded-2xl glass p-6 shadow-lift" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center gap-3">
           <BrandBadge name={name || '?'} color={color} size={36} />
           <div className="flex-1">

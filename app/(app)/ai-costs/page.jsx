@@ -6,7 +6,7 @@ import { BrandBadge } from '@/components/workspace/BrandBadge';
 
 function StatCard({ label, value, hint, icon: Icon, accent, badge }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-line bg-surface p-5 shadow-soft transition-all hover:border-line-strong">
+    <div className="relative overflow-hidden rounded-2xl glass p-5 shadow-soft transition-all hover:border-line-strong">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-muted">{label}</p>
@@ -93,7 +93,7 @@ export default async function AICostsPage() {
             Gere posts no Composer ou no Piloto Automático para ver o detalhamento por requisição.
           </EmptyState>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
+          <div className="overflow-hidden rounded-2xl glass shadow-soft">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm">
                 <thead>

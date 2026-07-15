@@ -5,7 +5,7 @@ import { analyzeBrandDNA } from '@/lib/dna-actions';
 import { Button } from '@/components/ui/Button';
 import { DnaReport } from './DnaReport';
 
-const field = 'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
+const field = 'w-full rounded-xl glass px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
 
 export function DnaAnalyzer({ brandId, brandName, kit, savedReport }) {
   const [wantIg, setWantIg] = useState(true);
@@ -27,7 +27,7 @@ export function DnaAnalyzer({ brandId, brandName, kit, savedReport }) {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-line bg-surface p-5 space-y-4">
+      <div className="rounded-xl glass p-5 space-y-4">
         <p className="text-sm font-bold text-ink">Fontes para a IA analisar</p>
 
         <label className="flex cursor-pointer items-center gap-2.5">
