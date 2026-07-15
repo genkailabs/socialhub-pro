@@ -7,8 +7,8 @@ export function AppShell({ children, brands, activeId }) {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar brands={brands} activeId={activeId} />
-        <main className="min-h-0 flex-1 overflow-auto">
-          <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>
+        <main className="min-h-0 flex-1 overflow-auto bg-app">
+          <div className="p-8 space-y-8">{children}</div>
         </main>
       </div>
     </div>

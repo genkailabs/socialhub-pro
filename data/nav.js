@@ -1,21 +1,16 @@
-import { LayoutDashboard, PenSquare, Calendar, Share2, CheckSquare, Inbox, BarChart3, Palette, Wand2, Coins } from 'lucide-react';
+import { LayoutDashboard, GitBranch, Handshake, Sparkles, Coins, Users, CheckSquare, Inbox, BarChart3 } from 'lucide-react';
 
 export const NAV_GROUPS = [
-  { label: 'Conteúdo', items: [
+  { label: 'Módulos Principais', items: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/composer', label: 'Composer', icon: PenSquare },
-    { href: '/calendar', label: 'Calendário', icon: Calendar }
+    { href: '/composer', label: 'Composer (Postar)', icon: GitBranch },
+    { href: '/calendar', label: 'Calendário & Links', icon: Handshake },
+    { href: '/brand-kit', label: 'Brand Kit & DNA', icon: Sparkles },
   ]},
-  { label: 'IA', items: [
-    { href: '/brand-kit', label: 'Brand Kit', icon: Palette },
-    { href: '/autopilot', label: 'Piloto', icon: Wand2 },
-    { href: '/ai-costs', label: 'Custos IA', icon: Coins }
-  ]},
-  { label: 'Redes', items: [
-    { href: '/connections', label: 'Conexões', icon: Share2 }
-  ]},
-  { label: 'Cliente', items: [
-    { href: '/approvals', label: 'Aprovações', icon: CheckSquare }
+  { label: 'Administração', items: [
+    { href: '/approvals', label: 'Aprovações', icon: CheckSquare },
+    { href: '/connections', label: 'Conexões (Meta/YT)', icon: Users },
+    { href: '/ai-costs', label: 'Custos da IA', icon: Coins }
   ]},
   { label: 'Em breve', items: [
     { href: '#', label: 'Inbox', icon: Inbox, soon: true },
