@@ -1,19 +1,53 @@
-export function StatTile({ label, value, hint, icon: Icon, accent }) {
+import { TrendingUp, TrendingDown } from 'lucide-react';
+
+export function StatTile({ label, value, hint, icon: Icon, accent, change, changeType = 'positive' }) {
+  const isPositive = changeType === 'positive';
+  const isNegative = changeType === 'negative';
+
   return (
-    <div className={`glass group relative overflow-hidden rounded-3xl p-5 transition-all duration-300 ease-emphasized hover:-translate-y-1 ${
-      accent ? 'glow-accent' : 'shadow-soft hover:shadow-lift'
+    <div className={`group relative overflow-hidden rounded-xl border p-5 transition-all duration-300 ease-emphasized ${
+      accent 
+        ? 'bg-surface border-accent/40 shadow-soft glow-accent hover:border-accent' 
+        : 'bg-surface border-line/80 dark:border-line/40 shadow-soft hover:border-accent/50 dark:hover:border-accent/50'
     }`}>
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-accent/10 blur-2xl" />
-      <div className="relative flex items-center justify-between">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</p>
+      {/* Gradiente sutil em hover (Ambient Glow) */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+      
+      <div className="relative flex items-start justify-between mb-3">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+          {label}
+        </span>
         {Icon && (
-          <span className={`grid h-9 w-9 place-items-center rounded-xl ${accent ? 'bg-accent text-white shadow-md shadow-accent/25' : 'bg-surface-2/80 text-accent'}`}>
-            <Icon className="h-[18px] w-[18px]" />
+          <span className={`grid h-9 w-9 place-items-center rounded-lg transition-colors duration-300 ${
+            accent 
+              ? 'bg-accent text-white shadow-md shadow-accent/25' 
+              : 'bg-surface-2 text-muted group-hover:bg-accent/10 group-hover:text-accent'
+          }`}>
+            <Icon className="h-4 w-4" />
           </span>
         )}
       </div>
-      <p className={`relative mt-3 font-mono text-[32px] font-bold leading-none tracking-tight tabular-nums ${accent ? 'text-accent dark:text-accent-soft' : 'text-ink'}`}>{value}</p>
-      {hint && <p className="relative mt-1.5 font-mono text-[11px] text-muted">{hint}</p>}
+
+      <div className="relative flex items-end justify-between gap-3">
+        <div>
+          <p className={`font-mono text-2xl lg:text-3xl font-bold leading-none tracking-tight tabular-nums ${
+            accent ? 'text-accent dark:text-accent-soft' : 'text-ink'
+          }`}>
+            {value}
+          </p>
+          {hint && <p className="mt-1.5 font-mono text-[11px] text-muted">{hint}</p>}
+        </div>
+
+        {change && (
+          <div className={`flex items-center gap-1 text-xs font-bold mb-0.5 ${
+            isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-muted'
+          }`}>
+            {isPositive && <TrendingUp className="h-3.5 w-3.5 shrink-0" />}
+            {isNegative && <TrendingDown className="h-3.5 w-3.5 shrink-0" />}
+            <span>{change}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
