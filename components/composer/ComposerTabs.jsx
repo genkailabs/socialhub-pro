@@ -5,7 +5,7 @@ import { ComposerForm } from './ComposerForm';
 import { AIStudioPanel } from '@/components/ai/AIStudioPanel';
 
 export function ComposerTabs({ brandId, brandName, hasBrandKit }) {
-  const [tab, setTab] = useState('manual');
+  const [tab, setTab] = useState('ai');
   const btn = (active) =>
     `flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-all ${
       active ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'
