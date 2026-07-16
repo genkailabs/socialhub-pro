@@ -2,23 +2,36 @@
 import { useState } from 'react';
 import {
   Sparkles, Wand2, Send, Clock, FileText, Link2, Copy, Check,
-  CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, RefreshCw
+  CheckCircle2, AlertCircle, Image as ImageIcon, RefreshCw, Type
 } from 'lucide-react';
-import { generatePost } from '@/lib/ai-actions';
+import { generatePost, generateNewsImages, finalizeNewsImage } from '@/lib/ai-actions';
 import { publishNow, schedulePost, saveDraft, submitForApproval } from '@/lib/posts-actions';
 import { TEMPLATES, TEMPLATE_LABELS } from '@/lib/ai/templates';
 import { formatUsd } from '@/lib/ai/cost';
 import { Button } from '@/components/ui/Button';
+
+const TITLE_POSITION = {
+  top: 'items-start',
+  center: 'items-center',
+  bottom: 'items-end'
+};
 
 export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit }) {
   const [topic, setTopic] = useState('');
   const [format, setFormat] = useState('quote');
   const [goal, setGoal] = useState('engajar a audiência');
   const [ignoreDna, setIgnoreDna] = useState(false);
-  const [gen, setGen] = useState(null); // { spec, imageUrls, cost }
+  const [gen, setGen] = useState(null);
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('');
-  const [slide, setSlide] = useState(0);
+  const [visualDirection, setVisualDirection] = useState('');
+  const [imageOptions, setImageOptions] = useState([]);
+  const [selectedImage, setSelectedImage] = useState('');
+  const [finalImageUrl, setFinalImageUrl] = useState('');
+  const [textEnabled, setTextEnabled] = useState(true);
+  const [imageTitle, setImageTitle] = useState('');
+  const [titlePosition, setTitlePosition] = useState('bottom');
+  const [imageCost, setImageCost] = useState(0);
   const [mode, setMode] = useState('now');
   const [when, setWhen] = useState('');
   const [busy, setBusy] = useState('');
@@ -34,22 +47,69 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
       setGen(res);
       setCaption(res.spec.caption || '');
       setHashtags((res.spec.hashtags || []).join(' '));
-      setSlide(0);
+      setImageTitle(res.spec.headline || topic);
+      setImageOptions([]); setSelectedImage(''); setFinalImageUrl(''); setImageCost(0);
+      setMsg({ type: 'ok', text: `Texto criado! Agora escolha como a imagem da notícia deve ficar. Custo do texto: ${formatUsd(res.textCost || 0)}.` });
+    } catch (e) {
+      setMsg({ type: 'err', text: e.message });
+    } finally { setBusy(''); }
+  }
+
+  async function createImageOptions() {
+    if (!gen) return;
+    setBusy('images'); setMsg(null); setFinalImageUrl('');
+    try {
+      const res = await generateNewsImages({
+        brandId,
+        topic: topic.trim() || gen.spec.headline,
+        caption,
+        direction: visualDirection
+      });
+      if (res?.error) throw new Error(res.error);
+      setImageOptions(res.imageUrls || []);
+      setSelectedImage(res.imageUrls?.[0] || '');
+      setImageCost(res.imageCost || 0);
       setMsg({
         type: 'ok',
-        text: `Gerado! Custo total: ${formatUsd(res.cost)} (DeepSeek texto: ${formatUsd(res.textCost || 0)} · Imagem ${res.imageProvider === 'deapi' ? 'deAPI' : 'render'}: ${formatUsd(res.imageCost || 0)}).`
+        text: res.failedCount ? `${res.imageUrls.length} opções ficaram prontas. Algumas não puderam ser geradas.` : 'Quatro opções de imagem foram criadas. Escolha a que combina melhor com a notícia.'
       });
     } catch (e) {
       setMsg({ type: 'err', text: e.message });
     } finally { setBusy(''); }
   }
 
+  function chooseImage(url) {
+    setSelectedImage(url);
+    setFinalImageUrl('');
+  }
+
+  async function useSelectedImage() {
+    if (!selectedImage) return;
+    setBusy('finalize'); setMsg(null);
+    try {
+      const res = await finalizeNewsImage({
+        brandId,
+        sourceUrl: selectedImage,
+        title: imageTitle,
+        textEnabled,
+        position: titlePosition
+      });
+      if (res?.error) throw new Error(res.error);
+      setFinalImageUrl(res.imageUrl);
+      setMsg({ type: 'ok', text: textEnabled && imageTitle.trim() ? 'Imagem final com título está pronta para publicar.' : 'Imagem escolhida está pronta para publicar.' });
+    } catch (e) {
+      setMsg({ type: 'err', text: e.message });
+    } finally { setBusy(''); }
+  }
+
   async function run(action) {
-    if (!gen) return;
+    const imageUrl = finalImageUrl || selectedImage;
+    if (!imageUrl) { setMsg({ type: 'err', text: 'Crie e escolha uma imagem antes de publicar.' }); return; }
+    if (!finalImageUrl) { setMsg({ type: 'err', text: 'Clique em “Usar esta imagem” para preparar a arte final.' }); return; }
     if (action === 'schedule' && !when) { setMsg({ type: 'err', text: 'Escolha data e hora.' }); return; }
     setBusy(action); setMsg(null); setApprovalLink('');
     try {
-      const payload = { brandId, caption, hashtags, imageUrls: gen.imageUrls };
+      const payload = { brandId, caption, hashtags, imageUrls: [imageUrl] };
       let res;
       if (action === 'now') res = await publishNow(payload);
       else if (action === 'schedule') res = await schedulePost({ ...payload, scheduledAt: new Date(when).toISOString() });
@@ -74,7 +134,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
 
   const field = 'w-full rounded-xl glass px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
   const tab = (active) => `flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all ${active ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'}`;
-  const urls = gen?.imageUrls || [];
+  const previewImage = finalImageUrl || selectedImage;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -82,25 +142,25 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
         {!hasBrandKit && (
           <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-xs text-ink">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-            <span>Configure o <a href="/brand-kit" className="font-bold text-accent hover:underline">Brand Kit</a> desta marca (nicho, tom, paleta) para a IA gerar conteúdo mais on-brand.</span>
+            <span>Configure o <a href="/brand-kit" className="font-bold text-accent hover:underline">Brand Kit</a> desta marca para a IA gerar conteúdo mais alinhado à marca.</span>
           </div>
         )}
 
         <div>
-          <label className="mb-1.5 block text-xs font-bold text-ink">Tema / assunto do post</label>
-          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Ex: benefícios do café coado, dica de produtividade…" className={field} />
+          <label className="mb-1.5 block text-xs font-bold text-ink">Tema / assunto da notícia</label>
+          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Ex: Vibe Coding, futebol, economia…" className={field} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1.5 block text-xs font-bold text-ink">Formato</label>
             <select value={format} onChange={(e) => setFormat(e.target.value)} className={field}>
-              {TEMPLATES.map((t) => <option key={t} value={t}>{TEMPLATE_LABELS[t]}</option>)}
+              {TEMPLATES.map((template) => <option key={template} value={template}>{TEMPLATE_LABELS[template]}</option>)}
             </select>
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-bold text-ink">Objetivo</label>
-            <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="engajar, vender, educar…" className={field} />
+            <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="engajar, educar…" className={field} />
           </div>
         </div>
 
@@ -110,7 +170,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
         </label>
 
         <Button onClick={generate} disabled={busy === 'gen'} className="w-full">
-          <Wand2 className="h-4 w-4" /> {busy === 'gen' ? 'Gerando com IA…' : gen ? 'Gerar outra ideia' : 'Gerar com IA'}
+          <Wand2 className="h-4 w-4" /> {busy === 'gen' ? 'Criando notícia…' : gen ? 'Gerar outra ideia' : 'Gerar com IA'}
         </Button>
 
         {gen && (
@@ -122,29 +182,72 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
               <input value={hashtags} onChange={(e) => setHashtags(e.target.value)} className={field} />
             </div>
 
+            <section className="space-y-3 rounded-2xl border border-line bg-surface-2/40 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-extrabold text-ink"><Sparkles className="h-4 w-4 text-accent" /> Imagem da notícia</h2>
+                  <p className="mt-1 text-xs text-muted">A IA cria imagens ligadas ao assunto, sem texto.</p>
+                </div>
+                <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent">Tema: {topic.trim() || gen.spec.headline}</span>
+              </div>
+
+              <div className="flex gap-2">
+                <input value={visualDirection} onChange={(e) => { setVisualDirection(e.target.value); setFinalImageUrl(''); }} placeholder="Direção visual: moderno, esportivo, sem pessoas…" className={field} />
+                <Button onClick={createImageOptions} disabled={busy === 'images'} className="shrink-0">
+                  <RefreshCw className="h-4 w-4" /> {busy === 'images' ? 'Criando…' : 'Criar opções'}
+                </Button>
+              </div>
+
+              {imageOptions.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {imageOptions.map((url, index) => (
+                    <button key={url} type="button" onClick={() => chooseImage(url)} className={`relative aspect-square overflow-hidden rounded-xl border-2 transition ${selectedImage === url ? 'border-accent ring-2 ring-accent/30' : 'border-transparent hover:border-line'}`}>
+                      <img src={url} alt={`Opção ${index + 1} gerada para a notícia`} className="h-full w-full object-cover" />
+                      {selectedImage === url && <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-accent text-white"><Check className="h-4 w-4" /></span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedImage && (
+                <div className="space-y-3 border-t border-line pt-3">
+                  <label className="flex items-center justify-between gap-3 text-sm font-bold text-ink">
+                    <span className="flex items-center gap-2"><Type className="h-4 w-4 text-accent" /> Adicionar título na imagem</span>
+                    <input type="checkbox" checked={textEnabled} onChange={(e) => { setTextEnabled(e.target.checked); setFinalImageUrl(''); }} className="h-5 w-5 accent-accent" />
+                  </label>
+                  {textEnabled && (
+                    <>
+                      <input value={imageTitle} maxLength={90} onChange={(e) => { setImageTitle(e.target.value); setFinalImageUrl(''); }} placeholder="Título curto para a imagem" className={field} />
+                      <div className="grid grid-cols-3 gap-2">
+                        {[['top', 'Topo'], ['center', 'Centro'], ['bottom', 'Base']].map(([position, label]) => (
+                          <button key={position} type="button" onClick={() => { setTitlePosition(position); setFinalImageUrl(''); }} className={`rounded-lg border px-3 py-2 text-xs font-bold ${titlePosition === position ? 'border-accent bg-accent/10 text-accent' : 'border-line text-muted'}`}>{label}</button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <Button onClick={useSelectedImage} disabled={busy === 'finalize'} className="w-full">
+                    <ImageIcon className="h-4 w-4" /> {busy === 'finalize' ? 'Preparando imagem…' : finalImageUrl ? 'Imagem pronta para publicar' : 'Usar esta imagem'}
+                  </Button>
+                  <p className="text-right text-[11px] text-muted">Custo estimado das opções: <strong className="text-ink">{formatUsd(imageCost)}</strong></p>
+                </div>
+              )}
+            </section>
+
             <div className="inline-flex w-full gap-1 rounded-xl bg-surface-2 p-1">
               <button type="button" onClick={() => setMode('now')} className={tab(mode === 'now')}><Send className="h-3.5 w-3.5" /> Publicar agora</button>
               <button type="button" onClick={() => setMode('schedule')} className={tab(mode === 'schedule')}><Clock className="h-3.5 w-3.5" /> Agendar</button>
             </div>
-            {mode === 'schedule' && (
-              <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={field} />
-            )}
+            {mode === 'schedule' && <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={field} />}
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={() => run(mode)} disabled={!!busy}>
-                {busy === mode ? 'Processando…' : mode === 'now' ? 'Publicar no Instagram' : 'Agendar'}
-              </Button>
+              <Button onClick={() => run(mode)} disabled={!!busy}>{busy === mode ? 'Processando…' : mode === 'now' ? 'Publicar no Instagram' : 'Agendar'}</Button>
               <Button variant="outline" onClick={() => run('approval')} disabled={!!busy}><Link2 className="h-4 w-4" /> {busy === 'approval' ? 'Enviando…' : 'Enviar p/ aprovação'}</Button>
               <Button variant="ghost" onClick={() => run('draft')} disabled={!!busy}><FileText className="h-4 w-4" /> {busy === 'draft' ? 'Salvando…' : 'Rascunho'}</Button>
             </div>
           </>
         )}
 
-        {msg && (
-          <p className={`flex items-center gap-1.5 text-xs font-semibold ${msg.type === 'ok' ? 'text-success' : 'text-danger'}`}>
-            {msg.type === 'ok' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}{msg.text}
-          </p>
-        )}
+        {msg && <p className={`flex items-center gap-1.5 text-xs font-semibold ${msg.type === 'ok' ? 'text-success' : 'text-danger'}`}>{msg.type === 'ok' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}{msg.text}</p>}
         {approvalLink && (
           <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 p-2">
             <Link2 className="ml-1 h-4 w-4 shrink-0 text-accent" />
@@ -154,48 +257,29 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
         )}
       </div>
 
-      {/* prévia dos slides gerados */}
-      <div className="lg:sticky lg:top-4">
-        <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted"><Sparkles className="h-3.5 w-3.5 text-accent" /> Prévia gerada</p>
+      <aside className="lg:sticky lg:top-4">
+        <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted"><Sparkles className="h-3.5 w-3.5 text-accent" /> Prévia da publicação</p>
         <div className="overflow-hidden rounded-2xl glass shadow-soft">
           <div className="relative aspect-square w-full bg-surface-2">
-            {urls.length ? (
-              <img src={urls[slide]} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="grid h-full place-items-center px-6 text-center text-[11px] text-faint">
-                {busy === 'gen' ? 'Gerando texto e imagem…' : 'A imagem gerada aparece aqui'}
-              </div>
-            )}
-            {urls.length > 1 && (
+            {previewImage ? (
               <>
-                <button onClick={() => setSlide((s) => Math.max(0, s - 1))} className="absolute left-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-black/40 text-white"><ChevronLeft className="h-4 w-4" /></button>
-                <button onClick={() => setSlide((s) => Math.min(urls.length - 1, s + 1))} className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-black/40 text-white"><ChevronRight className="h-4 w-4" /></button>
-                <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
-                  {urls.map((_, i) => <span key={i} className={`h-1.5 w-1.5 rounded-full ${i === slide ? 'bg-white' : 'bg-white/50'}`} />)}
-                </div>
+                <img src={previewImage} alt="Prévia da notícia" className="h-full w-full object-cover" />
+                {textEnabled && imageTitle.trim() && !finalImageUrl && (
+                  <div className={`absolute inset-0 flex p-6 ${TITLE_POSITION[titlePosition]}`}>
+                    <div className="w-full bg-gradient-to-t from-black/80 via-black/25 to-transparent px-2 py-6 text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-lg">{imageTitle}</div>
+                  </div>
+                )}
               </>
+            ) : (
+              <div className="grid h-full place-items-center px-6 text-center text-xs text-faint">{busy === 'images' ? 'Criando opções de imagem…' : 'A imagem escolhida para a notícia aparece aqui'}</div>
             )}
           </div>
-          {gen && (
-            <div className="space-y-1.5 border-t border-line bg-surface-2/40 p-3">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-muted">Template: <strong className="text-ink">{TEMPLATE_LABELS[gen.spec?.template] || gen.spec?.template}</strong></span>
-                <span className="font-extrabold text-accent">Total: {formatUsd(gen.cost)}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-line/60 bg-surface px-2.5 py-1.5 text-[11px]">
-                <span className="flex items-center gap-1.5 text-muted">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  DeepSeek (texto): <strong className="text-ink">{formatUsd(gen.textCost || 0)}</strong>
-                </span>
-                <span className="flex items-center gap-1.5 text-muted">
-                  <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                  {gen.imageProvider === 'deapi' ? 'deAPI (imagem)' : 'Render (imagem)'}: <strong className="text-ink">{formatUsd(gen.imageCost || 0)}</strong>
-                </span>
-              </div>
-            </div>
-          )}
+          <div className="space-y-1.5 border-t border-line bg-surface-2/40 p-3 text-[11px]">
+            <p className="text-muted">{gen ? 'Escolha uma das opções e use a prévia antes de publicar.' : 'Gere a notícia para começar.'}</p>
+            {finalImageUrl && <p className="font-bold text-success">Imagem final pronta.</p>}
+          </div>
         </div>
-      </div>
+      </aside>
     </div>
   );
 }
