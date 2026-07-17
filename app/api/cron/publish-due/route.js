@@ -6,7 +6,7 @@ import { runDailyAutopilot } from '@/lib/autopilot';
 export const maxDuration = 60;
 
 export async function GET(request) {
-  // Autenticação do cron (Vercel envia Authorization: Bearer $CRON_SECRET)
+  // Autenticação do cron (o worker do Railway envia Authorization: Bearer $CRON_SECRET)
   const auth = request.headers.get('authorization');
   if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });

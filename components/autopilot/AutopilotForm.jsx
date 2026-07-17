@@ -81,7 +81,7 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs leading-relaxed text-muted">
-        No plano gratuito da Vercel, o piloto roda uma vez por dia, as 09:00 (horario de Sao Paulo). Horarios personalizados serao usados quando houver um agendador mais frequente.
+        O piloto gera conteudo uma vez por dia e envia para aprovacao. Os posts aprovados sao agendados para as 09:00 (horario de Sao Paulo) — os horarios personalizados abaixo ainda nao sao usados.
       </div>
       {/* Alerta caso não tenha Brand Kit configurado */}
       {!hasBrandKit && (
