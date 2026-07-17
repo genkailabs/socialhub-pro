@@ -6,8 +6,8 @@ import { resolvePalette, TEMPLATES } from '@/lib/ai/templates';
 import { renderNode, slideCount } from '@/lib/ai/render';
 
 describe('normalizeSpec', () => {
-  it('template inválido cai p/ quote', () => {
-    expect(normalizeSpec({ template: 'xyz' }).template).toBe('quote');
+  it('template inválido cai p/ notícia', () => {
+    expect(normalizeSpec({ template: 'xyz' }).template).toBe('news');
   });
   it('carrossel força >=2 slides', () => {
     const s = normalizeSpec({ template: 'tips_carousel', bullets: ['a', 'b', 'c'] });
@@ -83,8 +83,14 @@ describe('buildContentPrompt', () => {
     expect(format).toBe('tips_carousel');
     expect(typeof system).toBe('string');
   });
-  it('formato inválido cai p/ quote', () => {
-    expect(buildContentPrompt({ brief: { format: 'zzz' } }).format).toBe('quote');
+  it('formato inválido cai p/ notícia', () => {
+    expect(buildContentPrompt({ brief: { format: 'zzz' } }).format).toBe('news');
+  });
+  it('notícia pede um post editorial sem chamada comercial', () => {
+    const { user, format } = buildContentPrompt({ brief: { format: 'news', topic: 'novidades da IA' } });
+    expect(format).toBe('news');
+    expect(user).toContain('notícia informativa');
+    expect(user).toMatch(/não inventar fatos/i);
   });
   it('pede image_prompt no system (p/ a deAPI)', () => {
     expect(buildContentPrompt({}).system).toContain('image_prompt');
@@ -112,7 +118,10 @@ describe('resolvePalette', () => {
 });
 
 describe('TEMPLATES', () => {
-  it('tem os 4 templates', () => expect(TEMPLATES).toHaveLength(4));
+  it('inclui notícia como formato padrão', () => {
+    expect(TEMPLATES[0]).toBe('news');
+    expect(TEMPLATES).toHaveLength(5);
+  });
 });
 
 describe('renderNode', () => {

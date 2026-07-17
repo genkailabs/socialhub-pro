@@ -17,11 +17,13 @@ describe('imagem de notícia', () => {
       topic: 'Vibe Coding',
       caption: 'IA mudou a programação',
       direction: 'moderno, luzes roxas',
+      basePrompt: 'programador usando inteligência artificial em um estúdio moderno',
       variant: 2
     });
 
     expect(prompt).toContain('Vibe Coding');
     expect(prompt).toContain('moderno, luzes roxas');
+    expect(prompt).toContain('programador usando inteligência artificial em um estúdio moderno');
     expect(prompt).toMatch(/no text|no letters/i);
     expect(prompt).toContain('variation 2');
   });
