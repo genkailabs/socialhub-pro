@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdmin } from '@/lib/supabase/admin';
-import { refreshAccessToken, getChannel, getChannelStats, listChannelVideos, getVideosStats } from '@/lib/youtube/google';
+import { syncYoutubeBrandMetrics } from '@/lib/youtube/sync';
 
 export const maxDuration = 60;
 
@@ -28,73 +28,29 @@ export async function GET(request) {
 
   const results = [];
   for (const tok of tokens || []) {
-    const started = Date.now();
     const refreshToken = tok.platform_data?.refresh_token;
-    if (!refreshToken) { results.push({ brand_id: tok.brand_id, status: 'error', reason: 'sem refresh_token' }); continue; }
-
     try {
-      const fresh = await refreshAccessToken({ refreshToken, clientId, clientSecret });
-      const accessToken = fresh.access_token;
-
-      // 1) Canal → social_analytics_history
-      const channel = await getChannel(accessToken);
-      const chStats = await getChannelStats(accessToken, today);
-      const followers = await channelFollowers(accessToken);
-      await admin.from('social_analytics_history').upsert({
-        brand_id: tok.brand_id,
-        platform: 'youtube',
-        snapshot_date: today,
-        followers,
-        total_reach: chStats.views
-      }, { onConflict: 'brand_id,platform,snapshot_date' });
-
-      // 2) Vídeos → youtube_video_stats (uma única chamada ao Analytics com dimensions=video)
-      const videos = await listChannelVideos(accessToken, 25);
-      const start = firstDate(videos);
-      const statsList = await getVideosStats(accessToken, videos.map((v) => v.videoId), start, today);
-      const statsById = new Map(statsList.map((s) => [s.videoId, s]));
-      for (const v of videos) {
-        const vs = statsById.get(v.videoId) || { views: 0, likes: 0, comments: 0, avgViewPct: 0, watchTimeMin: 0 };
-        await admin.from('youtube_video_stats').upsert({
-          brand_id: tok.brand_id,
-          video_id: v.videoId,
-          title: v.title,
-          published_at: v.publishedAt,
-          snapshot_date: today,
-          views: vs.views,
-          likes: vs.likes,
-          comments: vs.comments,
-          avg_view_pct: vs.avgViewPct,
-          watch_time_min: vs.watchTimeMin
-        }, { onConflict: 'brand_id,video_id,snapshot_date' });
+      if (!refreshToken) {
+        throw new Error('sem refresh_token');
       }
-
-      await admin.from('social_sync_logs').insert({
-        brand_id: tok.brand_id, platform: 'youtube', status: 'success', duration_ms: Date.now() - started
+      const result = await syncYoutubeBrandMetrics({
+        admin,
+        brandId: tok.brand_id,
+        today,
+        refreshToken,
+        clientId,
+        clientSecret
       });
-      results.push({ brand_id: tok.brand_id, status: 'success', channel: channel.title, videos: videos.length });
+      results.push({
+        brand_id: tok.brand_id,
+        status: 'success',
+        channel: result.channel.title,
+        videos: result.videos.length
+      });
     } catch (e) {
-      await admin.from('social_sync_logs').insert({
-        brand_id: tok.brand_id, platform: 'youtube', status: 'error',
-        error_message: e.message, duration_ms: Date.now() - started
-      });
       results.push({ brand_id: tok.brand_id, status: 'error', reason: e.message });
     }
   }
 
   return NextResponse.json({ ok: true, processed: results.length, results });
-}
-
-// Total de inscritos via Data API (statistics).
-async function channelFollowers(accessToken) {
-  const url = 'https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true';
-  const data = await (await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })).json();
-  if (data.error) return 0;
-  return Number(data.items?.[0]?.statistics?.subscriberCount) || 0;
-}
-
-// Data de publicação mais antiga entre os vídeos (limite inferior da janela do Analytics).
-function firstDate(videos) {
-  const dates = videos.map((v) => v.publishedAt).filter(Boolean).sort();
-  return (dates[0] || new Date().toISOString()).slice(0, 10);
 }

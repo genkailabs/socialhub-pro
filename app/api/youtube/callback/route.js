@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { exchangeCodeForToken, getChannel } from '@/lib/youtube/google';
+import { syncYoutubeBrandMetrics } from '@/lib/youtube/sync';
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
@@ -16,7 +17,9 @@ export async function GET(request) {
   try {
     const s = JSON.parse(Buffer.from(searchParams.get('state') || '', 'base64').toString('utf8'));
     brandId = s.brand_id; uid = s.uid;
-  } catch { /* state inválido tratado abaixo */ }
+  } catch {
+    // state inválido tratado abaixo
+  }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -53,7 +56,19 @@ export async function GET(request) {
     if (upErr) throw new Error(`Erro ao salvar token: ${upErr.message}`);
 
     const uname = channel.handle || channel.title;
-    return NextResponse.redirect(`${appUrl}/connections?status=success&platform=youtube&username=${encodeURIComponent(uname)}`);
+    try {
+      await syncYoutubeBrandMetrics({
+        admin: supabase,
+        brandId,
+        accessToken: tok.access_token,
+        refreshToken: tok.refresh_token,
+        clientId,
+        clientSecret
+      });
+      return NextResponse.redirect(`${appUrl}/connections?status=success&platform=youtube&username=${encodeURIComponent(uname)}&sync=success`);
+    } catch (syncError) {
+      return NextResponse.redirect(`${appUrl}/connections?status=success&platform=youtube&username=${encodeURIComponent(uname)}&sync=warning&sync_error=${encodeURIComponent(syncError.message)}`);
+    }
   } catch (e) {
     return back(e.message || 'Erro interno ao processar autorização.');
   }
