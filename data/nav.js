@@ -1,9 +1,10 @@
-import { LayoutDashboard, GitBranch, Handshake, Sparkles, Coins, Users, CheckSquare, Inbox, BarChart3, Stethoscope, CalendarRange } from 'lucide-react';
+import { LayoutDashboard, GitBranch, Handshake, Sparkles, Coins, Users, CheckSquare, Inbox, BarChart3, Stethoscope, CalendarRange, Wand2 } from 'lucide-react';
 
 export const NAV_GROUPS = [
   { label: 'Modulos Principais', items: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/instagram/diagnostico', label: 'Diagnostico', icon: Stethoscope },
+    { href: '/autopilot', label: 'Estrategia e Piloto', icon: Wand2 },
     { href: '/planning', label: 'Planejamento', icon: CalendarRange },
     { href: '/composer', label: 'Composer (Postar)', icon: GitBranch },
     { href: '/calendar', label: 'Calendario e Links', icon: Handshake },
