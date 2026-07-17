@@ -26,8 +26,8 @@ export function CalendarGrid({ posts }) {
   function goToday() { setYear(today.getFullYear()); setMonth(today.getMonth()); }
 
   return (
-    <div>
-      <div className="mb-3 flex flex-wrap items-center gap-3">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
+      <div className="mb-5 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
           <button onClick={() => shift(-1)} className="rounded-lg border border-line p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink"><ChevronLeft className="h-4 w-4" /></button>
           <button onClick={() => shift(1)} className="rounded-lg border border-line p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink"><ChevronRight className="h-4 w-4" /></button>
@@ -47,7 +47,7 @@ export function CalendarGrid({ posts }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-line bg-line">
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-line bg-line">
         {DOW.map((d, i) => (
           <div key={d} className={`bg-surface px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wide ${i === 0 || i === 6 ? 'text-faint' : 'text-muted'}`}>{d}</div>
         ))}

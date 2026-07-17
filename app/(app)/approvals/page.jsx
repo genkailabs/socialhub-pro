@@ -17,7 +17,7 @@ export default async function ApprovalsPage() {
   const pipeline = active ? await getPipeline(active.id) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight">Aprovações</h1>
         <p className="mt-1 text-sm text-muted">

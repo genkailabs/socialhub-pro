@@ -5,7 +5,7 @@ describe('brandFromRow', () => {
   it('mapeia linha do DB para shape da app com defaults', () => {
     const row = { id: 'b1', name: 'Genkai Labs', color: null, category: null, handle: null };
     expect(brandFromRow(row)).toEqual({
-      id: 'b1', name: 'Genkai Labs', handle: '@genkailabs', category: 'Geral', color: '#6366F1'
+      id: 'b1', name: 'Genkai Labs', handle: '@genkailabs', category: 'Geral', color: '#007AFF'
     });
   });
   it('preserva handle/category/color quando presentes', () => {

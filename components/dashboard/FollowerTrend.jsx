@@ -17,7 +17,7 @@ export function FollowerTrend({ data, platform = 'Instagram' }) {
   const up = delta >= 0;
 
   return (
-    <div className="rounded-2xl border border-line bg-surface p-6 shadow-xl">
+    <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft">
       <div className="mb-6 flex items-start justify-between">
         <div>
           <p className="text-base font-bold tracking-tight text-ink">{platform} - Seguidores por dia</p>
@@ -38,7 +38,7 @@ export function FollowerTrend({ data, platform = 'Instagram' }) {
           const isLast = index === values.length - 1;
           return (
             <div key={data[index].snapshot_date || index} className="group relative flex h-full flex-1 items-end">
-              <div className={`relative mx-auto w-full max-w-[42px] rounded-t-lg transition-all duration-300 ${isLast ? 'bg-gradient-to-t from-accent/30 via-accent to-accent-soft shadow-lg shadow-accent/30' : 'bg-gradient-to-t from-accent/15 to-accent/60 group-hover:from-accent/30 group-hover:to-accent'}`} style={{ height: `${height}%`, minHeight: 12 }}>
+              <div className={`relative mx-auto w-full max-w-[42px] rounded-t-lg transition-all duration-300 ${isLast ? 'bg-accent shadow-sm shadow-accent/30' : 'bg-accent/45 group-hover:bg-accent/70'}`} style={{ height: `${height}%`, minHeight: 12 }}>
                 {isLast && <span className="absolute -top-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-accent bg-white shadow-md shadow-accent" />}
               </div>
               <span className="pointer-events-none absolute -top-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-surface-2 px-2 py-1 font-mono text-[11px] font-bold tabular-nums text-ink opacity-0 shadow-xl transition-opacity group-hover:opacity-100">{value}</span>

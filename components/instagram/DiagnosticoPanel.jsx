@@ -127,7 +127,7 @@ export function DiagnosticoPanel({ brandId, inicial }) {
   const confianca = CONFIANCA[analysis?.confidence] || CONFIANCA.media;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-muted">
@@ -175,14 +175,14 @@ export function DiagnosticoPanel({ brandId, inicial }) {
 
       {analysis && (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-3">
             <Bloco titulo="O que ja funciona" icone={TrendingUp} cor="text-success" itens={analysis.strengths} />
             <Bloco titulo="O que merece atencao" icone={AlertTriangle} cor="text-warning" itens={analysis.attention} />
             <Bloco titulo="Oportunidades" icone={Lightbulb} cor="text-accent" itens={analysis.opportunities} />
           </div>
 
           {!!analysis.priorities?.length && (
-            <div className="rounded-2xl border border-accent/40 bg-accent/5 p-5">
+            <div className="rounded-2xl border border-accent/30 bg-accent/5 p-5 shadow-soft">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
                 <Target className="h-4 w-4 text-accent" aria-hidden="true" />
                 Por onde comecar

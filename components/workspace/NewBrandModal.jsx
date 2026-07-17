@@ -5,7 +5,7 @@ import { createBrand } from '@/app/(app)/brand-actions';
 import { Button } from '@/components/ui/Button';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
 
-const COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6'];
+const COLORS = ['#007AFF', '#34C759', '#FF9500', '#1C1C1E', '#8E8E93', '#FFFFFF'];
 
 export function NewBrandModal({ open, onClose }) {
   const [error, setError] = useState('');

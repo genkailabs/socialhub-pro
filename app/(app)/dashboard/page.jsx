@@ -60,7 +60,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Título de página no padrão Sales-Ops */}
       <div className="flex items-center justify-between">
         <div>
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
       {result?.ok ? (
         <>
           {/* Grid de Métricas 1:1 com MetricCard */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatTile 
               label="Seguidores Totais" 
               value={fmt(result.metrics.followers)} 
@@ -113,14 +113,14 @@ export default async function DashboardPage() {
           </div>
 
           {/* Grid Layout equilibrado: Gráfico (2 colunas) e Canal Widget (1 coluna) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <FollowerTrend data={history} />
             </div>
 
             <div className="lg:col-span-1">
               {ytData ? (
-                <div className="rounded-2xl border border-line bg-surface p-6 h-full flex flex-col justify-between shadow-xl">
+                <div className="flex h-full flex-col justify-between rounded-2xl border border-line bg-surface p-6 shadow-soft">
                   <div>
                     <h3 className="text-sm font-bold text-ink tracking-tight mb-4 flex items-center gap-2">
                       <span className="grid h-6 w-6 place-items-center rounded bg-[#FF0000]/15 text-[#FF0000] border border-[#FF0000]/20">
@@ -156,7 +156,7 @@ export default async function DashboardPage() {
                   )}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-line bg-surface p-6 h-full flex flex-col justify-center items-center text-center shadow-xl min-h-[220px]">
+                <div className="flex min-h-[220px] h-full flex-col items-center justify-center rounded-2xl border border-line bg-surface p-6 text-center shadow-soft">
                   <Youtube className="w-8 h-8 text-faint mb-3" />
                   <p className="text-sm font-bold text-ink">Conecte seu YouTube</p>
                   <p className="text-xs text-muted mt-1 max-w-[200px] leading-relaxed">

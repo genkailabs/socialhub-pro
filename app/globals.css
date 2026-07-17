@@ -5,62 +5,49 @@
 @tailwind utilities;
 
 :root {
-  /* Finly High-End Dashboard — Light Mode Canvas & Tokens */
-  --c-app: 246 245 250; /* #F6F5FA - Canvas respirável com tom lavanda acinzentado */
-  --c-surface: 255 255 255; /* #FFFFFF - Cartões brancos puros */
-  --c-surface-2: 240 238 246; /* #F0EEF6 - Hover de itens e inputs */
-  --c-line: 226 232 240; /* #E2E8F0 - Bordas divisórias de 1px */
-  --c-line-strong: 203 213 225;
-  --c-ink: 24 24 27; /* #18181B - Charcoal Ink alto contraste */
-  --c-muted: 113 113 122; /* #71717A - Muted Steel secundário */
-  --c-faint: 161 161 170; /* #A1A1AA */
-
-  /* acento — Indigo/Violet calibrado (#6366F1), sem neon glow */
-  --c-accent: 99 102 241;
-  --c-accent-soft: 129 140 248;
-  --c-accent-tint: 238 242 255;
-  --c-accent-ink: 67 56 202;
-
-  /* estados semânticos */
-  --c-success: 16 185 129;
-  --c-warning: 245 158 11;
-  --c-danger: 244 63 94;
-  --c-info: 99 102 241;
-
-  --c-shadow: 24 24 27;
-  --c-glow: 99 102 241;
+  --c-app: 242 242 247;
+  --c-surface: 255 255 255;
+  --c-surface-2: 242 242 247;
+  --c-line: 209 209 214;
+  --c-line-strong: 199 199 204;
+  --c-ink: 28 28 30;
+  --c-muted: 142 142 147;
+  --c-faint: 142 142 147;
+  --c-accent: 0 122 255;
+  --c-accent-soft: 0 122 255;
+  --c-accent-tint: 230 243 255;
+  --c-accent-ink: 0 90 190;
+  --c-success: 52 199 89;
+  --c-warning: 255 149 0;
+  --c-danger: 255 59 48;
+  --c-info: 0 122 255;
+  --c-shadow: 28 28 30;
+  --c-glow: 0 122 255;
   color-scheme: light;
 }
 
 .dark {
-  /* Sales-Ops Emerald & Slate — Dark Mode Canvas & Tokens */
-  --c-app: 10 10 12; /* #0A0A0C - Pitch-Navy ultra escuro (Sales-Ops) */
-  --c-surface: 18 19 22; /* #121316 - Cartões elevados escuros */
-  --c-surface-2: 31 32 37; /* #1F2025 - Hover e inputs dark pill */
-  --c-line: 34 35 40; /* #222328 - Bordas finas de precisão sem marcação quadrada branca */
-  --c-line-strong: 63 63 70; /* #3F3F46 */
-  --c-ink: 244 244 246; /* #F4F4F6 - Crisp Text Ink */
-  --c-muted: 156 163 175; /* #9CA3AF - Muted Lavender Gray */
-  --c-faint: 113 113 122;
-
-  /* acento — Verde Esmeralda/Mint calibrado (#10B981) */
-  --c-accent: 16 185 129;
-  --c-accent-soft: 52 211 153;
-  --c-accent-tint: 18 42 36;
-  --c-accent-ink: 209 250 229;
-
-  /* estados semânticos */
-  --c-success: 16 185 129;
-  --c-warning: 245 158 11;
-  --c-danger: 244 63 94;
-  --c-info: 16 185 129;
-
+  --c-app: 28 28 30;
+  --c-surface: 44 44 46;
+  --c-surface-2: 58 58 60;
+  --c-line: 72 72 74;
+  --c-line-strong: 99 99 102;
+  --c-ink: 255 255 255;
+  --c-muted: 174 174 178;
+  --c-faint: 142 142 147;
+  --c-accent: 10 132 255;
+  --c-accent-soft: 100 210 255;
+  --c-accent-tint: 0 64 128;
+  --c-accent-ink: 255 255 255;
+  --c-success: 48 209 88;
+  --c-warning: 255 159 10;
+  --c-danger: 255 69 58;
+  --c-info: 10 132 255;
   --c-shadow: 0 0 0;
-  --c-glow: 16 185 129;
+  --c-glow: 10 132 255;
   color-scheme: dark;
 }
 
-/* Base resets & utilities */
 @layer base {
   body {
     background-color: rgb(var(--c-app));
@@ -71,18 +58,18 @@
 }
 
 .glass {
-  background: rgb(var(--c-surface) / 0.85);
+  background: rgb(var(--c-surface) / 0.88);
   backdrop-filter: blur(16px);
-  border: 1px solid rgb(var(--c-line) / 0.12);
+  border: 1px solid rgb(var(--c-line));
 }
 
 .dark .glass {
-  background: rgb(var(--c-surface) / 0.90);
+  background: rgb(var(--c-surface) / 0.9);
   border: 1px solid rgb(var(--c-line));
 }
 
 .glow-accent {
-  box-shadow: 0 0 0 1px rgb(var(--c-accent) / 0.25), 0 10px 30px -10px rgb(var(--c-accent) / 0.35);
+  box-shadow: 0 0 0 1px rgb(var(--c-accent) / 0.2), 0 10px 30px -10px rgb(var(--c-accent) / 0.28);
 }
 
 .dark .font-theme {

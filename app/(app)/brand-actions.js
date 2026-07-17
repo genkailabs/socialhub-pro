@@ -14,7 +14,7 @@ export async function createBrand(formData) {
     return { error: e.message };
   }
   const category = String(formData.get('category') || 'Geral');
-  const color = String(formData.get('color') || '#6366F1');
+  const color = String(formData.get('color') || '#007AFF');
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

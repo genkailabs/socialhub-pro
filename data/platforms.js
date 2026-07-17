@@ -36,7 +36,7 @@ export function platformById(id) {
 }
 
 export function platformGradient(p) {
-  const stops = p?.gradient?.length ? p.gradient : [p?.color || '#6366F1', p?.color || '#6366F1'];
+  const stops = p?.gradient?.length ? p.gradient : [p?.color || '#007AFF', p?.color || '#007AFF'];
   return `linear-gradient(135deg, ${stops.join(', ')})`;
 }
 

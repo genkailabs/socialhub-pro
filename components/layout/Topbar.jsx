@@ -9,7 +9,7 @@ export function Topbar({ brands, activeId }) {
   const [searchFocused, setSearchFocused] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-line bg-app/85 px-8 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-line bg-surface/90 px-6 backdrop-blur-md lg:px-8">
       <div className="flex items-center gap-6">
         <BrandSwitcher brands={brands} activeId={activeId} />
       </div>

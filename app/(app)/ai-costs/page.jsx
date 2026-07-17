@@ -127,7 +127,7 @@ export default async function AICostsPage() {
                               className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-extrabold ${
                                 isDeepSeek
                                   ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                                  : 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                                  : 'bg-accent/10 text-accent'
                               }`}
                             >
                               {isDeepSeek ? <Cpu className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}

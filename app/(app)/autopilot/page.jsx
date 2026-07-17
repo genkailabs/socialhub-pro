@@ -21,7 +21,7 @@ export default async function AutopilotPage() {
   const strategies = active ? await listStrategies(active.id) : [];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-7">
       {/* Cabeçalho */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -59,7 +59,7 @@ export default async function AutopilotPage() {
         <div className="grid grid-cols-1 divide-y divide-line/60 md:grid-cols-3 md:divide-x md:divide-y-0">
           <div className="p-5">
             <div className="flex items-center gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent/10 text-accent font-bold">
                 1
               </span>
               <p className="font-bold text-ink">Lê seu Brand Kit</p>
@@ -71,7 +71,7 @@ export default async function AutopilotPage() {
 
           <div className="p-5">
             <div className="flex items-center gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent/10 text-accent font-bold">
                 2
               </span>
               <p className="font-bold text-ink">Gera Ideia + Arte</p>
@@ -83,7 +83,7 @@ export default async function AutopilotPage() {
 
           <div className="p-5">
             <div className="flex items-center gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-success/10 text-success font-bold">
                 3
               </span>
               <p className="font-bold text-ink">Você Revisa e Aprova</p>

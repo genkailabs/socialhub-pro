@@ -15,7 +15,7 @@ export default async function PlanningPage() {
   const plan = active ? await getWeekPlan(active.id, semana) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight">Planejamento</h1>
         <p className="mt-1 text-sm text-muted">

@@ -15,7 +15,7 @@ export default async function ComposerPage() {
   const kit = active ? await getBrandKit(active.id) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight">Composer</h1>
         <p className="mt-1 text-sm text-muted">

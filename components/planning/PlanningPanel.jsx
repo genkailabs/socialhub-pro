@@ -162,8 +162,8 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy }) {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-5 shadow-soft">
         <div>
           <p className="flex items-center gap-2 text-sm font-bold text-ink">
             <Calendar className="h-4 w-4 text-muted" aria-hidden="true" />
@@ -198,7 +198,7 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy }) {
         </div>
       ) : (
         <>
-          <ul className="space-y-3">
+          <ul className="space-y-3 rounded-2xl border border-line bg-surface p-3 shadow-soft">
             {itens.map((item) => (
               <Tema key={item.id} item={item} onStatus={mudarStatus} onProduce={produzir} busy={busy} />
             ))}

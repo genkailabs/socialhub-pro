@@ -77,7 +77,7 @@ export default async function MetricsPage() {
   const bestTime = bestTimes[0];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-10">
+    <div className="space-y-7">
       <header className="flex flex-col gap-4 border-b border-line pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Analise de desempenho</p>
@@ -117,7 +117,7 @@ export default async function MetricsPage() {
             <StatTile label="Melhor horario" value={bestTime ? `${WEEKDAYS[bestTime.weekday]} ${String(bestTime.hour).padStart(2, '0')}h` : '-'} icon={Clock} hint={bestTime ? 'baseado no seu canal' : 'aguardando dados'} />
           </div>
           <FollowerTrend data={youtubeHistory} platform="YouTube" />
-          <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
+          <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
             <div className="flex items-center justify-between border-b border-line px-5 py-4"><h3 className="text-sm font-bold text-ink">Videos recentes</h3><span className="text-xs text-muted">Views e retencao</span></div>
             {youtubeVideos.length ? <ul className="divide-y divide-line">{youtubeVideos.map((video) => <li key={video.video_id} className="flex items-center gap-4 px-5 py-4"><p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{video.title || video.video_id}</p><span className="rounded-md bg-surface-2 px-2.5 py-1 font-mono text-xs text-muted">{formatNumber(video.views)} views</span><span className="rounded-md border border-accent/30 bg-accent/10 px-2.5 py-1 font-mono text-xs font-bold text-accent">{Math.round(Number(video.avg_view_pct) || 0)}% retencao</span></li>)}</ul> : <p className="px-5 py-8 text-sm text-muted">Ainda nao ha videos sincronizados para este canal.</p>}
           </div>

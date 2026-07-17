@@ -8,11 +8,11 @@ import { cn } from '@/lib/utils';
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="flex w-[260px] shrink-0 flex-col justify-between border-r border-line bg-app">
+    <aside className="flex w-[230px] shrink-0 flex-col justify-between border-r border-line bg-surface">
       <div>
         {/* Logo Sales-Ops */}
         <div className="flex h-16 items-center gap-3 border-b border-line px-5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-black shadow-md shadow-white/10">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-white shadow-sm">
             <CircleDollarSign className="h-5 w-5 font-extrabold" />
           </span>
           <span className="font-bold text-lg text-ink tracking-tight flex items-center gap-1.5">
@@ -48,7 +48,7 @@ export function Sidebar() {
                       className={cn(
                         'group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
                         active 
-                          ? 'bg-accent/15 text-ink shadow-sm' 
+                          ? 'bg-transparent text-accent' 
                           : 'text-muted hover:bg-surface-2/70 hover:text-ink'
                       )}
                     >
@@ -69,9 +69,9 @@ export function Sidebar() {
       </div>
 
       {/* Perfil Enterprise no rodapé */}
-      <div className="border-t border-line bg-app p-4">
+        <div className="border-t border-line bg-surface p-4">
         <div className="flex items-center gap-3 rounded-xl border border-line bg-surface p-3 shadow-sm">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-tr from-accent to-[#06B6D4] text-xs font-bold text-black">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-white">
             GE
           </div>
           <div className="min-w-0 flex-1">

@@ -135,7 +135,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
     setCopied(true); setTimeout(() => setCopied(false), 1500);
   }
 
-  const field = 'w-full rounded-xl border border-white/10 bg-[#0b1016] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition-colors focus:border-violet-400/70';
+  const field = 'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/15';
   const tab = (active) => `flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all ${active ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'}`;
   const previewImage = finalImageUrl || selectedImage;
 
@@ -149,13 +149,13 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
           </div>
         )}
 
-        <div className="rounded-2xl border border-white/10 bg-[#10161d] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-base font-extrabold tracking-tight text-white">Crie uma notícia com IA</p>
-              <p className="mt-1 text-xs text-slate-400">Texto pelo DeepSeek e imagens pela deAPI.</p>
+              <p className="text-base font-extrabold tracking-tight text-ink">Crie uma notícia com IA</p>
+              <p className="mt-1 text-xs text-muted">Texto pelo DeepSeek e imagens pela deAPI.</p>
             </div>
-            <span className="rounded-full border border-violet-400/25 bg-violet-500/10 px-2.5 py-1 text-[11px] font-bold text-violet-300">Novo</span>
+            <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent">Novo</span>
           </div>
           <label className="mb-1.5 block text-xs font-bold text-slate-200">Tema / assunto da notícia</label>
           <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Ex: Vibe Coding, futebol, economia…" className={field} />
@@ -172,22 +172,22 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
           </div>
         </div>
 
-        <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-slate-400">
+        <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-muted">
           <input type="checkbox" checked={ignoreDna} onChange={(e) => setIgnoreDna(e.target.checked)} className="h-4 w-4" />
           Ignorar Brand DNA (geração genérica)
         </label>
 
-        <Button onClick={generate} disabled={busy === 'gen'} className="mt-4 w-full !rounded-xl !bg-gradient-to-r !from-violet-600 !to-purple-600 !shadow-lg !shadow-violet-900/30 hover:!from-violet-500 hover:!to-purple-500">
+        <Button onClick={generate} disabled={busy === 'gen'} className="mt-4 w-full !rounded-xl">
           <Wand2 className="h-4 w-4" /> {busy === 'gen' ? 'Criando notícia…' : gen ? 'Gerar outra ideia' : 'Gerar com IA'}
         </Button>
         </div>
 
         {!gen && (
-          <section className="rounded-2xl border border-white/10 bg-[#10161d] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
-            <div className="flex items-center gap-2 text-sm font-extrabold text-white"><Sparkles className="h-4 w-4 text-violet-400" /> Imagem da notícia</div>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">Depois de criar o texto, escolha a direção visual e gere quatro opções de imagem pela deAPI.</p>
+          <section className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
+            <div className="flex items-center gap-2 text-sm font-extrabold text-ink"><Sparkles className="h-4 w-4 text-accent" /> Imagem da notícia</div>
+            <p className="mt-2 text-xs leading-relaxed text-muted">Depois de criar o texto, escolha a direção visual e gere quatro opções de imagem pela deAPI.</p>
             <div className="mt-4 grid grid-cols-4 gap-2 opacity-40">
-              {[0, 1, 2, 3].map((item) => <div key={item} className="aspect-square rounded-xl border border-white/10 bg-gradient-to-br from-violet-950 to-slate-900" />)}
+              {[0, 1, 2, 3].map((item) => <div key={item} className="aspect-square rounded-xl border border-line bg-surface-2" />)}
             </div>
           </section>
         )}
@@ -201,18 +201,18 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
               <input value={hashtags} onChange={(e) => setHashtags(e.target.value)} className={field} />
             </div>
 
-            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#10161d] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
+            <section className="space-y-4 rounded-2xl border border-line bg-surface p-5 shadow-soft">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="flex items-center gap-2 text-base font-extrabold text-white"><Sparkles className="h-4 w-4 text-violet-400" /> Imagem da notícia</h2>
-                  <p className="mt-1 text-xs text-slate-400">A deAPI cria imagens ligadas ao assunto, sem texto.</p>
+                  <h2 className="flex items-center gap-2 text-base font-extrabold text-ink"><Sparkles className="h-4 w-4 text-accent" /> Imagem da notícia</h2>
+                  <p className="mt-1 text-xs text-muted">A deAPI cria imagens ligadas ao assunto, sem texto.</p>
                 </div>
-                <span className="rounded-full border border-violet-400/25 bg-violet-500/10 px-2.5 py-1 text-[11px] font-bold text-violet-300">Tema: {topic.trim() || gen.spec.headline}</span>
+                <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent">Tema: {topic.trim() || gen.spec.headline}</span>
               </div>
 
               <div className="flex gap-2">
                 <input value={visualDirection} onChange={(e) => { setVisualDirection(e.target.value); setFinalImageUrl(''); }} placeholder="Direção visual: moderno, esportivo, sem pessoas…" className={field} />
-                <Button onClick={createImageOptions} disabled={busy === 'images'} className="shrink-0 !rounded-xl !bg-violet-600 hover:!bg-violet-500">
+                <Button onClick={createImageOptions} disabled={busy === 'images'} className="shrink-0 !rounded-xl">
                   <RefreshCw className="h-4 w-4" /> {busy === 'images' ? 'Criando…' : 'Criar opções'}
                 </Button>
               </div>
@@ -220,31 +220,31 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
               {imageOptions.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {imageOptions.map((url, index) => (
-                    <button key={url} type="button" onClick={() => chooseImage(url)} className={`relative aspect-square overflow-hidden rounded-xl border-2 transition ${selectedImage === url ? 'border-violet-400 ring-2 ring-violet-400/30' : 'border-transparent hover:border-white/20'}`}>
+                    <button key={url} type="button" onClick={() => chooseImage(url)} className={`relative aspect-square overflow-hidden rounded-xl border-2 transition ${selectedImage === url ? 'border-accent ring-2 ring-accent/30' : 'border-transparent hover:border-line'}`}>
                       <img src={url} alt={`Opção ${index + 1} gerada para a notícia`} className="h-full w-full object-cover" />
-                      {selectedImage === url && <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-violet-500 text-white"><Check className="h-4 w-4" /></span>}
+                      {selectedImage === url && <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-accent text-ink"><Check className="h-4 w-4" /></span>}
                     </button>
                   ))}
                 </div>
               )}
 
               {selectedImage && (
-                <div className="space-y-3 border-t border-white/10 pt-4">
-                  <label className="flex items-center justify-between gap-3 text-sm font-bold text-white">
-                    <span className="flex items-center gap-2"><Type className="h-4 w-4 text-violet-400" /> Adicionar título na imagem</span>
-                    <input type="checkbox" checked={textEnabled} onChange={(e) => { setTextEnabled(e.target.checked); setFinalImageUrl(''); }} className="h-5 w-5 accent-violet-500" />
+                <div className="space-y-3 border-t border-line pt-4">
+                  <label className="flex items-center justify-between gap-3 text-sm font-bold text-ink">
+                    <span className="flex items-center gap-2"><Type className="h-4 w-4 text-accent" /> Adicionar título na imagem</span>
+                    <input type="checkbox" checked={textEnabled} onChange={(e) => { setTextEnabled(e.target.checked); setFinalImageUrl(''); }} className="h-5 w-5 accent-accent" />
                   </label>
                   {textEnabled && (
                     <>
                       <input value={imageTitle} maxLength={90} onChange={(e) => { setImageTitle(e.target.value); setFinalImageUrl(''); }} placeholder="Título curto para a imagem" className={field} />
                       <div className="grid grid-cols-3 gap-2">
                         {[['top', 'Topo'], ['center', 'Centro'], ['bottom', 'Base']].map(([position, label]) => (
-                          <button key={position} type="button" onClick={() => { setTitlePosition(position); setFinalImageUrl(''); }} className={`rounded-lg border px-3 py-2 text-xs font-bold ${titlePosition === position ? 'border-violet-400 bg-violet-500/10 text-violet-300' : 'border-white/10 text-slate-400'}`}>{label}</button>
+                          <button key={position} type="button" onClick={() => { setTitlePosition(position); setFinalImageUrl(''); }} className={`rounded-lg border px-3 py-2 text-xs font-bold ${titlePosition === position ? 'border-accent bg-accent/10 text-accent' : 'border-line text-muted'}`}>{label}</button>
                         ))}
                       </div>
                     </>
                   )}
-                  <Button onClick={useSelectedImage} disabled={busy === 'finalize'} className="w-full !rounded-xl !bg-violet-600 hover:!bg-violet-500">
+                  <Button onClick={useSelectedImage} disabled={busy === 'finalize'} className="w-full !rounded-xl">
                     <ImageIcon className="h-4 w-4" /> {busy === 'finalize' ? 'Preparando imagem…' : finalImageUrl ? 'Imagem pronta para publicar' : 'Usar esta imagem'}
                   </Button>
                   <p className="text-right text-[11px] text-muted">Custo estimado das opções: <strong className="text-ink">{formatUsd(imageCost)}</strong></p>
@@ -271,21 +271,21 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
           <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 p-2">
             <Link2 className="ml-1 h-4 w-4 shrink-0 text-accent" />
             <input readOnly value={approvalLink} className="min-w-0 flex-1 bg-transparent text-[11px] text-muted outline-none" />
-            <button onClick={copyLink} className="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 text-white">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button>
+            <button onClick={copyLink} className="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 text-ink">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button>
           </div>
         )}
       </div>
 
       <aside className="lg:sticky lg:top-4">
-        <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400"><Sparkles className="h-3.5 w-3.5 text-violet-400" /> Prévia da publicação</p>
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#10161d] shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
-          <div className="relative aspect-square w-full bg-[#151922]">
+        <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted"><Sparkles className="h-3.5 w-3.5 text-accent" /> Prévia da publicação</p>
+        <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+          <div className="relative aspect-square w-full bg-surface-2">
             {previewImage ? (
               <>
                 <img src={previewImage} alt="Prévia da notícia" className="h-full w-full object-cover" />
                 {textEnabled && imageTitle.trim() && !finalImageUrl && (
                   <div className={`absolute inset-0 flex p-6 ${TITLE_POSITION[titlePosition]}`}>
-                    <div className="w-full bg-gradient-to-t from-black/80 via-black/25 to-transparent px-2 py-6 text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-lg">{imageTitle}</div>
+                    <div className="w-full bg-gradient-to-t from-black/80 via-black/25 to-transparent px-2 py-6 text-3xl font-extrabold leading-tight tracking-tight text-ink drop-shadow-lg">{imageTitle}</div>
                   </div>
                 )}
               </>
@@ -293,8 +293,8 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
               <div className="grid h-full place-items-center px-6 text-center text-xs text-faint">{busy === 'images' ? 'Criando opções de imagem…' : 'A imagem escolhida para a notícia aparece aqui'}</div>
             )}
           </div>
-          <div className="space-y-1.5 border-t border-white/10 bg-[#0d1117] p-4 text-[11px]">
-            <p className="text-slate-400">{gen ? 'Escolha uma das opções e use a prévia antes de publicar.' : 'Gere a notícia para começar.'}</p>
+          <div className="space-y-1.5 border-t border-line bg-surface-2 p-4 text-[11px]">
+            <p className="text-muted">{gen ? 'Escolha uma das opções e use a prévia antes de publicar.' : 'Gere a notícia para começar.'}</p>
             {finalImageUrl && <p className="font-bold text-success">Imagem final pronta.</p>}
           </div>
         </div>

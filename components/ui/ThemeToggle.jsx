@@ -43,7 +43,7 @@ export function ThemeToggle() {
           aria-label="Modo escuro"
           title="Modo escuro"
           className={`grid h-7 w-7 place-items-center rounded-full transition-all duration-200 ${
-            dark ? 'bg-surface text-indigo-400 shadow-sm' : 'text-muted hover:text-ink'
+            dark ? 'bg-surface text-accent shadow-sm' : 'text-muted hover:text-ink'
           }`}
         >
           <Moon className="h-3.5 w-3.5" />
