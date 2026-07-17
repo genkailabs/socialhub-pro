@@ -56,7 +56,7 @@ describe('skill content-strategy', () => {
       { name: 'Educacao', description: 'Explicar ansiedade', share: 60, examples: ['O que e crise'] },
       { name: 'Autoridade', description: 'Mostrar experiencia', share: 40, examples: ['Bastidores'] }
     ],
-    formats: ['tips_carousel'],
+    formats: ['carousel', 'stories'],
     postsPerWeek: 3,
     balance: { educacao: 60, autoridade: 20, relacionamento: 10, conversao: 10 },
     professionalRules: ['Nao prometer cura'],
@@ -75,6 +75,11 @@ describe('skill content-strategy', () => {
   it('recusa estrategia sem justificativa', () => {
     expect(stratOut.safeParse({ ...estrategiaOk, rationale: '' }).success).toBe(false);
   });
+
+  it('recomenda formatos do registro, nao texto livre', () => {
+    expect(stratOut.safeParse({ ...estrategiaOk, formats: ['reel', 'image'] }).success).toBe(true);
+    expect(stratOut.safeParse({ ...estrategiaOk, formats: ['live no youtube'] }).success).toBe(false);
+  });
 });
 
 const strategy = { mainObjective: 'Atrair pacientes', pillars: [{ name: 'Educacao', share: 60 }, { name: 'Autoridade', share: 40 }], formats: ['tips_carousel'], postsPerWeek: 3 };
@@ -83,6 +88,40 @@ const planPrompt = (over = {}) => editorialPlannerSkill.buildPrompt(planIn.parse
 describe('skill editorial-planner', () => {
   it('segue o contrato', () => {
     expect(editorialPlannerSkill.id).toBe('editorial-planner');
+  });
+
+  // §5.1: a IA planeja a semana inteira, nao so o que o publicador posta hoje.
+  it('oferece os quatro formatos, inclusive os que nao publicam sozinhos', () => {
+    const { system } = planPrompt();
+
+    expect(system).toContain('reel');
+    expect(system).toContain('stories');
+    expect(system).toContain('carousel');
+    expect(system).toContain('image');
+  });
+
+  it('pede variacao de formato em vez de so post no feed', () => {
+    const { system } = planPrompt();
+
+    expect(system).toContain('nao vive so de post no feed');
+  });
+
+  it('aceita item de Reel e de Stories', () => {
+    const base = { date: '2026-07-20', topic: 't', title: 'x', objective: 'o', pillar: 'p', stage: 'descoberta', cta: 'c', rationale: 'r' };
+
+    expect(planOut.safeParse({ items: [{ ...base, format: 'reel' }] }).success).toBe(true);
+    expect(planOut.safeParse({ items: [{ ...base, format: 'stories' }] }).success).toBe(true);
+  });
+
+  // String livre deixaria a IA inventar formato que morre depois, na producao.
+  it('recusa formato fora do registro', () => {
+    const base = { date: '2026-07-20', topic: 't', title: 'x', objective: 'o', pillar: 'p', stage: 'descoberta', cta: 'c', rationale: 'r' };
+
+    expect(planOut.safeParse({ items: [{ ...base, format: 'carrossel de video' }] }).success).toBe(false);
+  });
+
+  it('sobe a versao ao mudar prompt e schema', () => {
+    expect(editorialPlannerSkill.version).toBe(2);
   });
 
   it('exige data no formato certo', () => {
@@ -107,7 +146,7 @@ describe('skill editorial-planner', () => {
 
   it('nao tem campo de legenda na saida', () => {
     const itemOk = {
-      date: '2026-07-20', format: 'tips_carousel', topic: 'Sinais de ansiedade',
+      date: '2026-07-20', format: 'carousel', topic: 'Sinais de ansiedade',
       title: 'Cinco sinais', objective: 'Educar', pillar: 'Educacao',
       stage: 'descoberta', cta: 'Salve este post', rationale: 'Abre a semana educando.'
     };
@@ -131,7 +170,7 @@ describe('skill editorial-planner', () => {
   });
 
   it('exige justificativa e estagio validos em cada item', () => {
-    const item = { date: '2026-07-20', format: 'news', topic: 't', title: 'x', objective: 'o', pillar: 'p', stage: 'descoberta', cta: 'c', rationale: 'r' };
+    const item = { date: '2026-07-20', format: 'image', topic: 't', title: 'x', objective: 'o', pillar: 'p', stage: 'descoberta', cta: 'c', rationale: 'r' };
 
     expect(planOut.safeParse({ items: [item] }).success).toBe(true);
     expect(planOut.safeParse({ items: [{ ...item, rationale: '' }] }).success).toBe(false);

@@ -104,8 +104,42 @@ Não implementar nesta fase:
 - publicação totalmente autônoma sem aprovação;
 - múltiplos agentes executando em paralelo;
 - geração completa de vídeo por IA;
+- **publicação automática de Reels e Stories** (ver §5.1);
 - reformulação completa da arquitetura existente;
 - substituição desnecessária de módulos que já funcionam.
+
+## 5.1 Formatos: planejar ≠ publicar
+
+Decisão de 2026-07-17.
+
+O Social Hub **planeja e produz os quatro formatos** do Instagram desde já:
+
+- imagem única;
+- carrossel;
+- Reels (roteiro para o usuário gravar);
+- Stories (sequência para o usuário postar).
+
+A **publicação automática**, nesta fase, cobre apenas **imagem e carrossel**.
+
+Reels e Stories são entregues como roteiro e sequência prontos; o usuário grava,
+publica e marca como concluído.
+
+### Por que separar
+
+A IA não deve pensar em "posts". Ela deve pensar na **semana completa** — e uma
+semana real de Instagram tem Reels e Stories. Amarrar o Planejador Editorial ao
+que o publicador sabe postar hoje produziria uma estratégia pobre e artificial,
+que teria de ser refeita quando os publicadores chegassem.
+
+### Regra arquitetural
+
+`formato` e `publicabilidade` são conceitos independentes.
+
+- O Planejador Editorial e as Skills conhecem **formatos**.
+- O publicador conhece **como postar cada formato**.
+
+Adicionar publicação de Reels ou Stories no futuro deve exigir **apenas um novo
+publicador**, sem alterar o Planejador Editorial nem qualquer Skill.
 
 Esses recursos poderão ser avaliados em versões futuras.
 
@@ -578,6 +612,19 @@ Transformar a estratégia em temas concretos.
 - justificativa curta;
 - status.
 
+### Formatos no planejamento
+
+O plano deve considerar os quatro formatos: **imagem, carrossel, Reels e
+Stories** (§5.1).
+
+A semana precisa parecer uma semana real de Instagram: uma marca não vive só de
+post no feed. Stories sustentam frequência e relacionamento; Reels alcançam quem
+ainda não segue; carrossel ensina; imagem única fixa uma ideia.
+
+O planejador **não deve** limitar-se ao que o publicador automatiza hoje. Itens
+de Reels e Stories entram no plano normalmente, e são entregues como roteiro e
+sequência para o usuário postar.
+
 ### Fluxo
 
 1. Sistema cria uma sugestão semanal.
@@ -635,6 +682,18 @@ Conforme formato:
 - agendado;
 - publicado;
 - falhou.
+
+### Estados adicionais para formato não publicável (§5.1)
+
+Reels e Stories não passam por agendamento nem publicação automática nesta fase.
+Depois de aprovados, seguem para:
+
+- **pronto para postar** — roteiro/sequência entregue ao usuário;
+- **postado por mim** — o usuário confirma que publicou.
+
+O sistema **não deve afirmar** que publicou o que não publicou. O conteúdo
+aprovado de Reels e Stories aparece no calendário como compromisso do usuário,
+com marcação visual clara de que a postagem é manual.
 
 ### Ações
 
@@ -1067,19 +1126,57 @@ Criar roteiro gravável pelo usuário.
 
 ---
 
-## 9.10 Skill — Planejador de Stories
+## 9.10 Skill — Story Planner
 
 ### Responsabilidade
 
-Criar sequências curtas e interativas.
+Criar **sequências completas** de Stories — não telas soltas.
+
+Uma sequência tem arco: abre, entrega valor, convida à interação e fecha com uma
+ação clara.
+
+### Tipos de card disponíveis
+
+- abertura;
+- educativo;
+- enquete;
+- caixa de perguntas;
+- bastidores;
+- prova social;
+- CTA final.
+
+A skill escolhe quais usar e em que ordem, conforme o tema e o objetivo. Nem toda
+sequência precisa de todos.
 
 ### Saída
 
-- ordem dos Stories;
-- texto;
-- tipo de mídia;
-- enquete ou caixa de perguntas;
-- CTA.
+Para cada card da sequência:
+
+- ordem;
+- tipo do card;
+- texto na tela;
+- tipo de mídia sugerida (foto, vídeo curto, texto sobre cor);
+- orientação de gravação/captura, em linguagem simples;
+- elemento interativo, quando for enquete ou caixa de perguntas;
+- CTA, quando aplicável.
+
+E para a sequência inteira:
+
+- objetivo;
+- duração estimada;
+- justificativa curta.
+
+### Regras
+
+- Mínimo 3 e máximo 7 cards: sequência longa demais é abandonada no meio.
+- Elemento interativo não é enfeite — deve ter relação com o tema.
+- Não prometer resultado nem usar urgência artificial.
+- A sequência deve poder ser postada por uma pessoa comum, com um celular.
+
+### Restrição
+
+Nesta fase o usuário posta manualmente (§5.1). A skill deve produzir algo que
+**alguém consiga executar**, não um roteiro de agência.
 
 ---
 
@@ -1208,7 +1305,26 @@ src/
         safety-review/
         performance-analysis/
         repurpose/
+    formats/          <- registro de formatos e capacidades
+    publishers/       <- um publicador por formato publicável
 ```
+
+## 10.1 Registro de formatos
+
+Ponto único de verdade sobre os formatos (§5.1). Cada formato declara:
+
+- identificador;
+- rótulo em linguagem simples;
+- se pode ser **planejado** (hoje: todos);
+- se pode ser **publicado automaticamente** (hoje: imagem e carrossel);
+- qual skill o produz;
+- qual publicador o posta, quando houver.
+
+Skills e Planejador Editorial leem o registro. **Nenhuma skill pergunta se um
+formato é publicável** — isso é assunto do publicador.
+
+Habilitar Reels no futuro deve ser: escrever o publicador, virar a flag no
+registro. Nada mais.
 
 Cada skill deverá possuir:
 
@@ -1964,6 +2080,12 @@ Antes de codificar:
 - Regenerações serão limitadas.
 - Aprendizado não altera o DNA sem aprovação.
 - Novas redes ficam para depois da validação do Instagram.
+- A IA planeja e produz os quatro formatos do Instagram desde o início; a
+  publicação automática começa por imagem e carrossel (§5.1).
+- Formato e publicabilidade são conceitos separados: habilitar Reels ou Stories
+  no futuro exige apenas um novo publicador, sem tocar no Planejador nem nas
+  Skills.
+- O sistema nunca afirma ter publicado o que o usuário postou manualmente.
 
 ---
 
