@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "postbuild": "node scripts/prepare-standalone.cjs",
+    "start": "node .next/standalone/server.js",
+    "cron:railway": "node scripts/run-railway-cron.cjs",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -25,6 +27,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7",
+    "sharp": "^0.35.3",
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
