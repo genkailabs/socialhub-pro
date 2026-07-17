@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { exchangeCodeForToken, exchangeForLongLivedToken, discoverPages } from '@/lib/meta/graph';
+import { getBrandInstagramMetrics } from '@/lib/metrics-data';
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
@@ -74,7 +75,17 @@ export async function GET(request) {
 
     const connected = igAccount ? 'instagram' : 'facebook';
     const uname = igAccount ? (igAccount.username || igAccount.name) : page.name;
-    return NextResponse.redirect(`${appUrl}/connections?status=success&platform=${connected}&username=${encodeURIComponent(uname)}`);
+
+    // Primeira sincronização logo após conectar, como o callback do YouTube já
+    // faz: sem ela o painel fica vazio até a próxima visita e parece quebrado.
+    // Falha aqui não desfaz a conexão — o token está salvo e válido.
+    let sync = 'skipped';
+    if (igAccount) {
+      const result = await getBrandInstagramMetrics(brandId);
+      sync = result?.ok ? 'success' : 'warning';
+    }
+
+    return NextResponse.redirect(`${appUrl}/connections?status=success&platform=${connected}&username=${encodeURIComponent(uname)}&sync=${sync}`);
   } catch (e) {
     return back(e.message || 'Erro interno ao processar autorização.');
   }
