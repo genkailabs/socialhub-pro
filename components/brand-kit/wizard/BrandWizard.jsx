@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Sparkles, AlertCircle, Pipette, Instagram, Globe, FileText, User, Check } from 'lucide-react';
 import { saveBrandKit } from '@/lib/brand-kit-actions';
+import { saveOnboardingProgress, completeOnboarding } from '@/lib/onboarding-actions';
 import { analyzeBrandDNA } from '@/lib/dna-actions';
 import { dominantColorFromImageUrl } from '@/lib/color/dominant';
 import { DEFAULT_PALETTE } from '@/lib/ai/templates';
@@ -73,25 +74,30 @@ function Q({ title, desc, children }) {
 }
 
 export function BrandWizard({ brandId, brandName, brandColor, kit, onComplete }) {
-  const [step, setStep] = useState(0);
-  const [niche, setNiche] = useState(kit?.niche || '');
-  const [audience, setAudience] = useState(kit?.audience || '');
-  const [objective, setObjective] = useState(kit?.objective || '');
-  const [tones, setTones] = useState([]);
-  const [toneOther, setToneOther] = useState('');
-  const [personalities, setPersonalities] = useState([]);
-  const [storytelling, setStorytelling] = useState('');
-  const [emoji, setEmoji] = useState('');
-  const [caption, setCaption] = useState('');
-  const [cta, setCta] = useState('');
-  const [style, setStyle] = useState('');
-  const [palette, setPalette] = useState({
+  // Rascunho salvo a cada passo: quem fechou a aba no meio volta de onde parou.
+  // Cai para as colunas já salvas quando não há rascunho (RF-01).
+  const draft = kit?.onboarding_answers || {};
+  const retomando = kit?.onboarding_status === 'in_progress' && Number(kit?.onboarding_step) > 0;
+
+  const [step, setStep] = useState(retomando ? Number(kit.onboarding_step) : 0);
+  const [niche, setNiche] = useState(draft.niche ?? kit?.niche ?? '');
+  const [audience, setAudience] = useState(draft.audience ?? kit?.audience ?? '');
+  const [objective, setObjective] = useState(draft.objective ?? kit?.objective ?? '');
+  const [tones, setTones] = useState(draft.tones ?? []);
+  const [toneOther, setToneOther] = useState(draft.toneOther ?? '');
+  const [personalities, setPersonalities] = useState(draft.personalities ?? []);
+  const [storytelling, setStorytelling] = useState(draft.storytelling ?? '');
+  const [emoji, setEmoji] = useState(draft.emoji ?? '');
+  const [caption, setCaption] = useState(draft.caption ?? '');
+  const [cta, setCta] = useState(draft.cta ?? '');
+  const [style, setStyle] = useState(draft.style ?? '');
+  const [palette, setPalette] = useState(draft.palette ?? {
     accent: kit?.palette?.accent || brandColor || DEFAULT_PALETTE.accent,
     bg: kit?.palette?.bg || DEFAULT_PALETTE.bg,
     surface: kit?.palette?.surface || DEFAULT_PALETTE.surface,
     ink: kit?.palette?.ink || DEFAULT_PALETTE.ink
   });
-  const [logoUrl, setLogoUrl] = useState(kit?.logo_url || '');
+  const [logoUrl, setLogoUrl] = useState(draft.logoUrl ?? kit?.logo_url ?? '');
   const [pick, setPick] = useState(false);
   const [wantIg, setWantIg] = useState(false);
   const [useWebsite, setUseWebsite] = useState(false);
@@ -103,6 +109,19 @@ export function BrandWizard({ brandId, brandName, brandColor, kit, onComplete })
 
   const pct = Math.round(((step + 1) / 6) * 100);
   const canNext = step === 0 ? niche.trim().length > 0 : true;
+
+  // Tudo o que o wizard coletou até agora, no formato do rascunho.
+  const draftAnswers = () => ({
+    niche, audience, objective, tones, toneOther, personalities,
+    storytelling, emoji, caption, cta, style, palette, logoUrl
+  });
+
+  // Salvar não pode travar a navegação: se a gravação falhar, a pessoa continua
+  // respondendo e o fim do wizard ainda persiste tudo via saveBrandKit.
+  function go(next) {
+    setStep(next);
+    saveOnboardingProgress({ brandId, step: next, answers: draftAnswers() }).catch(() => {});
+  }
 
   async function extractColor() {
     if (!logoUrl) return;
@@ -130,6 +149,10 @@ export function BrandWizard({ brandId, brandName, brandColor, kit, onComplete })
     };
     const save = await saveBrandKit(answers);
     if (save?.error) { setBusy(false); setError(save.error); return; }
+
+    // A entrevista terminou: o wizard não deve mais reabrir no meio. As
+    // respostas ficam guardadas — são a matéria-prima do Brand DNA.
+    await completeOnboarding({ brandId }).catch(() => {});
 
     const manual = {
       niche, audience,
@@ -198,7 +221,7 @@ export function BrandWizard({ brandId, brandName, brandColor, kit, onComplete })
         </div>
         <div className="flex gap-1.5">
           {STEP_TITLES.map((_, i) => (
-            <button key={i} type="button" onClick={() => setStep(i)} aria-label={`Ir ao passo ${i + 1}`}
+            <button key={i} type="button" onClick={() => go(i)} aria-label={`Ir ao passo ${i + 1}`}
               className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ease-emphasized ${i <= step ? 'bg-accent' : 'bg-line'}`} />
           ))}
         </div>
@@ -296,11 +319,11 @@ export function BrandWizard({ brandId, brandName, brandColor, kit, onComplete })
       )}
 
       <div className="flex items-center justify-between">
-        <Button type="button" variant="ghost" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0 || busy}>
+        <Button type="button" variant="ghost" onClick={() => go(Math.max(0, step - 1))} disabled={step === 0 || busy}>
           <ArrowLeft className="h-4 w-4" />Voltar
         </Button>
         {step < 5 ? (
-          <Button type="button" onClick={() => setStep((s) => s + 1)} disabled={!canNext}>
+          <Button type="button" onClick={() => go(step + 1)} disabled={!canNext}>
             Avançar<ArrowRight className="h-4 w-4" />
           </Button>
         ) : (

@@ -4,11 +4,13 @@ import { BrandKitShell } from '@/components/brand-kit/BrandKitShell';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { getBrandKit } from '@/lib/brand-kit-data';
+import { listDnaVersions } from '@/lib/dna-versions-data';
 
 export default async function BrandKitPage() {
   const brands = await listBrands();
   const active = resolveActive(brands, await getActiveBrandId());
   const kit = active ? await getBrandKit(active.id) : null;
+  const versions = active ? await listDnaVersions(active.id) : [];
 
   return (
     <div className="space-y-6">
@@ -21,7 +23,7 @@ export default async function BrandKitPage() {
       {!active ? (
         <EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState>
       ) : (
-        <BrandKitShell brandId={active.id} brandName={active.name} brandColor={active.color} kit={kit} />
+        <BrandKitShell brandId={active.id} brandName={active.name} brandColor={active.color} kit={kit} versions={versions} />
       )}
     </div>
   );
