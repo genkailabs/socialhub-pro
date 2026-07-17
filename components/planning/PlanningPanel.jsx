@@ -1,9 +1,12 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Calendar, Check, Sparkles, Target, Undo2, X } from 'lucide-react';
+import Link from 'next/link';
+import { AlertCircle, ArrowRight, Calendar, Check, Sparkles, Target, Undo2, Wand2, X } from 'lucide-react';
 import { generateWeekPlan, setPlanItemStatus } from '@/lib/planning-actions';
+import { produceFromPlanItem } from '@/lib/content-actions';
 import { planProgress, ITEM_STATUS } from '@/lib/strategy-plan';
+import { formatLabel } from '@/lib/content-production';
 import { Button } from '@/components/ui/Button';
 
 const DIAS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
@@ -20,9 +23,10 @@ const TOM = {
   produced: 'border-accent/40 bg-accent/5'
 };
 
-function Tema({ item, onStatus, busy }) {
+function Tema({ item, onStatus, onProduce, busy }) {
   const meta = ITEM_STATUS[item.status] || ITEM_STATUS.proposed;
   const removido = item.status === 'rejected';
+  const produzido = item.status === 'produced' && item.post_id;
 
   return (
     <li className={`rounded-2xl border p-4 transition-colors ${TOM[item.status] || TOM.proposed}`}>
@@ -30,7 +34,7 @@ function Tema({ item, onStatus, busy }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wide text-muted">{dataCurta(item.date)}</span>
-            <span className="rounded-md border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted">{item.format}</span>
+            <span className="rounded-md border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted">{formatLabel(item.format)}</span>
             <span className="rounded-md border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted">{item.pillar}</span>
             {item.status !== 'proposed' && (
               <span className={`text-[10px] font-bold ${meta.tone === 'success' ? 'text-success' : meta.tone === 'accent' ? 'text-accent' : 'text-muted'}`}>
@@ -48,9 +52,26 @@ function Tema({ item, onStatus, busy }) {
           </dl>
         </div>
 
+        {/* Produzido: o tema virou conteudo e o trabalho continua na revisao. */}
+        {produzido && (
+          <Link
+            href={`/content/${item.post_id}/review`}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-[11px] font-bold text-accent transition-colors hover:bg-accent/15"
+          >
+            Ver conteudo<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        )}
+
         {/* Aprovar e remover nao chamam IA e nao custam credito (§12.4). */}
         {item.status !== 'produced' && (
           <div className="flex shrink-0 gap-1.5">
+            {/* Só aqui a IA escreve de verdade — e só para tema aprovado. */}
+            {item.status === 'approved' && (
+              <Button size="sm" onClick={() => onProduce(item.id)} disabled={busy === item.id}>
+                <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
+                {busy === item.id ? 'Criando...' : 'Criar conteudo'}
+              </Button>
+            )}
             {item.status !== 'approved' && (
               <Button size="sm" onClick={() => onStatus(item.id, 'approved')} disabled={busy === item.id}>
                 <Check className="h-3.5 w-3.5" aria-hidden="true" />Aprovar
@@ -103,6 +124,21 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy }) {
     try {
       const res = await setPlanItemStatus({ itemId, status });
       if (res?.error) throw new Error(res.error);
+      router.refresh();
+    } catch (e) {
+      setMsg({ type: 'err', text: e.message });
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function produzir(itemId) {
+    setBusy(itemId); setMsg(null);
+    try {
+      const res = await produceFromPlanItem({ itemId });
+      if (res?.error) throw new Error(res.error);
+      // Bloqueado pela revisão não some: vira rascunho e a pessoa decide.
+      if (res.blocked) setMsg({ type: 'warn', text: 'Conteudo criado, mas a revisao pediu atencao. Abra para ver o que ajustar.' });
       router.refresh();
     } catch (e) {
       setMsg({ type: 'err', text: e.message });
@@ -164,14 +200,15 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy }) {
         <>
           <ul className="space-y-3">
             {itens.map((item) => (
-              <Tema key={item.id} item={item} onStatus={mudarStatus} busy={busy} />
+              <Tema key={item.id} item={item} onStatus={mudarStatus} onProduce={produzir} busy={busy} />
             ))}
           </ul>
 
           {progresso.readyToProduce && (
             <p className="rounded-xl border border-accent/40 bg-accent/5 p-3 text-xs text-muted">
-              {progresso.approved} {progresso.approved === 1 ? 'tema aprovado' : 'temas aprovados'}. A producao do conteudo
-              completo entra na proxima etapa — so entao a IA escreve legenda e cria imagem.
+              {progresso.approved} {progresso.approved === 1 ? 'tema aprovado' : 'temas aprovados'}. Clique em
+              &ldquo;Criar conteudo&rdquo; em cada um — so ai a IA escreve a legenda e monta a arte, e so para o
+              que voce aprovou.
             </p>
           )}
         </>
