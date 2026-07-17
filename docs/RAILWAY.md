@@ -1,6 +1,7 @@
 # Railway - SocialHub MVP
 
-Use tres servicos no mesmo projeto Railway, todos apontando para este repositorio.
+Use dois servicos no mesmo projeto Railway, ambos apontando para este
+repositorio. O terceiro (YouTube) esta pausado.
 
 A Vercel foi desativada; o Railway e o unico ambiente de execucao. O banco e a
 autenticacao continuam no Supabase.
@@ -22,15 +23,19 @@ Publica os posts vencidos e dispara o piloto automatico, que tem trava propria d
 ~20h e nao gera a cada rodada. A janela de 5 minutos e o que permite respeitar o
 horario agendado.
 
-## 3. Servico de sincronizacao do YouTube
+## 3. Servico de sincronizacao do YouTube (PAUSADO)
+
+> Nao criar por enquanto. O foco atual e o Instagram. Sem este servico, as
+> metricas do YouTube em `/metrics` param no ultimo dado sincronizado — nada
+> quebra, so congela. O runner ja esta pronto para quando for retomado.
 
 - Start Command: `npm run cron:youtube`
 - Cron Schedule: `0 6 * * *`
 - Restart Policy: `NEVER`
 - Precisa tambem de `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`.
 
-Este cron vivia no `vercel.json` e ficaria orfao ao sair da Vercel. Diario e
-suficiente e evita gastar cota da API do YouTube.
+Este cron vivia no `vercel.json`; diario e suficiente e evita gastar cota da API
+do YouTube.
 
 Os dois servicos de cron chamam uma rota protegida por `CRON_SECRET` e encerram
 ao terminar, o que permite ao Railway executar a proxima rodada normalmente.
