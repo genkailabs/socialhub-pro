@@ -50,7 +50,7 @@ export default async function ApprovePage({ params }) {
 
         <div className="rounded-2xl glass p-5 shadow-soft">
           <p className="mb-3 text-sm font-extrabold text-ink">O que você achou?</p>
-          <ApprovalForm postId={post.id} />
+          <ApprovalForm approvalToken={token} />
         </div>
 
         <p className="text-center text-[11px] text-faint">Suas respostas voltam em tempo real para a agência.</p>

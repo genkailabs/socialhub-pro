@@ -19,7 +19,7 @@ const COMMON_PILLARS = [
 export function AutopilotForm({ brandId, plan, hasBrandKit }) {
   const [active, setActive] = useState(!!plan?.active);
   const [postsPerDay, setPostsPerDay] = useState(plan?.posts_per_day || 1);
-  const [format, setFormat] = useState(plan?.format || 'quote');
+  const [format, setFormat] = useState(plan?.format || 'news');
   const [pillarsList, setPillarsList] = useState(plan?.pillars || []);
   const [newPillar, setNewPillar] = useState('');
   const [times, setTimes] = useState((plan?.preferred_times || []).join(', '));
@@ -80,6 +80,9 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs leading-relaxed text-muted">
+        No plano gratuito da Vercel, o piloto roda uma vez por dia, as 09:00 (horario de Sao Paulo). Horarios personalizados serao usados quando houver um agendador mais frequente.
+      </div>
       {/* Alerta caso não tenha Brand Kit configurado */}
       {!hasBrandKit && (
         <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-xs text-ink">

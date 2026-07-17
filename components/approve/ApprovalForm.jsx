@@ -1,10 +1,9 @@
 'use client';
 import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import { submitApproval } from '@/lib/approval-actions';
 import { Button } from '@/components/ui/Button';
 
-export function ApprovalForm({ postId }) {
+export function ApprovalForm({ approvalToken }) {
   const [author, setAuthor] = useState('');
   const [comment, setComment] = useState('');
   const [done, setDone] = useState(null);
@@ -12,18 +11,34 @@ export function ApprovalForm({ postId }) {
   const [err, setErr] = useState('');
 
   async function send(action) {
-    setBusy(true); setErr('');
-    const res = await submitApproval({ postId, author, action, comment });
-    setBusy(false);
-    if (res?.error) { setErr(res.error); return; }
-    setDone(action);
+    setBusy(true);
+    setErr('');
+    try {
+      const response = await fetch('/api/approval/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: approvalToken, author, action, comment })
+      });
+      const res = await response.json();
+      if (!response.ok || res?.error) { setErr(res?.error || 'Nao foi possivel enviar a resposta.'); return; }
+      setDone(action);
+    } catch {
+      setErr('Nao foi possivel enviar a resposta. Tente novamente.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (done) {
+    const message = done === 'approved'
+      ? 'Aprovado! O post foi agendado automaticamente.'
+      : done === 'changes_requested'
+        ? 'Pedido de ajustes enviado.'
+        : 'Comentario enviado.';
     return (
       <div className="animate-pop flex items-center gap-2.5 rounded-xl border border-success/30 bg-success/10 p-4 text-sm font-semibold text-ink">
         <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
-        {done === 'approved' ? 'Aprovado! Obrigado pelo retorno.' : done === 'changes_requested' ? 'Pedido de ajustes enviado.' : 'Comentário enviado.'}
+        {message}
       </div>
     );
   }
@@ -32,13 +47,13 @@ export function ApprovalForm({ postId }) {
 
   return (
     <div className="space-y-3">
-      <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Seu nome" className={field} />
-      <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="Comentário (opcional)" className={field} />
+      <input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="Seu nome" className={field} />
+      <textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={3} placeholder="Comentario (opcional)" className={field} />
       {err && <p className="text-xs font-semibold text-danger">{err}</p>}
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => send('approved')} disabled={busy}>Aprovar</Button>
         <Button variant="outline" onClick={() => send('changes_requested')} disabled={busy}>Pedir ajustes</Button>
-        <Button variant="ghost" onClick={() => send('comment_only')} disabled={busy}>Só comentar</Button>
+        <Button variant="ghost" onClick={() => send('comment_only')} disabled={busy}>So comentar</Button>
       </div>
     </div>
   );
