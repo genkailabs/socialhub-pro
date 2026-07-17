@@ -70,6 +70,8 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
       if (action === 'approval' && res.token) {
         setApprovalLink(`${window.location.origin}/approve/${res.token}`);
         setMsg({ type: 'ok', text: 'Enviado para aprovação! Copie o link para o cliente.' });
+      } else if (res?.warning) {
+        setMsg({ type: 'warn', text: res.warning });
       } else {
         const done = { now: 'Publicado no Instagram!', schedule: 'Post agendado!', draft: 'Rascunho salvo!' }[action];
         setMsg({ type: 'ok', text: done });
@@ -167,7 +169,7 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
 
         {/* mensagem + link de aprovação */}
         {msg && (
-          <p className={`flex items-center gap-1.5 text-xs font-semibold ${msg.type === 'ok' ? 'text-success' : 'text-danger'}`}>
+          <p className={`flex items-center gap-1.5 text-xs font-semibold ${msg.type === 'ok' ? 'text-success' : msg.type === 'warn' ? 'text-warning' : 'text-danger'}`}>
             {msg.type === 'ok' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}{msg.text}
           </p>
         )}

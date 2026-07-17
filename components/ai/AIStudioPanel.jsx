@@ -120,6 +120,8 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
       if (action === 'approval' && res.token) {
         setApprovalLink(`${window.location.origin}/approve/${res.token}`);
         setMsg({ type: 'ok', text: 'Enviado para aprovação! Copie o link para o cliente.' });
+      } else if (res?.warning) {
+        setMsg({ type: 'warn', text: res.warning });
       } else {
         setMsg({ type: 'ok', text: { now: 'Publicado no Instagram!', schedule: 'Post agendado!', draft: 'Rascunho salvo!' }[action] });
       }
@@ -264,7 +266,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
           </>
         )}
 
-        {msg && <p className={`flex items-center gap-1.5 text-xs font-semibold ${msg.type === 'ok' ? 'text-success' : 'text-danger'}`}>{msg.type === 'ok' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}{msg.text}</p>}
+        {msg && <p className={`flex items-center gap-1.5 text-xs font-semibold ${msg.type === 'ok' ? 'text-success' : msg.type === 'warn' ? 'text-warning' : 'text-danger'}`}>{msg.type === 'ok' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}{msg.text}</p>}
         {approvalLink && (
           <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 p-2">
             <Link2 className="ml-1 h-4 w-4 shrink-0 text-accent" />
