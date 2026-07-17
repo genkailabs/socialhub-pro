@@ -1,10 +1,12 @@
 import { Sparkles, Wand2, ShieldCheck, Palette, CalendarClock, CheckSquare } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AutopilotForm } from '@/components/autopilot/AutopilotForm';
+import { StrategyPanel } from '@/components/autopilot/StrategyPanel';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { getContentPlan } from '@/lib/content-plan-data';
 import { getBrandKit } from '@/lib/brand-kit-data';
+import { listStrategies } from '@/lib/planning-data';
 import { getPipeline } from '@/lib/pipeline';
 import { PipelineProgress } from '@/components/onboarding/PipelineProgress';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
@@ -16,6 +18,7 @@ export default async function AutopilotPage() {
     ? await Promise.all([getContentPlan(active.id), getBrandKit(active.id)])
     : [null, null];
   const pipeline = active ? await getPipeline(active.id) : null;
+  const strategies = active ? await listStrategies(active.id) : [];
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -97,7 +100,14 @@ export default async function AutopilotPage() {
           Crie ou selecione uma marca no seletor acima para configurar o Piloto Automático.
         </EmptyState>
       ) : (
-        <AutopilotForm brandId={active.id} plan={plan} hasBrandKit={!!kit} />
+        <>
+          {/* A estratégia vem antes da cadência: primeiro por que publicar,
+              depois com que frequência. */}
+          <div className="rounded-2xl glass p-5 shadow-soft">
+            <StrategyPanel brandId={active.id} strategies={strategies} />
+          </div>
+          <AutopilotForm brandId={active.id} plan={plan} hasBrandKit={!!kit} />
+        </>
       )}
     </div>
   );
