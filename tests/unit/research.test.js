@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ tavilySearch: vi.fn() }));
-vi.mock('@/lib/ai/tavily', () => ({ tavilySearch: mocks.tavilySearch }));
+const mocks = vi.hoisted(() => ({ pollinationsSearch: vi.fn() }));
+vi.mock('@/lib/ai/pollinations-search', () => ({ pollinationsSearch: mocks.pollinationsSearch }));
 
 import { needsResearch, buildResearchQuery, researchContext, ResearchUnavailableError } from '@/lib/ai/research';
 
@@ -64,13 +64,13 @@ describe('buildResearchQuery', () => {
 describe('researchContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.TAVILY_API_KEY = 'test';
+    process.env.POLLINATIONS_SECRET_KEY = 'test';
   });
 
   it('summary não-vazio → sucesso com custo', async () => {
-    mocks.tavilySearch.mockResolvedValue({
+    mocks.pollinationsSearch.mockResolvedValue({
       summary: 'contexto atual', sources: [{ uri: 'https://a.com', title: 'A' }],
-      usage: { prompt_tokens: 100, completion_tokens: 50 }, model: 'tavily-search'
+      usage: { prompt_tokens: 100, completion_tokens: 50 }, model: 'gemini-search'
     });
 
     const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: { niche: 'tech' } });
@@ -79,26 +79,26 @@ describe('researchContext', () => {
     expect(out.sources).toHaveLength(1);
     expect(out.cached).toBe(false);
     expect(out.cost).toBeGreaterThan(0);
-    expect(mocks.tavilySearch).toHaveBeenCalledTimes(1);
+    expect(mocks.pollinationsSearch).toHaveBeenCalledTimes(1);
   });
 
   it('summary vazio → lança ResearchUnavailableError', async () => {
-    mocks.tavilySearch.mockResolvedValue({ summary: '', sources: [], usage: {}, model: 'tavily-search' });
+    mocks.pollinationsSearch.mockResolvedValue({ summary: '', sources: [], usage: {}, model: 'gemini-search' });
 
     await expect(researchContext({ brief: { topic: 'IA hoje' }, kit: {} }))
       .rejects.toBeInstanceOf(ResearchUnavailableError);
   });
 
-  it('Tavily falha → lança ResearchUnavailableError com code', async () => {
-    mocks.tavilySearch.mockRejectedValue(new Error('quota'));
+  it('Pollinations falha → lança ResearchUnavailableError com code', async () => {
+    mocks.pollinationsSearch.mockRejectedValue(new Error('quota'));
 
     await expect(researchContext({ brief: { topic: 'IA hoje' }, kit: {} }))
       .rejects.toMatchObject({ code: 'research_unavailable' });
   });
 
-  it('cache hit (<6h) → não chama Tavily, custo zero', async () => {
+  it('cache hit (<6h) → não chama Pollinations, custo zero', async () => {
     const supabase = fakeSupabase({
-      row: { summary: 'do cache', sources: [{ uri: 'https://c.com', title: 'C' }], model: 'tavily-search', created_at: new Date().toISOString() }
+      row: { summary: 'do cache', sources: [{ uri: 'https://c.com', title: 'C' }], model: 'gemini-search', created_at: new Date().toISOString() }
     });
 
     const out = await researchContext({ supabase, brief: { topic: 'IA hoje' }, kit: {} });
@@ -106,27 +106,27 @@ describe('researchContext', () => {
     expect(out.summary).toBe('do cache');
     expect(out.cached).toBe(true);
     expect(out.cost).toBe(0);
-    expect(mocks.tavilySearch).not.toHaveBeenCalled();
+    expect(mocks.pollinationsSearch).not.toHaveBeenCalled();
     expect(supabase.upserts).toHaveLength(0);
   });
 
-  it('cache miss → chama Tavily e grava sucesso', async () => {
-    mocks.tavilySearch.mockResolvedValue({
-      summary: 'fresco', sources: [], usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'tavily-search'
+  it('cache miss → chama Pollinations e grava sucesso', async () => {
+    mocks.pollinationsSearch.mockResolvedValue({
+      summary: 'fresco', sources: [], usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'gemini-search'
     });
     const supabase = fakeSupabase({ row: null });
 
     const out = await researchContext({ supabase, brief: { topic: 'IA hoje' }, kit: {} });
 
     expect(out.cached).toBe(false);
-    expect(mocks.tavilySearch).toHaveBeenCalledTimes(1);
+    expect(mocks.pollinationsSearch).toHaveBeenCalledTimes(1);
     expect(supabase.upserts).toHaveLength(1);
     expect(supabase.upserts[0]).toMatchObject({ summary: 'fresco' });
     expect(supabase.upserts[0].query_hash).toBeTruthy();
   });
 
   it('falha na pesquisa nunca grava cache', async () => {
-    mocks.tavilySearch.mockRejectedValue(new Error('down'));
+    mocks.pollinationsSearch.mockRejectedValue(new Error('down'));
     const supabase = fakeSupabase({ row: null });
 
     await expect(researchContext({ supabase, brief: { topic: 'IA hoje' }, kit: {} }))
