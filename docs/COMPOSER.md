@@ -23,9 +23,9 @@ A primeira tela mostra:
 - oportunidades vindas do plano editorial, estratégia, diagnóstico do Instagram e sugestões do nicho;
 - a opção **Não sei. Me sugira algo.**
 
-Essas oportunidades são montadas localmente. Escolher um cartão, inclusive **Não sei. Me sugira algo.**, não chama IA e não faz pesquisa na web.
+Essas oportunidades são montadas localmente. O cartão **Não sei. Me sugira algo.** escolhe uma sugestão local antes de iniciar a geração. Nenhuma chamada web extra é feita nessa escolha.
 
-Quando o usuário escolhe uma oportunidade, o Composer define assunto, formato, tom e objetivo. O botão **Preparar conteúdo** envia esse briefing para `generatePost`.
+Quando o usuário escolhe uma oportunidade, o Composer define assunto, formato, tom e objetivo e inicia o fluxo guiado: gera o texto e as quatro opções de imagem. Os ajustes ficam disponíveis depois, mas não são obrigatórios para começar.
 
 Ao trocar de oportunidade, o Composer limpa a geração anterior, incluindo texto, direção visual, opções de imagem, arte final e prévia. Isso evita misturar conteúdo de dois briefings diferentes.
 
@@ -40,7 +40,9 @@ Depois da geração, o usuário pode editar:
 - hashtags;
 - direção visual.
 
-A CTA é adicionada ao final da legenda no envio, sem alterar o contrato das actions de publicação.
+A CTA é obrigatória, normalizada pela spec de IA e adicionada ao final da legenda no envio, sem alterar o contrato das actions de publicação. O usuário pode editá-la, mas não pode publicar com ela vazia.
+
+O prompt também recebe um resumo local do Composer: estratégia e plano editorial ativos, memória da semana e sinal de métricas/horários. URLs, e-mails, telefones e detalhes internos são removidos antes de chegar ao modelo. Esse contexto não faz novas chamadas web nem deve aparecer na publicação.
 
 Quando o assunto exige informação atual, a pesquisa acontece no motor de geração. Se a pesquisa obrigatória falhar ou não houver confiança suficiente, o conteúdo não é inventado e o usuário recebe uma mensagem de erro.
 
@@ -48,12 +50,12 @@ Quando o assunto exige informação atual, a pesquisa acontece no motor de gera�
 
 O Composer mantém o fluxo de quatro opções:
 
-1. `generateNewsImages` cria até quatro imagens relacionadas ao assunto.
+1. `generateNewsImages` cria exatamente quatro imagens relacionadas ao assunto, usando também o `image_prompt` da spec como direção base.
 2. O usuário escolhe uma opção.
 3. É possível adicionar um título e escolher sua posição: topo, centro ou base.
 4. `finalizeNewsImage` prepara a arte final.
 
-A publicação só é liberada depois que o usuário confirma **Usar esta imagem**.
+A publicação só é liberada depois que o usuário confirma **Usar esta imagem** e quando existem exatamente quatro opções. Se qualquer uma falhar, o Composer mostra erro claro e pede uma nova geração do lote completo.
 
 ### 4. Conferir a prévia
 
@@ -93,7 +95,7 @@ Se `composerContext` estiver ausente ou incompleto:
 - o calendário usa horários padrão em dias futuros;
 - o fluxo avançado continua funcionando.
 
-Se uma parte das quatro imagens falhar, as opções concluídas continuam disponíveis. Se nenhuma imagem for finalizada, publicar e agendar permanecem bloqueados.
+Se uma das quatro imagens falhar, o lote é descartado e o Composer pede uma nova geração completa. Sem quatro opções e uma imagem finalizada, publicar e agendar permanecem bloqueados.
 
 ## Aba Criar manual
 

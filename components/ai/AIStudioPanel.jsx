@@ -278,15 +278,19 @@ export function AIStudioPanel({
         || FALLBACK_OPPORTUNITIES[0];
       setSuggestionIndex((current) => current + 1);
       applyOpportunity(suggestion, true);
+      void generate(suggestion);
       return;
     }
 
     applyOpportunity(opportunity, false);
+    void generate(opportunity);
   }
 
-  async function generate() {
-    const brief = uiMode === 'guided'
-      ? opportunityBrief(selectedOpportunity)
+  async function generate(opportunityOverride = null) {
+    const guidedOpportunity = opportunityOverride || selectedOpportunity;
+    const isGuided = uiMode === 'guided';
+    const brief = isGuided
+      ? opportunityBrief(guidedOpportunity)
       : { topic: topic.trim(), format, tone, goal };
     if (!brief.topic) return;
 
@@ -294,23 +298,36 @@ export function AIStudioPanel({
     setMsg(null);
     setApprovalLink('');
     try {
-      const res = await generatePost({ brandId, brandName, brief, ignoreDna });
+      const res = await generatePost({ brandId, brandName, brief, ignoreDna, composerContext });
       if (res?.error) throw new Error(res.error);
       setGen(res);
-      setCaption(res.spec.caption || '');
-      setCta(res.spec.cta || '');
-      setHashtags((res.spec.hashtags || []).join(' '));
-      setVisualDirection(
-        (uiMode === 'guided' ? selectedOpportunity?.visualDirection : '')
+      const nextCaption = res.spec.caption || '';
+      const nextCta = res.spec.cta || '';
+      const nextDirection = (
+        (isGuided ? guidedOpportunity?.visualDirection : '')
         || res.spec.visualDirection
         || res.spec.visual_direction
         || ''
       );
+      setCaption(nextCaption);
+      setCta(nextCta);
+      setHashtags((res.spec.hashtags || []).join(' '));
+      setVisualDirection(nextDirection);
       setImageTitle(res.spec.headline || brief.topic);
       setImageOptions([]);
       setSelectedImage('');
       setFinalImageUrl('');
-      setMsg({ type: 'ok', text: 'Conteúdo criado. Revise o texto e prepare a imagem.' });
+      if (isGuided) {
+        await createImageOptions({
+          generation: res,
+          topicValue: brief.topic,
+          captionValue: [nextCaption, nextCta].filter(Boolean).join('\n\n'),
+          directionValue: nextDirection,
+          automatic: true
+        });
+      } else {
+        setMsg({ type: 'ok', text: 'Conteúdo criado. Revise o texto e prepare a imagem.' });
+      }
     } catch (error) {
       setMsg({ type: 'err', text: error.message });
     } finally {
@@ -318,26 +335,43 @@ export function AIStudioPanel({
     }
   }
 
-  async function createImageOptions() {
-    if (!gen) return;
+  async function createImageOptions({
+    generation = gen,
+    topicValue = effectiveTopic,
+    captionValue = publishCaption,
+    directionValue = visualDirection,
+    automatic = false
+  } = {}) {
+    if (!generation) return;
+    if (!String(captionValue || '').trim() || !String(cta || '').trim() && !automatic) {
+      setMsg({ type: 'err', text: 'Inclua uma CTA antes de gerar as imagens.' });
+      return;
+    }
     setBusy('images');
     setMsg(null);
     setFinalImageUrl('');
     try {
       const res = await generateNewsImages({
         brandId,
-        topic: effectiveTopic || gen.spec.headline,
-        caption: publishCaption,
-        direction: visualDirection,
-        basePrompt: gen.spec.imagePrompt
+        topic: topicValue || generation.spec.headline,
+        caption: captionValue,
+        direction: directionValue,
+        basePrompt: generation.spec.imagePrompt
       });
       if (res?.error) throw new Error(res.error);
+      if (!Array.isArray(res.imageUrls) || res.imageUrls.length !== 4) {
+        throw new Error('Não foi possível gerar as quatro imagens. Tente novamente.');
+      }
       setImageOptions(res.imageUrls || []);
       setSelectedImage(res.imageUrls?.[0] || '');
+      if (automatic) {
+        setTextEnabled(false);
+        setFinalImageUrl(res.imageUrls[0]);
+      }
       setMsg({
         type: 'ok',
-        text: res.failedCount
-          ? `${res.imageUrls.length} opções ficaram prontas. Algumas não puderam ser geradas.`
+        text: automatic
+          ? 'Conteúdo e quatro opções de imagem estão prontos. A primeira já está preparada; ajustes são opcionais.'
           : 'Quatro opções de imagem foram criadas. Escolha a que combina melhor com o conteúdo.'
       });
     } catch (error) {
@@ -353,6 +387,10 @@ export function AIStudioPanel({
   }
 
   async function useSelectedImage() {
+    if (imageOptions.length !== 4) {
+      setMsg({ type: 'err', text: 'Gere exatamente quatro imagens antes de finalizar a arte.' });
+      return;
+    }
     if (!selectedImage) return;
     setBusy('finalize');
     setMsg(null);
@@ -380,6 +418,14 @@ export function AIStudioPanel({
   }
 
   async function run(action) {
+    if (imageOptions.length !== 4) {
+      setMsg({ type: 'err', text: 'São necessárias exatamente quatro imagens para publicar.' });
+      return;
+    }
+    if (!cta.trim()) {
+      setMsg({ type: 'err', text: 'Inclua uma CTA antes de publicar.' });
+      return;
+    }
     const imageUrl = finalImageUrl || selectedImage;
     if (!imageUrl) {
       setMsg({ type: 'err', text: 'Crie e escolha uma imagem antes de publicar.' });
@@ -599,7 +645,7 @@ export function AIStudioPanel({
           </label>
 
           <Button
-            onClick={generate}
+            onClick={() => generate()}
             disabled={busy === 'gen' || !effectiveTopic}
             className="w-full !rounded-lg sm:w-auto"
           >
@@ -625,7 +671,7 @@ export function AIStudioPanel({
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-bold text-ink">Chamada para ação (CTA)</label>
+                <label className="mb-1.5 block text-xs font-bold text-ink">Chamada para ação (CTA) obrigatória</label>
                 <input
                   value={cta}
                   onChange={(event) => setCta(event.target.value)}
@@ -668,7 +714,7 @@ export function AIStudioPanel({
                   className={field}
                 />
                 <Button
-                  onClick={createImageOptions}
+                  onClick={() => createImageOptions()}
                   disabled={busy === 'images'}
                   className="shrink-0 !rounded-lg"
                 >
