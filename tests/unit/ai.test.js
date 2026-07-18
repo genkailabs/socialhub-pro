@@ -95,6 +95,20 @@ describe('buildContentPrompt', () => {
   it('pede image_prompt no system (p/ a deAPI)', () => {
     expect(buildContentPrompt({}).system).toContain('image_prompt');
   });
+  it('injeta contexto atual quando há research, sem vazar fontes', () => {
+    const { user } = buildContentPrompt({
+      brandKit: { niche: 'tech' },
+      brief: { topic: 'IA hoje', format: 'news' },
+      research: { summary: 'Modelo X lançado com recurso Y.', sources: [{ uri: 'https://secreta.com/artigo', title: 'Fonte' }] }
+    });
+    expect(user).toContain('contexto_atual');
+    expect(user).toContain('Modelo X lançado com recurso Y.');
+    expect(user).not.toContain('https://secreta.com/artigo');
+  });
+  it('sem research o prompt não menciona contexto atual', () => {
+    const { user } = buildContentPrompt({ brandKit: { niche: 'tech' }, brief: { topic: 'IA', format: 'news' } });
+    expect(user).not.toContain('contexto_atual');
+  });
   it('injeta campos do Brand DNA no user prompt', () => {
     const { user } = buildContentPrompt({
       brandKit: { tone: 'x', personality: ['consultivo'], cta_policy: 'sempre', emoji_usage: 'poucos', storytelling: true, caption_length: 'longa' },
