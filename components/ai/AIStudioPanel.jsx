@@ -1,14 +1,17 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Sparkles, Wand2, Send, Clock, FileText, Link2, Copy, Check,
   CheckCircle2, AlertCircle, Image as ImageIcon, RefreshCw, Type
 } from 'lucide-react';
-import { generatePost, generateNewsImages, finalizeNewsImage } from '@/lib/ai-actions';
+import { generatePost, generateNewsImages, finalizeNewsImage, getContentSuggestions, getBrandPreferenceSuggestions } from '@/lib/ai-actions';
 import { publishNow, schedulePost, saveDraft, submitForApproval } from '@/lib/posts-actions';
-import { TEMPLATES, TEMPLATE_LABELS } from '@/lib/ai/templates';
 import { formatUsd } from '@/lib/ai/cost';
 import { Button } from '@/components/ui/Button';
+import { FreeInput } from '@/components/ai/FreeInput';
+import { SuggestionChips } from '@/components/ai/SuggestionChips';
+
+const TOPIC_DEBOUNCE_MS = 800;
 
 const TITLE_POSITION = {
   top: 'items-start',
@@ -18,9 +21,14 @@ const TITLE_POSITION = {
 
 export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit }) {
   const [topic, setTopic] = useState('');
-  const [format, setFormat] = useState('news');
+  const [format, setFormat] = useState('');
+  const [tone, setTone] = useState('');
   const [goal, setGoal] = useState('engajar a audiência');
   const [ignoreDna, setIgnoreDna] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [formatHistory, setFormatHistory] = useState([]);
+  const [toneHistory, setToneHistory] = useState([]);
   const [gen, setGen] = useState(null);
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('');
@@ -39,10 +47,31 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
   const [approvalLink, setApprovalLink] = useState('');
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    getBrandPreferenceSuggestions({ brandId, type: 'format' }).then((r) => setFormatHistory(r?.values || []));
+    getBrandPreferenceSuggestions({ brandId, type: 'tone' }).then((r) => setToneHistory(r?.values || []));
+  }, [brandId]);
+
+  useEffect(() => {
+    if (!topic.trim()) { setSuggestions([]); return; }
+    setSuggestLoading(true);
+    const timer = setTimeout(async () => {
+      const res = await getContentSuggestions({ brandId, topic });
+      setSuggestions(res?.suggestions || []);
+      setSuggestLoading(false);
+    }, TOPIC_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [topic, brandId]);
+
+  function pickSuggestion(s) {
+    setFormat(s.impliedFormat || '');
+    setTone(s.impliedTone || '');
+  }
+
   async function generate() {
     setBusy('gen'); setMsg(null); setApprovalLink('');
     try {
-      const res = await generatePost({ brandId, brandName, brief: { topic, format, goal }, ignoreDna });
+      const res = await generatePost({ brandId, brandName, brief: { topic, format, tone, goal }, ignoreDna });
       if (res?.error) throw new Error(res.error);
       setGen(res);
       setCaption(res.spec.caption || '');
@@ -152,24 +181,37 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-base font-extrabold tracking-tight text-ink">Crie uma notícia com IA</p>
+              <p className="text-base font-extrabold tracking-tight text-ink">Crie um post com IA</p>
               <p className="mt-1 text-xs text-muted">Texto pelo DeepSeek e imagens pelo Pollinations.</p>
             </div>
             <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent">Novo</span>
           </div>
-          <label className="mb-1.5 block text-xs font-bold text-slate-200">Tema / assunto da notícia</label>
-          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Ex: Vibe Coding, futebol, economia…" className={field} />
+          <label className="mb-1.5 block text-xs font-bold text-slate-200">Tema / assunto do post</label>
+          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Ex: Vibe Coding, LGPD, sono, arquitetura…" className={field} />
+
+          <div className="mt-3">
+            <SuggestionChips suggestions={suggestions} loading={suggestLoading} onPick={pickSuggestion} />
+          </div>
+
         <div className="mt-3 grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-bold text-slate-200">Formato</label>
-            <select value={format} onChange={(e) => setFormat(e.target.value)} className={field}>
-              {TEMPLATES.map((template) => <option key={template} value={template}>{TEMPLATE_LABELS[template]}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-bold text-slate-200">Objetivo</label>
-            <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="engajar, educar…" className={field} />
-          </div>
+          <FreeInput
+            label="Formato de conteúdo"
+            value={format}
+            onChange={setFormat}
+            placeholder="Ex: Tutorial, Caso Clínico, Antes & Depois…"
+            suggestions={formatHistory}
+          />
+          <FreeInput
+            label="Tom de voz"
+            value={tone}
+            onChange={setTone}
+            placeholder="Do Brand DNA, ou digite o seu"
+            suggestions={toneHistory}
+          />
+        </div>
+        <div className="mt-3">
+          <label className="mb-1.5 block text-xs font-bold text-slate-200">Objetivo</label>
+          <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="engajar, educar, gerar leads…" className={field} />
         </div>
 
         <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-muted">
