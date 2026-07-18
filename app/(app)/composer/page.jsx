@@ -35,6 +35,7 @@ export default async function ComposerPage() {
           brandId={active.id}
           brandName={connected.instagram?.platform_username || active.name}
           hasBrandKit={!!kit}
+          niche={kit?.niche || ''}
         />
       )}
     </div>

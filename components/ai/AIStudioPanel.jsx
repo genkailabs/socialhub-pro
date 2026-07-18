@@ -1,17 +1,15 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Sparkles, Wand2, Send, Clock, FileText, Link2, Copy, Check,
-  CheckCircle2, AlertCircle, Image as ImageIcon, RefreshCw, Type
+  CheckCircle2, AlertCircle, Image as ImageIcon, RefreshCw, Type, SlidersHorizontal
 } from 'lucide-react';
-import { generatePost, generateNewsImages, finalizeNewsImage, getContentSuggestions, getBrandPreferenceSuggestions } from '@/lib/ai-actions';
+import { generatePost, generateNewsImages, finalizeNewsImage, getBrandPreferenceSuggestions } from '@/lib/ai-actions';
 import { publishNow, schedulePost, saveDraft, submitForApproval } from '@/lib/posts-actions';
 import { formatUsd } from '@/lib/ai/cost';
+import { staticSuggestions, TONE_PRESETS } from '@/lib/ai/suggestion-templates';
 import { Button } from '@/components/ui/Button';
 import { FreeInput } from '@/components/ai/FreeInput';
-import { SuggestionChips } from '@/components/ai/SuggestionChips';
-
-const TOPIC_DEBOUNCE_MS = 800;
 
 const TITLE_POSITION = {
   top: 'items-start',
@@ -19,14 +17,14 @@ const TITLE_POSITION = {
   bottom: 'items-end'
 };
 
-export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit }) {
+export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit, niche = '' }) {
+  const [uiMode, setUiMode] = useState('guided'); // 'guided' (leigos) | 'advanced'
   const [topic, setTopic] = useState('');
+  const [chosenIdea, setChosenIdea] = useState('');
   const [format, setFormat] = useState('');
   const [tone, setTone] = useState('');
   const [goal, setGoal] = useState('engajar a audiência');
   const [ignoreDna, setIgnoreDna] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
-  const [suggestLoading, setSuggestLoading] = useState(false);
   const [formatHistory, setFormatHistory] = useState([]);
   const [toneHistory, setToneHistory] = useState([]);
   const [gen, setGen] = useState(null);
@@ -52,26 +50,15 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
     getBrandPreferenceSuggestions({ brandId, type: 'tone' }).then((r) => setToneHistory(r?.values || []));
   }, [brandId]);
 
-  useEffect(() => {
-    if (!topic.trim()) { setSuggestions([]); return; }
-    setSuggestLoading(true);
-    const timer = setTimeout(async () => {
-      const res = await getContentSuggestions({ brandId, topic });
-      setSuggestions(res?.suggestions || []);
-      setSuggestLoading(false);
-    }, TOPIC_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [topic, brandId]);
-
-  function pickSuggestion(s) {
-    setFormat(s.impliedFormat || '');
-    setTone(s.impliedTone || '');
-  }
+  // Ideias de tema pré-definidas (zero custo, sem IA) — compostas com o assunto.
+  const ideas = useMemo(() => staticSuggestions({ topic, niche }), [topic, niche]);
+  // O que vai como tema pro gerador: a ideia escolhida, senão o texto digitado.
+  const effectiveTopic = chosenIdea || topic;
 
   async function generate() {
     setBusy('gen'); setMsg(null); setApprovalLink('');
     try {
-      const res = await generatePost({ brandId, brandName, brief: { topic, format, tone, goal }, ignoreDna });
+      const res = await generatePost({ brandId, brandName, brief: { topic: effectiveTopic, format, tone, goal }, ignoreDna });
       if (res?.error) throw new Error(res.error);
       setGen(res);
       setCaption(res.spec.caption || '');
@@ -90,7 +77,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
     try {
       const res = await generateNewsImages({
         brandId,
-        topic: topic.trim() || gen.spec.headline,
+        topic: effectiveTopic.trim() || gen.spec.headline,
         caption,
         direction: visualDirection,
         basePrompt: gen.spec.imagePrompt
@@ -182,46 +169,69 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="text-base font-extrabold tracking-tight text-ink">Crie um post com IA</p>
-              <p className="mt-1 text-xs text-muted">Texto pelo DeepSeek e imagens pelo Pollinations.</p>
+              <p className="mt-1 text-xs text-muted">Preencha abaixo e a IA faz o resto ✨</p>
             </div>
-            <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent">Novo</span>
-          </div>
-          <label className="mb-1.5 block text-xs font-bold text-slate-200">Tema / assunto do post</label>
-          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Ex: Vibe Coding, LGPD, sono, arquitetura…" className={field} />
-
-          <div className="mt-3">
-            <SuggestionChips suggestions={suggestions} loading={suggestLoading} onPick={pickSuggestion} />
+            <div className="inline-flex gap-1 rounded-lg bg-surface-2 p-1 text-[11px] font-bold">
+              <button type="button" onClick={() => setUiMode('guided')} className={`flex items-center gap-1 rounded-md px-2 py-1 ${uiMode === 'guided' ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'}`}><Sparkles className="h-3 w-3" /> Guiado</button>
+              <button type="button" onClick={() => setUiMode('advanced')} className={`flex items-center gap-1 rounded-md px-2 py-1 ${uiMode === 'advanced' ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'}`}><SlidersHorizontal className="h-3 w-3" /> Avançado</button>
+            </div>
           </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <FreeInput
-            label="Formato de conteúdo"
-            value={format}
-            onChange={setFormat}
-            placeholder="Ex: Tutorial, Caso Clínico, Antes & Depois…"
-            suggestions={formatHistory}
-          />
-          <FreeInput
-            label="Tom de voz"
-            value={tone}
-            onChange={setTone}
-            placeholder="Do Brand DNA, ou digite o seu"
-            suggestions={toneHistory}
-          />
-        </div>
-        <div className="mt-3">
-          <label className="mb-1.5 block text-xs font-bold text-slate-200">Objetivo</label>
-          <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="engajar, educar, gerar leads…" className={field} />
-        </div>
+          {/* --- Passo 1: tema --- */}
+          <label className="mb-1.5 block text-xs font-bold text-slate-200">1. Sobre o que você quer falar?</label>
+          <input value={topic} onChange={(e) => { setTopic(e.target.value); setChosenIdea(''); }} placeholder="Ex: Nova lei trabalhista, dicas de saúde bucal…" className={field} />
 
-        <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-muted">
-          <input type="checkbox" checked={ignoreDna} onChange={(e) => setIgnoreDna(e.target.checked)} className="h-4 w-4" />
-          Ignorar Brand DNA (geração genérica)
-        </label>
+          {uiMode === 'guided' && ideas.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <p className="flex items-center gap-1.5 text-xs font-bold text-muted"><Sparkles className="h-3.5 w-3.5 text-accent" /> Ideias para você <span className="font-normal text-faint">— grátis, sem gastar créditos</span></p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {ideas.map((s) => (
+                  <button key={s.title} type="button" onClick={() => setChosenIdea(s.title)} title={s.description}
+                    className={`rounded-xl border p-2.5 text-left text-xs transition ${chosenIdea === s.title ? 'border-accent bg-accent/10' : 'border-line bg-surface hover:border-accent/50 hover:bg-accent/5'}`}>
+                    <p className="font-bold text-ink">{s.title}</p>
+                    <p className="mt-0.5 text-faint">{s.description}</p>
+                  </button>
+                ))}
+              </div>
+              {chosenIdea && <p className="text-[11px] text-success">Ideia escolhida: <strong>{chosenIdea}</strong></p>}
+            </div>
+          )}
 
-        <Button onClick={generate} disabled={busy === 'gen'} className="mt-4 w-full !rounded-xl">
-          <Wand2 className="h-4 w-4" /> {busy === 'gen' ? 'Criando notícia…' : gen ? 'Gerar outra ideia' : 'Gerar com IA'}
-        </Button>
+          {/* --- Passo 2: tom --- */}
+          {uiMode === 'guided' ? (
+            <div className="mt-4">
+              <label className="mb-1.5 block text-xs font-bold text-slate-200">2. Como você quer que o post soe?</label>
+              <div className="grid grid-cols-3 gap-2">
+                {TONE_PRESETS.map((t) => (
+                  <button key={t.value} type="button" onClick={() => setTone(t.value)}
+                    className={`rounded-xl border p-3 text-center transition ${tone === t.value ? 'border-accent bg-accent/10' : 'border-line bg-surface hover:border-accent/50'}`}>
+                    <div className="text-xl">{t.emoji}</div>
+                    <p className="mt-1 text-xs font-bold text-ink">{t.label}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <FreeInput label="Formato de conteúdo" value={format} onChange={setFormat} placeholder="Ex: Tutorial, Caso Clínico, Antes & Depois…" suggestions={formatHistory} />
+                <FreeInput label="Tom de voz" value={tone} onChange={setTone} placeholder="Do Brand DNA, ou digite o seu" suggestions={toneHistory} />
+              </div>
+              <div className="mt-3">
+                <label className="mb-1.5 block text-xs font-bold text-slate-200">Objetivo</label>
+                <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="engajar, educar, gerar leads…" className={field} />
+              </div>
+            </>
+          )}
+
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-muted">
+            <input type="checkbox" checked={ignoreDna} onChange={(e) => setIgnoreDna(e.target.checked)} className="h-4 w-4" />
+            Ignorar Brand DNA (geração genérica)
+          </label>
+
+          <Button onClick={generate} disabled={busy === 'gen' || !effectiveTopic.trim()} className="mt-4 w-full !rounded-xl">
+            <Wand2 className="h-4 w-4" /> {busy === 'gen' ? 'Criando post…' : gen ? 'Gerar outra ideia' : 'Criar meu post com IA'}
+          </Button>
         </div>
 
         {!gen && (
@@ -249,7 +259,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
                   <h2 className="flex items-center gap-2 text-base font-extrabold text-ink"><Sparkles className="h-4 w-4 text-accent" /> Imagem da notícia</h2>
                   <p className="mt-1 text-xs text-muted">O Pollinations cria imagens ligadas ao assunto, sem texto.</p>
                 </div>
-                <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent">Tema: {topic.trim() || gen.spec.headline}</span>
+                <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent">Tema: {effectiveTopic.trim() || gen.spec.headline}</span>
               </div>
 
               <div className="flex gap-2">
