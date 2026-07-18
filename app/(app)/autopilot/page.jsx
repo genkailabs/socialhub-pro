@@ -77,7 +77,7 @@ export default async function AutopilotPage() {
               <p className="font-bold text-ink">Gera Ideia + Arte</p>
             </div>
             <p className="mt-2 text-xs leading-relaxed text-muted">
-              Todos os dias, o <strong className="text-ink">DeepSeek</strong> escreve a legenda e hashtags, e a <strong className="text-ink">deAPI</strong> gera a imagem ou carrossel on-brand.
+              Todos os dias, o <strong className="text-ink">DeepSeek</strong> escreve a legenda e hashtags, e o <strong className="text-ink">Pollinations</strong> gera a imagem ou carrossel on-brand.
             </p>
           </div>
 

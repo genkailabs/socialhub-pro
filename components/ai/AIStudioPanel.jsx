@@ -153,7 +153,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="text-base font-extrabold tracking-tight text-ink">Crie uma notícia com IA</p>
-              <p className="mt-1 text-xs text-muted">Texto pelo DeepSeek e imagens pela deAPI.</p>
+              <p className="mt-1 text-xs text-muted">Texto pelo DeepSeek e imagens pelo Pollinations.</p>
             </div>
             <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent">Novo</span>
           </div>
@@ -185,7 +185,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
         {!gen && (
           <section className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
             <div className="flex items-center gap-2 text-sm font-extrabold text-ink"><Sparkles className="h-4 w-4 text-accent" /> Imagem da notícia</div>
-            <p className="mt-2 text-xs leading-relaxed text-muted">Depois de criar o texto, escolha a direção visual e gere quatro opções de imagem pela deAPI.</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">Depois de criar o texto, escolha a direção visual e gere quatro opções de imagem pelo Pollinations.</p>
             <div className="mt-4 grid grid-cols-4 gap-2 opacity-40">
               {[0, 1, 2, 3].map((item) => <div key={item} className="aspect-square rounded-xl border border-line bg-surface-2" />)}
             </div>
@@ -205,7 +205,7 @@ export function AIStudioPanel({ brandId, brandName = 'sua_marca', hasBrandKit })
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="flex items-center gap-2 text-base font-extrabold text-ink"><Sparkles className="h-4 w-4 text-accent" /> Imagem da notícia</h2>
-                  <p className="mt-1 text-xs text-muted">A deAPI cria imagens ligadas ao assunto, sem texto.</p>
+                  <p className="mt-1 text-xs text-muted">O Pollinations cria imagens ligadas ao assunto, sem texto.</p>
                 </div>
                 <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent">Tema: {topic.trim() || gen.spec.headline}</span>
               </div>

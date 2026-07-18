@@ -324,7 +324,7 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
       <div className="rounded-2xl border border-line bg-surface-2/60 p-4 text-xs text-muted leading-relaxed">
         <p className="font-bold text-ink mb-1">🔍 Transparência Total de Custo & Controle</p>
         <p>
-          Cada post gerado pelo Piloto registra o consumo de texto (DeepSeek) e imagem (deAPI/Render) no seu novo dashboard de <a href="/ai-costs" className="font-bold text-accent hover:underline">Custos IA</a>. Nenhum post é publicado sem que você valide na aba Aprovações.
+          Cada post gerado pelo Piloto registra o consumo de texto (DeepSeek) e imagem (Pollinations/Render) no seu novo dashboard de <a href="/ai-costs" className="font-bold text-accent hover:underline">Custos IA</a>. Nenhum post é publicado sem que você valide na aba Aprovações.
         </p>
       </div>
     </div>

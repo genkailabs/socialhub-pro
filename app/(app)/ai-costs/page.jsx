@@ -33,14 +33,17 @@ export default async function AICostsPage() {
   const summary = result?.summary || {
     totalUsd: 0,
     deepseekUsd: 0,
-    deapiUsd: 0,
+    imageUsd: 0,
+    researchUsd: 0,
     totalInputTokens: 0,
     totalOutputTokens: 0,
     deepseekCount: 0,
-    deapiCount: 0,
+    imageCount: 0,
+    researchCount: 0,
     errorCount: 0,
     totalJobs: 0
   };
+  const pollinationsUsd = Math.round((summary.imageUsd + summary.researchUsd) * 1e6) / 1e6;
   const jobs = result?.jobs || [];
 
   return (
@@ -53,7 +56,7 @@ export default async function AICostsPage() {
         </div>
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-ink">Dashboard de Custos de IA</h1>
         <p className="mt-1 text-sm text-muted">
-          Detalhamento em tempo real do uso do <strong className="text-ink">DeepSeek (texto & prompt)</strong> e da <strong className="text-ink">deAPI (geração de imagens)</strong>.
+          Detalhamento em tempo real do uso do <strong className="text-ink">DeepSeek (texto & prompt)</strong> e do <strong className="text-ink">Pollinations (imagens & pesquisa)</strong>.
         </p>
       </div>
 
@@ -73,9 +76,9 @@ export default async function AICostsPage() {
           badge={`${summary.totalInputTokens + summary.totalOutputTokens} tokens processados`}
         />
         <StatCard
-          label="Custo deAPI (Imagens)"
-          value={formatUsd(summary.deapiUsd)}
-          hint={`${summary.deapiCount} artes geradas por IA`}
+          label="Custo Pollinations"
+          value={formatUsd(pollinationsUsd)}
+          hint={`${summary.imageCount} imagens · ${summary.researchCount} pesquisas`}
           icon={ImageIcon}
         />
         <StatCard
@@ -87,7 +90,7 @@ export default async function AICostsPage() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-extrabold tracking-tight text-ink">Histórico de Chamadas (DeepSeek & deAPI)</h2>
+        <h2 className="text-lg font-extrabold tracking-tight text-ink">Histórico de Chamadas (DeepSeek & Pollinations)</h2>
         {jobs.length === 0 ? (
           <EmptyState title="Nenhum custo registrado ainda" icon={Sparkles}>
             Gere posts no Composer ou no Piloto Automático para ver o detalhamento por requisição.
@@ -110,6 +113,8 @@ export default async function AICostsPage() {
                   {jobs.map((job) => {
                     const brand = job.brands || {};
                     const isDeepSeek = job.provider === 'deepseek';
+                    const isResearch = job.kind === 'research';
+                    const providerLabel = isDeepSeek ? 'DeepSeek' : isResearch ? 'Pesquisa' : 'Imagem';
                     const dateStr = job.created_at
                       ? new Date(job.created_at).toLocaleString('pt-BR', {
                           day: '2-digit',
@@ -131,7 +136,7 @@ export default async function AICostsPage() {
                               }`}
                             >
                               {isDeepSeek ? <Cpu className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
-                              {isDeepSeek ? 'DeepSeek' : 'deAPI'}
+                              {providerLabel}
                             </span>
                             <span className="text-xs font-semibold text-muted">{job.model || '-'}</span>
                           </div>
@@ -151,7 +156,7 @@ export default async function AICostsPage() {
                               <strong className="text-ink">{job.output_tokens || 0}</strong> out
                             </span>
                           ) : (
-                            <span className="text-faint">1 imagem</span>
+                            <span className="text-faint">{isResearch ? 'pesquisa web' : '1 imagem'}</span>
                           )}
                         </td>
 
