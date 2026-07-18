@@ -5,6 +5,24 @@ vi.mock('@/lib/ai/gemini', () => ({ geminiGrounded: mocks.geminiGrounded }));
 
 import { needsResearch, buildResearchQuery, researchContext, ResearchUnavailableError } from '@/lib/ai/research';
 
+// Fake mínimo do client Supabase p/ o cache. `row` = o que o SELECT devolve
+// (null = miss). Registra o que foi gravado em `upserts`.
+function fakeSupabase({ row = null } = {}) {
+  const upserts = [];
+  return {
+    upserts,
+    from() {
+      return {
+        select() { return this; },
+        eq() { return this; },
+        gte() { return this; },
+        maybeSingle: async () => ({ data: row, error: null }),
+        upsert: async (payload) => { upserts.push(payload); return { error: null }; }
+      };
+    }
+  };
+}
+
 describe('needsResearch', () => {
   it('gatilho textual → true', () => {
     expect(needsResearch({ topic: 'notícia sobre IA hoje' })).toBe(true);
@@ -76,5 +94,43 @@ describe('researchContext', () => {
 
     await expect(researchContext({ brief: { topic: 'IA hoje' }, kit: {} }))
       .rejects.toMatchObject({ code: 'research_unavailable' });
+  });
+
+  it('cache hit (<6h) → não chama Gemini, custo zero', async () => {
+    const supabase = fakeSupabase({
+      row: { summary: 'do cache', sources: [{ uri: 'https://c.com', title: 'C' }], model: 'gemini-2.5-flash', created_at: new Date().toISOString() }
+    });
+
+    const out = await researchContext({ supabase, brief: { topic: 'IA hoje' }, kit: {} });
+
+    expect(out.summary).toBe('do cache');
+    expect(out.cached).toBe(true);
+    expect(out.cost).toBe(0);
+    expect(mocks.geminiGrounded).not.toHaveBeenCalled();
+    expect(supabase.upserts).toHaveLength(0);
+  });
+
+  it('cache miss → chama Gemini e grava sucesso', async () => {
+    mocks.geminiGrounded.mockResolvedValue({
+      summary: 'fresco', sources: [], usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'gemini-2.5-flash'
+    });
+    const supabase = fakeSupabase({ row: null });
+
+    const out = await researchContext({ supabase, brief: { topic: 'IA hoje' }, kit: {} });
+
+    expect(out.cached).toBe(false);
+    expect(mocks.geminiGrounded).toHaveBeenCalledTimes(1);
+    expect(supabase.upserts).toHaveLength(1);
+    expect(supabase.upserts[0]).toMatchObject({ summary: 'fresco' });
+    expect(supabase.upserts[0].query_hash).toBeTruthy();
+  });
+
+  it('falha na pesquisa nunca grava cache', async () => {
+    mocks.geminiGrounded.mockRejectedValue(new Error('down'));
+    const supabase = fakeSupabase({ row: null });
+
+    await expect(researchContext({ supabase, brief: { topic: 'IA hoje' }, kit: {} }))
+      .rejects.toBeInstanceOf(ResearchUnavailableError);
+    expect(supabase.upserts).toHaveLength(0);
   });
 });
