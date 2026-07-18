@@ -44,11 +44,24 @@ Resultado: 2 arquivos de teste aprovados, 43 testes aprovados, 0 falhas.
 
 - Objetivos da estrategia agora leem o JSONB persistido, priorizando `objectives.main`.
 - A memoria semanal considera apenas posts publicados, incluindo publicacao manual, dentro da semana atual. Rascunhos, agendados e posts antigos ficam fora.
-- O contexto consulta somente estrategia aprovada no periodo ativo, plano da semana atual e itens `proposed` ou `approved`; itens rejeitados, produzidos e fora da semana sao descartados novamente no helper como protecao adicional.
+- O contexto consulta somente estrategia aprovada no periodo ativo, plano da semana atual e itens aprovados; itens sugeridos, rejeitados, produzidos e fora da semana sao descartados novamente no helper como protecao adicional.
 - O diagnostico do Instagram agora gera oportunidades locais a partir de oportunidades, pontos de atencao e prioridades salvas.
 - O prompt passou a ter orientacoes diferentes para advocacia, medicina, odontologia, psicologia e arquitetura.
 
 Teste da correcao:
+
+```text
+npm test -- tests/unit/composer-intelligence.test.js tests/unit/ai.test.js tests/unit/strategy-plan.test.js
+```
+
+Resultado: 3 arquivos de teste aprovados, 71 testes aprovados, 0 falhas.
+
+## Correcao P1 final
+
+- Somente plano editorial com status `approved` e itens com status `approved` entram nas oportunidades do Composer.
+- Itens `proposed`, `rejected`, `produced` ou fora da semana atual nao sao utilizados.
+
+Teste da correcao P1:
 
 ```text
 npm test -- tests/unit/composer-intelligence.test.js tests/unit/ai.test.js tests/unit/strategy-plan.test.js

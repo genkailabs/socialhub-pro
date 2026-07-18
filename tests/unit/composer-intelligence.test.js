@@ -78,7 +78,7 @@ describe('estrategia e plano editorial', () => {
       .toBe('Atrair novos pacientes');
   });
 
-  it('mantem somente itens utilizaveis da semana atual', () => {
+  it('mantem somente itens aprovados da semana atual', () => {
     const items = [
       { id: 'approved', status: 'approved', date: '2026-07-14', topic: 'Tema aprovado' },
       { id: 'proposed', status: 'proposed', date: '2026-07-18', topic: 'Tema sugerido' },
@@ -87,7 +87,7 @@ describe('estrategia e plano editorial', () => {
       { id: 'old', status: 'approved', date: '2026-07-12', topic: 'Tema antigo' }
     ];
 
-    expect(filterUsablePlanItems(items, '2026-07-13').map((item) => item.id)).toEqual(['approved', 'proposed']);
+    expect(filterUsablePlanItems(items, '2026-07-13').map((item) => item.id)).toEqual(['approved']);
   });
 });
 
