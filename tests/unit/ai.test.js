@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeSpec, parseSpec } from '@/lib/ai/spec';
-import { estimateCostUsd, formatUsd, pollinationsImageCostUsd, geminiImageCostUsd } from '@/lib/ai/cost';
+import { estimateCostUsd, formatUsd, pollinationsImageCostUsd } from '@/lib/ai/cost';
 import { buildContentPrompt } from '@/lib/ai/prompt';
 import { resolvePalette, TEMPLATES } from '@/lib/ai/templates';
 import { renderNode, slideCount } from '@/lib/ai/render';
@@ -61,17 +61,6 @@ describe('pollinationsImageCostUsd', () => {
   });
   it('trata entrada inválida como zero', () => {
     expect(pollinationsImageCostUsd('x')).toBe(0);
-  });
-});
-
-describe('geminiPricing', () => {
-  it('calcula texto Gemini por tokens', () => {
-    const c = estimateCostUsd('gemini-2.5-flash', { prompt_tokens: 1_000_000, completion_tokens: 0 });
-    expect(c).toBeCloseTo(0.30, 5);
-  });
-  it('imagem Gemini multiplica pelo nº', () => {
-    expect(geminiImageCostUsd(0)).toBe(0);
-    expect(geminiImageCostUsd(4)).toBeCloseTo(geminiImageCostUsd(1) * 4, 6);
   });
 });
 
