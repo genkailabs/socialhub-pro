@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeSpec, parseSpec } from '@/lib/ai/spec';
-import { estimateCostUsd, formatUsd, deapiImageCostUsd, geminiImageCostUsd } from '@/lib/ai/cost';
+import { estimateCostUsd, formatUsd, pollinationsImageCostUsd, geminiImageCostUsd } from '@/lib/ai/cost';
 import { buildContentPrompt } from '@/lib/ai/prompt';
 import { resolvePalette, TEMPLATES } from '@/lib/ai/templates';
 import { renderNode, slideCount } from '@/lib/ai/render';
@@ -54,13 +54,13 @@ describe('estimateCostUsd', () => {
   });
 });
 
-describe('deapiImageCostUsd', () => {
+describe('pollinationsImageCostUsd', () => {
   it('multiplica pelo nº de imagens', () => {
-    expect(deapiImageCostUsd(0)).toBe(0);
-    expect(deapiImageCostUsd(4)).toBeCloseTo(deapiImageCostUsd(1) * 4, 6);
+    expect(pollinationsImageCostUsd(0)).toBe(0);
+    expect(pollinationsImageCostUsd(4)).toBeCloseTo(pollinationsImageCostUsd(1) * 4, 6);
   });
   it('trata entrada inválida como zero', () => {
-    expect(deapiImageCostUsd('x')).toBe(0);
+    expect(pollinationsImageCostUsd('x')).toBe(0);
   });
 });
 

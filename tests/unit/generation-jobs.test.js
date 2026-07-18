@@ -30,10 +30,10 @@ describe('buildGenerationJobs', () => {
     expect(rows.find((r) => r.kind === 'research')).toMatchObject({ status: 'cached', cost_usd: 0 });
   });
 
-  it('inclui linha de imagem quando o provedor é deapi', () => {
-    const gen = { ...baseGen, imageProvider: 'deapi', imageModel: 'flux', imageCost: 0.003 };
+  it('inclui linha de imagem quando o provedor é pollinations', () => {
+    const gen = { ...baseGen, imageProvider: 'pollinations', imageModel: 'flux', imageCost: 0.003 };
     const rows = buildGenerationJobs({ brandId: 'b1', gen, textKind: 'autopilot', refPostId: 'p1' });
-    expect(rows.find((r) => r.kind === 'image')).toMatchObject({ provider: 'deapi', model: 'flux', cost_usd: 0.003, ref_post_id: 'p1' });
+    expect(rows.find((r) => r.kind === 'image')).toMatchObject({ provider: 'pollinations', model: 'flux', cost_usd: 0.003, ref_post_id: 'p1' });
   });
 
   it('respeita o textKind (post vs autopilot)', () => {

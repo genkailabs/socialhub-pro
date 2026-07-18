@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('next/og', () => ({ ImageResponse: class { async arrayBuffer() { return new ArrayBuffer(0); } } }));
 vi.mock('@/lib/ai/deepseek', () => ({ deepseekChat: mocks.deepseekChat }));
-vi.mock('@/lib/ai/deapi', () => ({ deapiGenerateImage: vi.fn(), hasDeapiKey: () => false, DEAPI_DEFAULT_MODEL: 'flux' }));
+vi.mock('@/lib/ai/pollinations-image', () => ({ pollinationsImage: vi.fn(), hasPollinationsKey: () => false, POLLINATIONS_IMAGE_MODEL: 'flux' }));
 vi.mock('@/lib/ai/research', async () => {
   const actual = await vi.importActual('@/lib/ai/research');
   return { ...actual, needsResearch: mocks.needsResearch, researchContext: mocks.researchContext };
