@@ -44,6 +44,17 @@ describe('pollinationsImage', () => {
     expect(opts.headers.Authorization).toContain('sk_test');
   });
 
+  it('trunca prompt longo p/ não estourar o limite de URL (evita 400)', async () => {
+    fetch.mockResolvedValue(imageResponse());
+
+    await pollinationsImage({ prompt: 'x'.repeat(3000) });
+
+    const [url] = fetch.mock.calls[0];
+    // parte do path (antes do "?") não pode ser gigante
+    const pathPart = url.split('?')[0];
+    expect(pathPart.length).toBeLessThan(800);
+  });
+
   it('erro HTTP lança com prefixo Pollinations', async () => {
     fetch.mockResolvedValue({ ok: false, status: 429, statusText: 'Too Many Requests', headers: { get: () => 'text/plain' }, arrayBuffer: async () => new ArrayBuffer(0) });
 

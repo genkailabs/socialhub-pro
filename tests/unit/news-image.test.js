@@ -28,6 +28,16 @@ describe('imagem de notícia', () => {
     expect(prompt).toContain('variation 2');
   });
 
+  it('trunca caption longa p/ não estourar o limite de URL da API de imagem', () => {
+    const prompt = newsImage.buildNewsImagePrompt({
+      topic: 'IA',
+      caption: 'x'.repeat(2200),
+      variant: 1
+    });
+    // prompt inteiro precisa caber com folga numa URL (~2048 típico)
+    expect(prompt.length).toBeLessThan(700);
+  });
+
   it('converte a posição do título em alinhamento vertical', () => {
     expect(newsImage.titleAlignment('top')).toBe('flex-start');
     expect(newsImage.titleAlignment('center')).toBe('center');
