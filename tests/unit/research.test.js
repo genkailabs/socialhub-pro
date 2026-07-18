@@ -33,9 +33,13 @@ describe('needsResearch', () => {
     expect(needsResearch({ topic: 'ultimas noticias de tecnologia' })).toBe(true);
     expect(needsResearch({ topic: 'tendencia do momento' })).toBe(true);
   });
-  it('format news sempre pesquisa', () => {
+  it('formato notícia (texto livre) sempre pesquisa', () => {
     expect(needsResearch({ format: 'news' })).toBe(true);
-    expect(needsResearch({ topic: 'qualquer', format: 'news' })).toBe(true);
+    expect(needsResearch({ format: 'Notícia' })).toBe(true);
+    expect(needsResearch({ topic: 'qualquer', format: 'Notícia comentada' })).toBe(true);
+  });
+  it('formato livre não-notícia usa só o gatilho do tema', () => {
+    expect(needsResearch({ format: 'Parecer Simplificado', topic: 'contrato de aluguel' })).toBe(false);
   });
   it('flag explícita força pesquisa (modo avançado)', () => {
     expect(needsResearch({ topic: 'dicas de foco', format: 'quote', research: true })).toBe(true);

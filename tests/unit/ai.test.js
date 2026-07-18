@@ -72,14 +72,27 @@ describe('buildContentPrompt', () => {
     expect(format).toBe('tips_carousel');
     expect(typeof system).toBe('string');
   });
-  it('formato inválido cai p/ notícia', () => {
-    expect(buildContentPrompt({ brief: { format: 'zzz' } }).format).toBe('news');
+  it('formato é texto livre, sem cair p/ notícia (comunicação adaptativa)', () => {
+    const { user, format } = buildContentPrompt({ brief: { format: 'Parecer Simplificado', topic: 'LGPD' } });
+    expect(format).toBe('Parecer Simplificado');
+    expect(user).toContain('Parecer Simplificado');
   });
-  it('notícia pede um post editorial sem chamada comercial', () => {
-    const { user, format } = buildContentPrompt({ brief: { format: 'news', topic: 'novidades da IA' } });
-    expect(format).toBe('news');
+  it('sem formato definido usa um rótulo genérico', () => {
+    expect(buildContentPrompt({ brief: {} }).format).toBe('post para redes sociais');
+  });
+  it('notícia (detectada por texto) pede post editorial sem chamada comercial', () => {
+    const { user, format } = buildContentPrompt({ brief: { format: 'Notícia', topic: 'novidades da IA' } });
+    expect(format).toBe('Notícia');
     expect(user).toContain('notícia informativa');
     expect(user).toMatch(/não inventar fatos/i);
+  });
+  it('formato fora do padrão notícia não recebe as regras editoriais de notícia', () => {
+    const { user } = buildContentPrompt({ brief: { format: 'Caso Clínico', topic: 'sono' } });
+    expect(user).not.toMatch(/notícia informativa editorial/i);
+  });
+  it('tom livre entra no prompt quando informado', () => {
+    const { user } = buildContentPrompt({ brief: { tone: 'Autoritário e técnico' } });
+    expect(user).toContain('Autoritário e técnico');
   });
   it('pede image_prompt no system (p/ a deAPI)', () => {
     expect(buildContentPrompt({}).system).toContain('image_prompt');
