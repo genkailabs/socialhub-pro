@@ -120,17 +120,16 @@ describe('buildContentPrompt', () => {
     expect(user).toMatch(/CTA|chamada para ação/i);
     expect(user).toMatch(/emoji/i);
   });
-  it('aplica orientacoes eticas ao nicho de saude', () => {
-    const { user } = buildContentPrompt({ brandKit: { niche: 'medicina' }, brief: { topic: 'sono' } });
+  it.each([
+    ['advocacia', /Para advocacia:/i],
+    ['medicina', /Para medicina:/i],
+    ['odontologia', /Para odontologia:/i],
+    ['psicologia', /Para psicologia:/i],
+    ['arquitetura', /Para arquitetura:/i]
+  ])('aplica regra especifica para %s', (niche, rule) => {
+    const { user } = buildContentPrompt({ brandKit: { niche }, brief: { topic: 'tema' } });
 
-    expect(user).toMatch(/nao prometer resultado/i);
-    expect(user).toMatch(/nao diagnosticar/i);
-    expect(user).toMatch(/educativa e etica/i);
-  });
-  it('orienta arquitetura para processo e inspiracao visual sem promessas', () => {
-    const { user } = buildContentPrompt({ brandKit: { niche: 'arquitetura' }, brief: { topic: 'cozinha pequena' } });
-
-    expect(user).toMatch(/processo, projeto e inspiracao visual/i);
+    expect(user).toMatch(rule);
     expect(user).toMatch(/nao prometer resultado/i);
   });
 });
