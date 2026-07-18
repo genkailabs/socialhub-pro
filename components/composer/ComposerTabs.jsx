@@ -4,7 +4,7 @@ import { PenSquare, Wand2 } from 'lucide-react';
 import { ComposerForm } from './ComposerForm';
 import { AIStudioPanel } from '@/components/ai/AIStudioPanel';
 
-export function ComposerTabs({ brandId, brandName, hasBrandKit, niche = '' }) {
+export function ComposerTabs({ brandId, brandName, hasBrandKit, niche = '', composerContext = null }) {
   const [tab, setTab] = useState('ai');
   const btn = (active) =>
     `flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-all ${
@@ -19,7 +19,7 @@ export function ComposerTabs({ brandId, brandName, hasBrandKit, niche = '' }) {
       </div>
       {tab === 'manual'
         ? <ComposerForm brandId={brandId} brandName={brandName} />
-        : <AIStudioPanel brandId={brandId} brandName={brandName} hasBrandKit={hasBrandKit} niche={niche} />}
+        : <AIStudioPanel brandId={brandId} brandName={brandName} hasBrandKit={hasBrandKit} niche={niche} composerContext={composerContext} />}
     </div>
   );
 }

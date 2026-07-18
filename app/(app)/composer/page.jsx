@@ -6,13 +6,30 @@ import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listConnectedPlatforms } from '@/lib/social-tokens-data';
 import { getBrandKit } from '@/lib/brand-kit-data';
+import { getLatestAudit } from '@/lib/instagram-audit-data';
+import { getComposerContext } from '@/lib/composer-intelligence';
 
 export default async function ComposerPage() {
-  const brands = await listBrands();
-  const active = resolveActive(brands, await getActiveBrandId());
-  const connected = active ? await listConnectedPlatforms(active.id) : {};
+  const [brands, activeBrandId] = await Promise.all([
+    listBrands(),
+    getActiveBrandId()
+  ]);
+  const active = resolveActive(brands, activeBrandId);
+  const [connected, kit, audit] = active
+    ? await Promise.all([
+      listConnectedPlatforms(active.id),
+      getBrandKit(active.id),
+      getLatestAudit(active.id)
+    ])
+    : [{}, null, null];
   const igConnected = !!connected.instagram;
-  const kit = active ? await getBrandKit(active.id) : null;
+  const composerContext = active
+    ? await getComposerContext({
+      brandId: active.id,
+      brand: { ...active, niche: kit?.niche || active.niche || active.category },
+      audit
+    })
+    : null;
 
   return (
     <div className="space-y-7">
@@ -36,6 +53,7 @@ export default async function ComposerPage() {
           brandName={connected.instagram?.platform_username || active.name}
           hasBrandKit={!!kit}
           niche={kit?.niche || ''}
+          composerContext={composerContext}
         />
       )}
     </div>
