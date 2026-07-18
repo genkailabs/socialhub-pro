@@ -243,6 +243,29 @@ export function AIStudioPanel({
     setSelectedTime((current) => activeDay?.times.includes(current) ? current : activeDay?.times[0] || '');
   }, [scheduleDates, selectedDate]);
 
+  function clearGeneratedContent() {
+    setGen(null);
+    setCaption('');
+    setCta('');
+    setHashtags('');
+    setVisualDirection('');
+    setImageOptions([]);
+    setSelectedImage('');
+    setFinalImageUrl('');
+    setImageTitle('');
+    setMsg(null);
+    setApprovalLink('');
+    setCopied(false);
+  }
+
+  function applyOpportunity(opportunity, suggested) {
+    const currentKey = selectedOpportunity?.id || selectedOpportunity?.label || '';
+    const nextKey = opportunity?.id || opportunity?.label || '';
+    if (currentKey !== nextKey) clearGeneratedContent();
+    setSelectedOpportunity(opportunity);
+    setWasSuggested(suggested);
+  }
+
   function selectOpportunity(opportunity) {
     const isSuggestionRequest = opportunity?.label === 'Não sei. Me sugira algo.'
       || opportunity?.id === 'suggest-for-me';
@@ -254,13 +277,11 @@ export function AIStudioPanel({
       const suggestion = pool[suggestionIndex % Math.max(pool.length, 1)]
         || FALLBACK_OPPORTUNITIES[0];
       setSuggestionIndex((current) => current + 1);
-      setSelectedOpportunity(suggestion);
-      setWasSuggested(true);
+      applyOpportunity(suggestion, true);
       return;
     }
 
-    setSelectedOpportunity(opportunity);
-    setWasSuggested(false);
+    applyOpportunity(opportunity, false);
   }
 
   async function generate() {
@@ -429,7 +450,7 @@ export function AIStudioPanel({
   const tab = (active) => `flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all ${active ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'}`;
 
   return (
-    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,390px)]">
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
       <div className="space-y-6">
         {!hasBrandKit && (
           <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-ink">
@@ -491,8 +512,9 @@ export function AIStudioPanel({
                         key={opportunity.id || `${opportunity.label}-${index}`}
                         type="button"
                         onClick={() => selectOpportunity(opportunity)}
+                        disabled={!!busy}
                         aria-pressed={isSelected}
-                        className={`min-h-24 rounded-lg border p-3.5 text-left transition-colors ${
+                        className={`min-h-24 rounded-lg border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                           isSelected
                             ? 'border-accent bg-accent/10'
                             : isSuggestionRequest
@@ -911,7 +933,7 @@ export function AIStudioPanel({
         )}
       </div>
 
-      <aside className="order-first xl:order-none xl:sticky xl:top-4">
+      <aside className="order-first lg:order-none lg:sticky lg:top-4">
         <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase text-muted">
           <Instagram className="h-3.5 w-3.5 text-accent" />
           Prévia da publicação

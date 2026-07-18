@@ -27,6 +27,8 @@ Essas oportunidades são montadas localmente. Escolher um cartão, inclusive **N
 
 Quando o usuário escolhe uma oportunidade, o Composer define assunto, formato, tom e objetivo. O botão **Preparar conteúdo** envia esse briefing para `generatePost`.
 
+Ao trocar de oportunidade, o Composer limpa a geração anterior, incluindo texto, direção visual, opções de imagem, arte final e prévia. Isso evita misturar conteúdo de dois briefings diferentes.
+
 O modo **Avançado** permanece disponível como opção secundária para preencher assunto, formato, tom e objetivo manualmente.
 
 ### 2. Revisar conteúdo
@@ -55,7 +57,7 @@ A publicação só é liberada depois que o usuário confirma **Usar esta imagem
 
 ### 4. Conferir a prévia
 
-A prévia do Instagram permanece visível durante todo o fluxo. Em telas grandes, fica fixa no lado direito. Em telas menores, aparece antes dos controles para continuar acessível sem apertar o formulário.
+A prévia do Instagram permanece visível durante todo o fluxo. A partir do breakpoint `lg`, fica fixa na coluna direita. Em telas menores, aparece antes dos controles para continuar acessível sem apertar o formulário.
 
 A prévia mostra:
 
