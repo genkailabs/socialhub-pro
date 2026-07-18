@@ -42,7 +42,7 @@ const GEN_OK = {
   imageUrls: ['https://img/1.png'], cost: 0.01, textCost: 0.001,
   usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'deepseek-v4-flash',
   imageProvider: 'none',
-  research: { model: 'gemini-2.5-flash', usage: { prompt_tokens: 20, completion_tokens: 8 }, cost: 0.01, cached: false }
+  research: { model: 'tavily-search', usage: { prompt_tokens: 20, completion_tokens: 8 }, cost: 0.01, cached: false }
 };
 
 describe('runDailyAutopilot + pesquisa', () => {

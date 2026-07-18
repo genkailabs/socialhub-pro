@@ -17,15 +17,15 @@ describe('buildGenerationJobs', () => {
   });
 
   it('inclui linha de pesquisa (success) com custo do Gemini', () => {
-    const gen = { ...baseGen, research: { model: 'gemini-2.5-flash', usage: { prompt_tokens: 20, completion_tokens: 8 }, cost: 0.01, cached: false } };
+    const gen = { ...baseGen, research: { model: 'tavily-search', usage: { prompt_tokens: 20, completion_tokens: 8 }, cost: 0.01, cached: false } };
     const rows = buildGenerationJobs({ brandId: 'b1', gen, textKind: 'post', refPostId: 'p9' });
     const research = rows.find((r) => r.kind === 'research');
-    expect(research).toMatchObject({ provider: 'gemini', cost_usd: 0.01, status: 'success', ref_post_id: 'p9' });
+    expect(research).toMatchObject({ provider: 'tavily', cost_usd: 0.01, status: 'success', ref_post_id: 'p9' });
     expect(research.input_tokens).toBe(20);
   });
 
   it('marca pesquisa cacheada como cached e custo zero', () => {
-    const gen = { ...baseGen, research: { model: 'gemini-2.5-flash', usage: {}, cost: 0, cached: true } };
+    const gen = { ...baseGen, research: { model: 'tavily-search', usage: {}, cost: 0, cached: true } };
     const rows = buildGenerationJobs({ brandId: 'b1', gen, textKind: 'autopilot' });
     expect(rows.find((r) => r.kind === 'research')).toMatchObject({ status: 'cached', cost_usd: 0 });
   });

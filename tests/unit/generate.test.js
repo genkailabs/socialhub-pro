@@ -40,7 +40,7 @@ describe('generateCreative + pesquisa', () => {
 
   it('com pesquisa: injeta research no prompt e devolve no retorno', async () => {
     mocks.needsResearch.mockReturnValue(true);
-    mocks.researchContext.mockResolvedValue({ summary: 'atual', sources: [{ uri: 'https://x', title: 'X' }], usage: { prompt_tokens: 20, completion_tokens: 8 }, model: 'gemini-2.5-flash', cost: 0.01, cached: false });
+    mocks.researchContext.mockResolvedValue({ summary: 'atual', sources: [{ uri: 'https://x', title: 'X' }], usage: { prompt_tokens: 20, completion_tokens: 8 }, model: 'tavily-search', cost: 0.01, cached: false });
 
     const out = await generateCreative({ supabase: {}, brandId: 'b1', brandName: 'Marca', brief: { topic: 'IA hoje', format: 'news' }, generateImages: false });
 
