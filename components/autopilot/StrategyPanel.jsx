@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Check, Sparkles, Target } from 'lucide-react';
+import { AlertCircle, Check, Compass, Sparkles, Target } from 'lucide-react';
 import { generateStrategy, approveStrategy } from '@/lib/strategy-actions';
 import { activeStrategy } from '@/lib/strategy-plan';
 import { Button } from '@/components/ui/Button';
@@ -11,47 +11,65 @@ const periodo = (s) => {
   return `${f(s.period_start)} a ${f(s.period_end)}`;
 };
 
-function Resumo({ s }) {
-  const pilares = s.pillars || [];
+// Direção principal — cabeçalho da estratégia (§ layout Pencil), sourced 100%
+// do que a IA propôs: nada de meta numerica inventada quando não existe.
+function DirecaoPrincipal({ s }) {
   return (
-    <div className="space-y-3">
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Objetivo do ciclo</p>
-        <p className="text-sm text-ink">{s.objectives?.main}</p>
+    <div className="flex flex-col gap-5 rounded-[24px] border border-line bg-surface-2 p-6 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-start gap-4">
+        <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[14px] bg-accent">
+          <Compass className="h-5 w-5 text-white" />
+        </span>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-accent">Direcao principal</p>
+          <h2 className="mt-1 text-lg font-bold leading-tight tracking-tight text-ink sm:text-[22px]">{s.objectives?.main}</h2>
+          {s.rationale && <p className="mt-2 max-w-[520px] text-[13px] leading-relaxed text-muted">{s.rationale}</p>}
+        </div>
       </div>
+      {!!(s.indicators || []).length && (
+        <div className="shrink-0 rounded-2xl bg-surface p-3.5">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-muted">O que vamos observar</p>
+          <p className="mt-1 font-mono text-sm font-bold text-ink">{s.indicators[0]}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pilares que orientam o conteúdo — cards 1:1 com o que a IA definiu.
+function Pilares({ pillars }) {
+  if (!pillars?.length) return null;
+  return (
+    <div>
+      <h3 className="text-base font-bold tracking-tight text-ink">Pilares que vao orientar o conteudo</h3>
+      <p className="mt-0.5 text-[11px] text-muted">Cada conteudo deve reforcar pelo menos um deles.</p>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {pillars.map((p, i) => {
+          const dark = i % 3 === 2;
+          return (
+            <div key={i} className={`rounded-[22px] p-5 ${dark ? 'bg-[#1c1c1e]' : 'border border-line bg-surface'}`}>
+              <p className={`font-mono text-xs font-bold ${dark ? 'text-success' : 'text-accent'}`}>{String(i + 1).padStart(2, '0')}</p>
+              <p className={`mt-2 text-[15px] font-bold ${dark ? 'text-white' : 'text-ink'}`}>{p.name}</p>
+              <p className={`mt-2.5 text-xs leading-relaxed ${dark ? 'text-white/60' : 'text-muted'}`}>{p.description}</p>
+              <p className={`mt-4 text-[11px] font-semibold ${dark ? 'text-success' : 'text-accent'}`}>{p.share}% do conteudo</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Resumo({ s }) {
+  return (
+    <div className="space-y-5">
+      <DirecaoPrincipal s={s} />
+      <Pilares pillars={s.pillars} />
 
       {s.objectives?.audience && (
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Para quem</p>
           <p className="text-sm text-ink">{s.objectives.audience}</p>
-        </div>
-      )}
-
-      {!!pilares.length && (
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Sobre o que falar</p>
-          <ul className="mt-1 space-y-1.5">
-            {pilares.map((p, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs">
-                <span className="mt-0.5 shrink-0 rounded-md bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-accent">{p.share}%</span>
-                <span><strong className="text-ink">{p.name}</strong> <span className="text-muted">— {p.description}</span></span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {s.rationale && (
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Por que assim</p>
-          <p className="text-xs leading-relaxed text-muted">{s.rationale}</p>
-        </div>
-      )}
-
-      {!!(s.indicators || []).length && (
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">O que vamos observar</p>
-          <p className="text-xs text-muted">{s.indicators.join(' · ')}</p>
         </div>
       )}
     </div>

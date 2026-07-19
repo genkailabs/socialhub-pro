@@ -24,15 +24,16 @@ describe('camada de provedores de texto', () => {
     expect(res).toMatchObject({ content: '{"ok":true}', provider: 'deepseek', model: 'deepseek-v4-flash' });
   });
 
-  it('repassa system, user, jsonMode, model e temperature ao adapter', async () => {
-    await runText({ system: 'sys', user: 'usr', jsonMode: false, temperature: 0.2, model: 'deepseek-v4-pro' });
+  it('repassa system, user, jsonMode, model, temperature e limite ao adapter', async () => {
+    await runText({ system: 'sys', user: 'usr', jsonMode: false, temperature: 0.2, model: 'deepseek-v4-pro', maxTokens: 4096 });
 
     expect(mocks.deepseekChat).toHaveBeenCalledWith({
       system: 'sys',
       user: 'usr',
       jsonMode: false,
       temperature: 0.2,
-      model: 'deepseek-v4-pro'
+      model: 'deepseek-v4-pro',
+      maxTokens: 4096
     });
   });
 

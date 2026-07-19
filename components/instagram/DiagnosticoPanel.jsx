@@ -1,35 +1,18 @@
 'use client';
 import { useState } from 'react';
-import { AlertCircle, AlertTriangle, ChevronDown, Info, Lightbulb, RefreshCw, Sparkles, Target, TrendingUp } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ChevronDown, Info, Lightbulb, RefreshCw, Sparkles, TrendingUp, Users, Radio } from 'lucide-react';
 import { runInstagramAudit } from '@/lib/instagram-audit-actions';
 
 const DIAS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
 
 const CONFIANCA = {
-  baixa: { texto: 'Confianca baixa — poucos dados', cor: 'text-warning' },
-  media: { texto: 'Confianca media', cor: 'text-muted' },
-  alta: { texto: 'Confianca alta', cor: 'text-success' }
+  baixa: { texto: 'Confianca baixa — poucos dados', cor: 'text-warning', pct: 34, nivel: 'Poucos dados' },
+  media: { texto: 'Confianca media', cor: 'text-muted', pct: 64, nivel: 'Razoavel' },
+  alta: { texto: 'Confianca alta', cor: 'text-success', pct: 92, nivel: 'Muito boa' }
 };
 
-function Bloco({ titulo, icone: Icone, cor, itens }) {
-  if (!itens?.length) return null;
-  return (
-    <div className="rounded-2xl border border-line bg-surface p-5">
-      <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-ink">
-        <Icone className={`h-4 w-4 ${cor}`} aria-hidden="true" />
-        {titulo}
-      </h3>
-      <ul className="space-y-3">
-        {itens.map((item, i) => (
-          <li key={i}>
-            <p className="text-sm font-medium text-ink">{item.title}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-muted">{item.detail}</p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+const FORCA_ICONS = [Users, Radio, Sparkles];
+const PRIORIDADE_LABEL = ['Alta', 'Impacto', 'Media'];
 
 // Detalhe do que o codigo mediu — separado da leitura da IA de proposito, para
 // o usuario poder conferir de onde veio cada conclusao.
@@ -125,28 +108,60 @@ export function DiagnosticoPanel({ brandId, inicial }) {
   }
 
   const confianca = CONFIANCA[analysis?.confidence] || CONFIANCA.media;
+  const circ = 2 * Math.PI * 40;
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm text-muted">
+          <h1 className="text-[22px] font-bold tracking-tight text-ink">Diagnostico do perfil</h1>
+          <p className="mt-1 text-[13px] text-muted">
             {audit
               ? `Analisado em ${new Date(audit.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}`
-              : 'Ainda sem diagnostico para esta marca.'}
+              : 'Uma visao pratica do que esta funcionando e do que merece atencao.'}
           </p>
-          {analysis && <p className={`text-xs font-semibold ${confianca.cor}`}>{confianca.texto}</p>}
         </div>
         <button
           type="button"
           onClick={analisar}
           disabled={busy}
-          className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_-2px_rgb(var(--c-accent)/0.5)] transition-opacity disabled:opacity-60"
         >
-          {busy ? <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
-          {busy ? 'Analisando seu perfil...' : audit ? 'Refazer analise' : 'Analisar meu Instagram'}
+          {busy ? <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="h-4 w-4" aria-hidden="true" />}
+          {busy ? 'Analisando...' : audit ? 'Atualizar analise' : 'Analisar meu Instagram'}
         </button>
       </div>
+
+      {analysis && (
+        <div className="flex flex-col items-center gap-6 rounded-[24px] bg-[#1c1c1e] p-6 sm:flex-row sm:justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-white/50">Confianca da analise</p>
+            <p className={`mt-2 font-mono text-[40px] font-bold leading-none ${confianca.cor === 'text-success' ? 'text-success' : confianca.cor === 'text-warning' ? 'text-warning' : 'text-white'}`}>
+              {confianca.nivel}
+            </p>
+            <p className="mt-3 max-w-[420px] text-sm leading-relaxed text-white/80">
+              {analysis.strengths?.[0]?.title || 'Analise concluida com base no seu conteudo recente.'}
+            </p>
+            {!!summary?.growth && summary.growth.delta !== 0 && (
+              <span className={`mt-3 inline-flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 text-[11px] font-semibold ${summary.growth.delta > 0 ? 'text-success' : 'text-danger'}`}>
+                <TrendingUp className="h-3 w-3" />
+                {summary.growth.delta >= 0 ? '+' : ''}{summary.growth.delta} seguidores no periodo
+              </span>
+            )}
+          </div>
+          <div className="relative shrink-0">
+            <svg width="112" height="112" viewBox="0 0 96 96" className="-rotate-90">
+              <circle cx="48" cy="48" r="40" fill="none" stroke="#3A3A3C" strokeWidth="10" />
+              <circle cx="48" cy="48" r="40" fill="none" stroke="#007AFF" strokeWidth="10" strokeLinecap="round"
+                strokeDasharray={circ} strokeDashoffset={circ - (confianca.pct / 100) * circ} />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="font-mono text-xl font-bold text-white">{confianca.pct}%</span>
+              <span className={`text-[10px] font-semibold ${confianca.cor}`}>{confianca.texto.replace('Confianca ', '')}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {msg && (
         <p className={`flex items-center gap-1.5 text-xs font-semibold ${msg.type === 'warn' ? 'text-warning' : 'text-danger'}`}>
@@ -175,26 +190,70 @@ export function DiagnosticoPanel({ brandId, inicial }) {
 
       {analysis && (
         <>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Bloco titulo="O que ja funciona" icone={TrendingUp} cor="text-success" itens={analysis.strengths} />
-            <Bloco titulo="O que merece atencao" icone={AlertTriangle} cor="text-warning" itens={analysis.attention} />
-            <Bloco titulo="Oportunidades" icone={Lightbulb} cor="text-accent" itens={analysis.opportunities} />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_0.56fr]">
+            {/* O que merece atenção — prioridades reais, badge por posição */}
+            <div className="rounded-[22px] border border-line bg-surface p-5 shadow-soft">
+              <h2 className="text-base font-bold tracking-tight text-ink">O que merece atencao agora</h2>
+              <p className="mt-0.5 text-[11px] text-muted">Ajustes com base na sua analise mais recente.</p>
+              <div className="mt-4 space-y-2.5">
+                {(analysis.attention?.length ? analysis.attention : analysis.priorities?.map((p) => ({ title: p, detail: '' })) || []).map((item, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 rounded-2xl bg-surface-2 px-3.5 py-3.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-ink">{item.title}</p>
+                      {item.detail && <p className="mt-0.5 truncate text-[11px] text-muted">{item.detail}</p>}
+                    </div>
+                    <span className="shrink-0 rounded-full bg-surface px-3 py-1 text-[10px] font-bold text-accent">{PRIORIDADE_LABEL[i] || 'Media'}</span>
+                  </div>
+                ))}
+                {!analysis.attention?.length && !analysis.priorities?.length && (
+                  <p className="py-4 text-center text-xs text-muted">Nenhum ponto de atencao identificado.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Pontos fortes — dado real */}
+            <div className="rounded-[22px] border border-line bg-surface p-5 shadow-soft">
+              <h2 className="text-base font-bold tracking-tight text-ink">Pontos fortes</h2>
+              <p className="mt-0.5 text-[11px] text-muted">O que vale manter e repetir.</p>
+              <div className="mt-4 space-y-4">
+                {(analysis.strengths || []).map((item, i) => {
+                  const Icon = FORCA_ICONS[i % FORCA_ICONS.length];
+                  return (
+                    <div key={i} className="flex items-center gap-2.5">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-surface-2">
+                        <Icon className="h-[15px] w-[15px] text-accent" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-ink">{item.title}</p>
+                        <p className="truncate text-[10px] text-muted">{item.detail}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {!analysis.strengths?.length && (
+                  <p className="py-4 text-center text-xs text-muted">Ainda sem pontos fortes identificados.</p>
+                )}
+              </div>
+            </div>
           </div>
 
-          {!!analysis.priorities?.length && (
+          {!!analysis.opportunities?.length && (
             <div className="rounded-2xl border border-accent/30 bg-accent/5 p-5 shadow-soft">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-                <Target className="h-4 w-4 text-accent" aria-hidden="true" />
-                Por onde comecar
+                <Lightbulb className="h-4 w-4 text-accent" aria-hidden="true" />
+                Oportunidades
               </h3>
-              <ol className="space-y-2">
-                {analysis.priorities.map((p, i) => (
+              <ul className="space-y-2">
+                {analysis.opportunities.map((o, i) => (
                   <li key={i} className="flex gap-3 text-sm text-ink">
                     <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent text-[11px] font-bold text-white">{i + 1}</span>
-                    {p}
+                    <span>
+                      <strong className="font-semibold">{o.title}</strong>
+                      {o.detail && <span className="text-muted"> — {o.detail}</span>}
+                    </span>
                   </li>
                 ))}
-              </ol>
+              </ul>
             </div>
           )}
 

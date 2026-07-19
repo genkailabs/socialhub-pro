@@ -45,6 +45,11 @@ export default async function ApprovePage({ params }) {
           {post.media_url && <img src={post.media_url} alt="" className="max-h-80 w-full object-cover" />}
           <div className="p-4">
             <p className="whitespace-pre-wrap text-sm text-ink">{post.content || '(sem legenda)'}</p>
+            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3 text-xs">
+              <div><dt className="font-bold text-muted">Canal</dt><dd className="mt-1 text-ink">{post.networks?.join(', ') || 'Instagram'}</dd></div>
+              <div><dt className="font-bold text-muted">Data prevista</dt><dd className="mt-1 text-ink">{post.scheduled_at ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(post.scheduled_at)) + ' (São Paulo)' : 'A definir'}</dd></div>
+              {post.approval_notes && <div className="col-span-2"><dt className="font-bold text-muted">Observações</dt><dd className="mt-1 whitespace-pre-wrap text-ink">{post.approval_notes}</dd></div>}
+            </dl>
           </div>
         </div>
 

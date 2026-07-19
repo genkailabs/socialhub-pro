@@ -78,21 +78,27 @@ describe('activeStrategy', () => {
 
 describe('approvedItems', () => {
   it('so tema aprovado segue para producao (RF-07)', () => {
-    const items = [{ id: 1, status: 'approved' }, { id: 2, status: 'proposed' }, { id: 3, status: 'rejected' }];
+    const items = [{ id: 1, status: 'approved' }, { id: 2, status: 'idea' }, { id: 3, status: 'rejected' }];
 
     expect(approvedItems(items).map((i) => i.id)).toEqual([1]);
   });
 });
 
 describe('planProgress', () => {
-  it('conta cada estado', () => {
-    const items = [{ status: 'approved' }, { status: 'approved' }, { status: 'proposed' }, { status: 'rejected' }, { status: 'produced' }];
+  it('conta os cinco estados do novo fluxo', () => {
+    const items = [
+      { status: 'idea' }, { status: 'idea' }, { status: 'approved' },
+      { status: 'in_production' }, { status: 'ready' }, { status: 'rejected' }
+    ];
 
-    expect(planProgress(items)).toEqual({ total: 5, proposed: 1, approved: 2, rejected: 1, produced: 1, readyToProduce: true });
+    expect(planProgress(items)).toEqual({
+      total: 6, idea: 2, approved: 1, inProduction: 1,
+      ready: 1, rejected: 1, readyToProduce: true
+    });
   });
 
   it('plano so com sugestoes ainda nao pode produzir', () => {
-    expect(planProgress([{ status: 'proposed' }]).readyToProduce).toBe(false);
+    expect(planProgress([{ status: 'idea' }]).readyToProduce).toBe(false);
   });
 
   it('aguenta plano vazio', () => {

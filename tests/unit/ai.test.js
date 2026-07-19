@@ -30,6 +30,13 @@ describe('normalizeSpec', () => {
     expect(normalizeSpec({ image_prompt: 'x'.repeat(900) }).imagePrompt.length).toBe(600);
     expect(normalizeSpec({}).imagePrompt).toBe('');
   });
+  it('preserva a decisão da IA sobre texto na imagem', () => {
+    const withText = normalizeSpec({ template: 'promo', headline: 'Oferta especial', image_text: true, image_title: 'Só hoje', image_text_position: 'top' });
+    expect(withText.imageText).toBe(true);
+    expect(withText.imageTitle).toBe('Só hoje');
+    expect(withText.imageTextPosition).toBe('top');
+    expect(normalizeSpec({ template: 'quote', image_text: false }).imageText).toBe(false);
+  });
 });
 
 describe('parseSpec', () => {

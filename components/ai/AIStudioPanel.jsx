@@ -29,6 +29,7 @@ import {
 import { publishNow, saveDraft, schedulePost, submitForApproval } from '@/lib/posts-actions';
 import { Button } from '@/components/ui/Button';
 import { FreeInput } from '@/components/ai/FreeInput';
+import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 
 const TITLE_POSITION = {
   top: 'items-start',
@@ -313,7 +314,9 @@ export function AIStudioPanel({
       setCta(nextCta);
       setHashtags((res.spec.hashtags || []).join(' '));
       setVisualDirection(nextDirection);
-      setImageTitle(res.spec.headline || brief.topic);
+      setImageTitle(res.spec.imageTitle || res.spec.headline || brief.topic);
+      setTextEnabled(res.spec.imageText !== false);
+      setTitlePosition(res.spec.imageTextPosition || 'bottom');
       setImageOptions([]);
       setSelectedImage('');
       setFinalImageUrl('');
@@ -498,6 +501,11 @@ export function AIStudioPanel({
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
       <div className="space-y-6">
+        {busy && (
+          <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft">
+            <LoadingIndicator compact label={busy === 'gen' ? 'Preparando conteúdo' : busy === 'images' ? 'Criando imagens' : busy === 'finalize' ? 'Finalizando imagem' : 'Processando sua ação'} />
+          </div>
+        )}
         {!hasBrandKit && (
           <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-ink">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />

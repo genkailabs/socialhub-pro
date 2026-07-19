@@ -1,10 +1,10 @@
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
-export function AppShell({ children, brands, activeId }) {
+export function AppShell({ children, brands, activeId, canAccessAICosts = false }) {
   return (
     <div className="app-glow flex h-screen">
-      <Sidebar />
+      <Sidebar canAccessAICosts={canAccessAICosts} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar brands={brands} activeId={activeId} />
         <main className="min-h-0 flex-1 overflow-auto bg-app">

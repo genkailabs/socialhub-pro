@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/layout/AppShell';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
+import { canAccessAICosts } from '@/lib/admin-access';
 
 export default async function AppLayout({ children }) {
   const supabase = await createClient();
@@ -11,5 +12,5 @@ export default async function AppLayout({ children }) {
   const brands = await listBrands();
   const activeId = await getActiveBrandId();
 
-  return <AppShell brands={brands} activeId={activeId}>{children}</AppShell>;
+  return <AppShell brands={brands} activeId={activeId} canAccessAICosts={canAccessAICosts(user.email)}>{children}</AppShell>;
 }

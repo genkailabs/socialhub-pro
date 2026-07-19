@@ -21,7 +21,7 @@ export async function POST(request) {
   const admin = createAdmin();
   const { data: post, error: postError } = await admin
     .from('posts')
-    .select('id, brand_id, status')
+    .select('id, brand_id, status, recommendation_id')
     .eq('approval_token', token)
     .maybeSingle();
 
@@ -43,6 +43,7 @@ export async function POST(request) {
       .eq('id', post.id)
       .eq('status', 'waiting_approval');
     if (error) return NextResponse.json({ error: 'Nao foi possivel agendar o post.' }, { status: 500 });
+    if (post.recommendation_id) await admin.from('marketing_recommendations').update({ status: 'scheduled' }).eq('id', post.recommendation_id);
   }
 
   const { error: commentError } = await admin.from('approval_comments').insert({

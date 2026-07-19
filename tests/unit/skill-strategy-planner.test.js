@@ -84,6 +84,8 @@ describe('skill content-strategy', () => {
 
 const strategy = { mainObjective: 'Atrair pacientes', pillars: [{ name: 'Educacao', share: 60 }, { name: 'Autoridade', share: 40 }], formats: ['tips_carousel'], postsPerWeek: 3 };
 const planPrompt = (over = {}) => editorialPlannerSkill.buildPrompt(planIn.parse({ brandName: 'Clinica Ana', weekStart: '2026-07-20', strategy, ...over }));
+const weeklySummary = { mainFocus: 'Autoridade', description: 'Educacao e bastidores para a semana.' };
+const weeklyPlan = (items) => ({ weeklySummary, items });
 
 describe('skill editorial-planner', () => {
   it('segue o contrato', () => {
@@ -107,21 +109,29 @@ describe('skill editorial-planner', () => {
   });
 
   it('aceita item de Reel e de Stories', () => {
-    const base = { date: '2026-07-20', topic: 't', title: 'x', objective: 'o', pillar: 'p', stage: 'descoberta', cta: 'c', rationale: 'r' };
+    const base = {
+      date: '2026-07-20', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      stage: 'descoberta', cta: 'c', rationale: 'r', summary: 's', hook: 'h',
+      targetAudience: 'a', estimatedDuration: '30 segundos'
+    };
 
-    expect(planOut.safeParse({ items: [{ ...base, format: 'reel' }] }).success).toBe(true);
-    expect(planOut.safeParse({ items: [{ ...base, format: 'stories' }] }).success).toBe(true);
+    expect(planOut.safeParse(weeklyPlan([{ ...base, format: 'reel' }])).success).toBe(true);
+    expect(planOut.safeParse(weeklyPlan([{ ...base, format: 'stories' }])).success).toBe(true);
   });
 
   // String livre deixaria a IA inventar formato que morre depois, na producao.
   it('recusa formato fora do registro', () => {
-    const base = { date: '2026-07-20', topic: 't', title: 'x', objective: 'o', pillar: 'p', stage: 'descoberta', cta: 'c', rationale: 'r' };
+    const base = {
+      date: '2026-07-20', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      stage: 'descoberta', cta: 'c', rationale: 'r', summary: 's', hook: 'h',
+      targetAudience: 'a', estimatedDuration: '30 segundos'
+    };
 
-    expect(planOut.safeParse({ items: [{ ...base, format: 'carrossel de video' }] }).success).toBe(false);
+    expect(planOut.safeParse(weeklyPlan([{ ...base, format: 'carrossel de video' }])).success).toBe(false);
   });
 
   it('sobe a versao ao mudar prompt e schema', () => {
-    expect(editorialPlannerSkill.version).toBe(2);
+    expect(editorialPlannerSkill.version).toBe(3);
   });
 
   it('exige data no formato certo', () => {
@@ -148,9 +158,11 @@ describe('skill editorial-planner', () => {
     const itemOk = {
       date: '2026-07-20', format: 'carousel', topic: 'Sinais de ansiedade',
       title: 'Cinco sinais', objective: 'Educar', pillar: 'Educacao',
-      stage: 'descoberta', cta: 'Salve este post', rationale: 'Abre a semana educando.'
+      stage: 'descoberta', cta: 'Salve este post', rationale: 'Abre a semana educando.',
+      summary: 'Explica sinais comuns.', hook: 'Voce reconhece estes sinais?',
+      targetAudience: 'Adultos ansiosos', estimatedDuration: '45 segundos'
     };
-    const parsed = planOut.parse({ items: [{ ...itemOk, caption: 'texto pronto' }] });
+    const parsed = planOut.parse(weeklyPlan([{ ...itemOk, caption: 'texto pronto' }]));
 
     expect(parsed.items[0].caption).toBeUndefined();
   });
@@ -170,14 +182,39 @@ describe('skill editorial-planner', () => {
   });
 
   it('exige justificativa e estagio validos em cada item', () => {
-    const item = { date: '2026-07-20', format: 'image', topic: 't', title: 'x', objective: 'o', pillar: 'p', stage: 'descoberta', cta: 'c', rationale: 'r' };
+    const item = {
+      date: '2026-07-20', format: 'image', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      stage: 'descoberta', cta: 'c', rationale: 'r', summary: 's', hook: 'h',
+      targetAudience: 'a', estimatedDuration: 'Nao se aplica'
+    };
 
-    expect(planOut.safeParse({ items: [item] }).success).toBe(true);
-    expect(planOut.safeParse({ items: [{ ...item, rationale: '' }] }).success).toBe(false);
-    expect(planOut.safeParse({ items: [{ ...item, stage: 'funil' }] }).success).toBe(false);
+    expect(planOut.safeParse(weeklyPlan([item])).success).toBe(true);
+    expect(planOut.safeParse(weeklyPlan([{ ...item, rationale: '' }])).success).toBe(false);
+    expect(planOut.safeParse(weeklyPlan([{ ...item, stage: 'funil' }])).success).toBe(false);
   });
 
   it('recusa plano vazio', () => {
-    expect(planOut.safeParse({ items: [] }).success).toBe(false);
+    expect(planOut.safeParse(weeklyPlan([])).success).toBe(false);
+  });
+
+  it('exige dados estrategicos e resumo semanal no contrato', () => {
+    const item = {
+      date: '2026-07-20', format: 'reel', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      stage: 'descoberta', cta: 'c', rationale: 'r', summary: 'Resumo da ideia.',
+      hook: 'Gancho da ideia.', targetAudience: 'Pequenos negocios', estimatedDuration: '30 segundos'
+    };
+    const result = planOut.safeParse({
+      weeklySummary: { mainFocus: 'Autoridade', description: 'Educacao e bastidores para a semana.' },
+      items: [item]
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data.weeklySummary).toEqual({ mainFocus: 'Autoridade', description: 'Educacao e bastidores para a semana.' });
+    expect(result.data.items[0]).toMatchObject({
+      summary: 'Resumo da ideia.', hook: 'Gancho da ideia.',
+      targetAudience: 'Pequenos negocios', estimatedDuration: '30 segundos'
+    });
+    expect(planOut.safeParse({ items: [item] }).success).toBe(false);
+    expect(planOut.safeParse({ weeklySummary: { mainFocus: 'x', description: 'y' }, items: [{ ...item, summary: '' }] }).success).toBe(false);
   });
 });

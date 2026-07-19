@@ -15,6 +15,7 @@ const skill = defineSkill({
   description: 'Skill de teste',
   inputSchema: z.object({ topico: z.string().min(1) }),
   outputSchema: z.object({ titulo: z.string(), itens: z.array(z.string()) }),
+  maxTokens: 4096,
   buildPrompt: ({ topico }) => ({ system: 'sistema', user: `tema: ${topico}` })
 });
 
@@ -77,7 +78,8 @@ describe('runSkill', () => {
     expect(mocks.runText).toHaveBeenCalledWith(expect.objectContaining({
       system: 'sistema',
       user: 'tema: a',
-      jsonMode: true
+      jsonMode: true,
+      maxTokens: 4096
     }));
     expect(mocks.runText.mock.calls[0][0].provider).toBeUndefined();
   });
@@ -111,6 +113,16 @@ describe('runSkill', () => {
 
     expect(mocks.runText).toHaveBeenCalledTimes(2);
     expect(res.data.titulo).toBe('Oi');
+  });
+
+  it('aproveita JSON dentro de bloco Markdown sem gastar uma segunda tentativa', async () => {
+    const { supabase } = makeSupabase();
+    mocks.runText.mockResolvedValueOnce({ content: `Aqui está o plano:\n\n\`\`\`json\n${OK}\n\`\`\``, usage: {}, model: 'm', provider: 'deepseek' });
+
+    const res = await runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() });
+
+    expect(res.data.titulo).toBe('Oi');
+    expect(mocks.runText).toHaveBeenCalledTimes(1);
   });
 
   it('tenta de novo quando a saida nao bate com o schema', async () => {

@@ -26,7 +26,7 @@ Stack de testes/deploy: ver [Arquitetura e stack](./architecture.md).
 
 ## Limitação do cron (Vercel Hobby)
 
-`app/api/cron/publish-due/route.js` é protegida por `Authorization: Bearer $CRON_SECRET` e roda com o client `admin` (service role). **O plano Vercel Hobby só permite cron 1×/dia** — `vercel.json` está configurado para `0 9 * * *` em vez de a cada 5 minutos. Para agendamento com granularidade real (posts publicando no minuto certo), é preciso Vercel Pro **ou** um pinger externo (ex.: cron-job.org) batendo o endpoint com o bearer token.
+O agendamento é executado por Supabase Cron a cada cinco minutos, que chama a Edge Function `publish-due-posts` diretamente. Consulte `docs/SUPABASE_CRON_SETUP.md` para configurar Vault, secrets e deploy das funções.
 
 ## Variáveis de ambiente (`.env.local`)
 

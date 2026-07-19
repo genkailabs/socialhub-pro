@@ -3,6 +3,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { getAICostsSummary } from '@/lib/ai-costs-data';
 import { formatUsd } from '@/lib/ai/cost';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
+import { createClient } from '@/lib/supabase/server';
+import { canAccessAICosts } from '@/lib/admin-access';
+import { redirect } from 'next/navigation';
 
 function StatCard({ label, value, hint, icon: Icon, accent, badge }) {
   return (
@@ -29,6 +32,9 @@ function StatCard({ label, value, hint, icon: Icon, accent, badge }) {
 }
 
 export default async function AICostsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!canAccessAICosts(user?.email)) redirect('/dashboard');
   const result = await getAICostsSummary();
   const summary = result?.summary || {
     totalUsd: 0,
@@ -97,10 +103,10 @@ export default async function AICostsPage() {
           </EmptyState>
         ) : (
           <div className="overflow-hidden rounded-2xl glass shadow-soft">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
+            <div className="max-h-[520px] overflow-auto">
+              <table className="min-w-[900px] w-full border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-line bg-surface-2/60 text-xs font-bold uppercase tracking-wider text-muted">
+                  <tr className="sticky top-0 z-10 border-b border-line bg-surface-2 text-xs font-bold uppercase tracking-wider text-muted shadow-sm">
                     <th className="px-4 py-3">Provedor / Modelo</th>
                     <th className="px-4 py-3">Marca</th>
                     <th className="px-4 py-3">Tokens (In / Out)</th>

@@ -75,3 +75,11 @@
 .dark .font-theme {
   font-family: 'DM Sans', system-ui, sans-serif;
 }
+
+@keyframes socialhub-loader {
+  to { transform: rotate(360deg); }
+}
+
+.animate-socialhub-loader {
+  animation: socialhub-loader 1.1s cubic-bezier(.55, .15, .35, .85) infinite;
+}

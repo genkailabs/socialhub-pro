@@ -81,9 +81,9 @@ describe('estrategia e plano editorial', () => {
   it('mantem somente itens aprovados da semana atual', () => {
     const items = [
       { id: 'approved', status: 'approved', date: '2026-07-14', topic: 'Tema aprovado' },
-      { id: 'proposed', status: 'proposed', date: '2026-07-18', topic: 'Tema sugerido' },
+      { id: 'idea', status: 'idea', date: '2026-07-18', topic: 'Tema sugerido' },
       { id: 'rejected', status: 'rejected', date: '2026-07-15', topic: 'Tema removido' },
-      { id: 'produced', status: 'produced', date: '2026-07-16', topic: 'Tema criado' },
+      { id: 'ready', status: 'ready', date: '2026-07-16', topic: 'Tema criado' },
       { id: 'old', status: 'approved', date: '2026-07-12', topic: 'Tema antigo' }
     ];
 
