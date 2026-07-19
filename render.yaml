@@ -10,6 +10,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20.18.0
+      - key: HOSTNAME
+        value: 0.0.0.0
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
