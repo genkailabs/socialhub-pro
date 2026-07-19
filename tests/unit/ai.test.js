@@ -43,6 +43,9 @@ describe('parseSpec', () => {
   it('parseia JSON string', () => {
     expect(parseSpec('{"template":"promo","caption":"oi"}').caption).toBe('oi');
   });
+  it('aceita JSON retornado dentro de bloco de código pela IA', () => {
+    expect(parseSpec('```json\n{"template":"promo","caption":"oi"}\n```').caption).toBe('oi');
+  });
   it('erro em JSON inválido', () => {
     expect(() => parseSpec('não é json')).toThrow();
   });
