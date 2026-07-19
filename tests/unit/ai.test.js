@@ -46,6 +46,9 @@ describe('parseSpec', () => {
   it('aceita JSON retornado dentro de bloco de código pela IA', () => {
     expect(parseSpec('```json\n{"template":"promo","caption":"oi"}\n```').caption).toBe('oi');
   });
+  it('repara pequenas sujeiras comuns na resposta da IA', () => {
+    expect(parseSpec('Claro:\n{“template”:“promo”,“caption”:“oi”,}').caption).toBe('oi');
+  });
   it('erro em JSON inválido', () => {
     expect(() => parseSpec('não é json')).toThrow();
   });
