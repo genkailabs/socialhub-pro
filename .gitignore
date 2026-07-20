@@ -58,3 +58,7 @@ app/preview-sales-ops/
 
 # Supabase CLI temp
 supabase/.temp/
+
+# Sentry
+.sentryclirc
+.env.sentry-build-plugin

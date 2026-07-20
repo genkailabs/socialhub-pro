@@ -107,6 +107,11 @@ docs/superpowers/  # specs e plans
 - Inbox e Relatórios multi-rede ficam fora do núcleo até haver dado real.
 - Conexão real do IG, composer, agendamento e aprovação chegam nos milestones M2–M5.
 
+## Infraestrutura de produção (Railway + Sentry)
+
+- **Hospedagem no Railway.** `railway.json` versiona build/start/healthcheck (espelha o antigo `render.yaml`). As variáveis de ambiente estão listadas em `.env.example` — cadastrar todas no painel do Railway. `APP_URL` precisa ser o domínio final (usado no callback do Meta OAuth e no middleware); se o domínio mudar, atualizar a Redirect URI no app do Facebook Developer.
+- **Sentry (monitoramento de erro).** `@sentry/nextjs` com configs server/client/edge que só inicializam quando há `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` — sem DSN é no-op, nada quebra. O runner de IA (`lib/ai/skills/run.js`) já reporta falhas via `captureError` (`lib/observability.js`). **Para novas Server Actions**, chamar `captureError(e, { ... })` no `catch` antes de devolver `{ error }` — hoje esses erros só voltavam para a UI sem registro. Gerar o DSN no painel do Sentry e colá-lo no Railway.
+
 ## Notas de simplificação (2026-07-20)
 
 - **Piloto Automático despublicado (RF-06/07/08).** A rota `/autopilot` virou `/strategy`, contendo só o `StrategyPanel` (pilares/objetivos que o Planejamento consome). O `AutopilotForm` e o toggle `content_plans.active` saíram da interface. `lib/autopilot.js`, `lib/content-plan-actions.js`, `content_plans` e os testes **continuam no código** — apenas deixaram de ser expostos até haver decisão de produto sobre reativar a geração diária como algo separado e opcional.
