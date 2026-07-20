@@ -2,13 +2,14 @@
 import { useRouter } from 'next/navigation';
 import { Check, Sparkles, Pencil, PenSquare, Instagram, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Card as UiCard } from '@/components/ui/Card';
 
 function Card({ title, children }) {
   return (
-    <div className="rounded-2xl glass p-4 shadow-soft">
+    <UiCard className="p-4">
       <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-accent">{title}</h3>
       {children}
-    </div>
+    </UiCard>
   );
 }
 const Row = ({ k, v }) => (

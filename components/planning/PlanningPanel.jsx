@@ -11,6 +11,7 @@ import {
 import { produceApprovedPlanItems, produceFromPlanItem } from '@/lib/content-actions';
 import { formatLabel } from '@/lib/content-production';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PlanningItemForm } from '@/components/planning/PlanningItemForm';
 import { availablePlanningItemActions, itemDetails, PlanningSummary } from '@/components/planning/PlanningSummary';
@@ -45,11 +46,10 @@ function horarioSugerido(time) {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time || '')) ? time : 'A definir';
 }
 
+const STATUS_TONE = { idea: 'muted', approved: 'success', in_production: 'accent', ready: 'success' };
+
 function StatusBadge({ status }) {
-  const classes = {
-    idea: 'bg-line text-muted', approved: 'bg-success/10 text-success', in_production: 'bg-accent/10 text-accent', ready: 'bg-success/10 text-success'
-  };
-  return <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${classes[status] || 'bg-line text-muted'}`}>{STATUS[status] || status}</span>;
+  return <Badge tone={STATUS_TONE[status] || 'muted'}>{STATUS[status] || status}</Badge>;
 }
 
 function PlanningItemCard({ item, busy, onApprove, onEdit, onProduce, onRemove, onReplace }) {

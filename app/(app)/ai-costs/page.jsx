@@ -1,5 +1,6 @@
 import { Coins, Sparkles, AlertCircle, CheckCircle2, Cpu, Image as ImageIcon, DollarSign, Layers } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Card } from '@/components/ui/Card';
 import { getAICostsSummary } from '@/lib/ai-costs-data';
 import { formatUsd } from '@/lib/ai/cost';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
@@ -9,7 +10,7 @@ import { redirect } from 'next/navigation';
 
 function StatCard({ label, value, hint, icon: Icon, accent, badge }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl glass p-5 shadow-soft transition-all hover:border-line-strong">
+    <Card className="relative overflow-hidden p-5 transition-all hover:border-line-strong">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-muted">{label}</p>
@@ -27,7 +28,7 @@ function StatCard({ label, value, hint, icon: Icon, accent, badge }) {
           {badge}
         </span>
       )}
-    </div>
+    </Card>
   );
 }
 
