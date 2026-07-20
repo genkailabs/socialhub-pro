@@ -1,9 +1,12 @@
-import { Coins, Sparkles, AlertCircle, CheckCircle2, Cpu, Image as ImageIcon, DollarSign, Layers } from 'lucide-react';
+import Link from 'next/link';
+import { Coins, Sparkles, AlertCircle, CheckCircle2, Cpu, Image as ImageIcon, DollarSign, Layers, ExternalLink } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Card } from '@/components/ui/Card';
 import { getAICostsSummary } from '@/lib/ai-costs-data';
+import { actionLabel, ACTION_OPTIONS, COST_PERIODS } from '@/lib/ai-costs-labels';
 import { formatUsd } from '@/lib/ai/cost';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
+import { listBrands } from '@/lib/brands-data';
 import { createClient } from '@/lib/supabase/server';
 import { canAccessAICosts } from '@/lib/admin-access';
 import { redirect } from 'next/navigation';
@@ -32,11 +35,25 @@ function StatCard({ label, value, hint, icon: Icon, accent, badge }) {
   );
 }
 
-export default async function AICostsPage() {
+export default async function AICostsPage({ searchParams }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!canAccessAICosts(user?.email)) redirect('/dashboard');
-  const result = await getAICostsSummary();
+
+  const sp = (await searchParams) || {};
+  const filters = {
+    brandId: sp.brand || '',
+    action: sp.action || '',
+    period: sp.period || 'all',
+    page: Number(sp.page) || 1
+  };
+  const brands = await listBrands();
+  const result = await getAICostsSummary({
+    brandId: filters.brandId || null,
+    skillId: filters.action || null,
+    period: filters.period,
+    page: filters.page
+  });
   const summary = result?.summary || {
     totalUsd: 0,
     deepseekUsd: 0,
@@ -52,6 +69,20 @@ export default async function AICostsPage() {
   };
   const pollinationsUsd = Math.round((summary.imageUsd + summary.researchUsd) * 1e6) / 1e6;
   const jobs = result?.jobs || [];
+  const total = result?.total || 0;
+  const pageSize = result?.pageSize || 50;
+  const page = result?.page || 1;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  // Preserva os filtros nos links do paginador.
+  const pageHref = (p) => {
+    const q = new URLSearchParams();
+    if (filters.brandId) q.set('brand', filters.brandId);
+    if (filters.action) q.set('action', filters.action);
+    if (filters.period && filters.period !== 'all') q.set('period', filters.period);
+    if (p > 1) q.set('page', String(p));
+    const s = q.toString();
+    return s ? `/ai-costs?${s}` : '/ai-costs';
+  };
 
   return (
     <div className="space-y-8">
@@ -97,21 +128,49 @@ export default async function AICostsPage() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-extrabold tracking-tight text-ink">Histórico de Chamadas (DeepSeek & Pollinations)</h2>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <h2 className="text-lg font-extrabold tracking-tight text-ink">Histórico de Chamadas (DeepSeek & Pollinations)</h2>
+          <form method="GET" className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-wider text-muted">
+              Marca
+              <select name="brand" defaultValue={filters.brandId} className="h-9 rounded-lg border border-line bg-surface-2 px-2 text-xs font-semibold text-ink">
+                <option value="">Todas</option>
+                {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-wider text-muted">
+              Ação
+              <select name="action" defaultValue={filters.action} className="h-9 rounded-lg border border-line bg-surface-2 px-2 text-xs font-semibold text-ink">
+                <option value="">Todas</option>
+                {ACTION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-wider text-muted">
+              Período
+              <select name="period" defaultValue={filters.period} className="h-9 rounded-lg border border-line bg-surface-2 px-2 text-xs font-semibold text-ink">
+                {COST_PERIODS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+            <button type="submit" className="h-9 rounded-lg bg-accent px-4 text-xs font-bold text-white">Filtrar</button>
+            <Link href="/ai-costs" className="flex h-9 items-center rounded-lg border border-line px-3 text-xs font-semibold text-muted hover:text-ink">Limpar</Link>
+          </form>
+        </div>
         {jobs.length === 0 ? (
           <EmptyState title="Nenhum custo registrado ainda" icon={Sparkles}>
-            Gere posts no Composer ou no Piloto Automático para ver o detalhamento por requisição.
+            Gere posts no Composer ou no Planejamento para ver o detalhamento por requisição.
           </EmptyState>
         ) : (
           <div className="overflow-hidden rounded-2xl glass shadow-soft">
             <div className="max-h-[520px] overflow-auto">
-              <table className="min-w-[900px] w-full border-collapse text-left text-sm">
+              <table className="min-w-[1100px] w-full border-collapse text-left text-sm">
                 <thead>
                   <tr className="sticky top-0 z-10 border-b border-line bg-surface-2 text-xs font-bold uppercase tracking-wider text-muted shadow-sm">
                     <th className="px-4 py-3">Provedor / Modelo</th>
+                    <th className="px-4 py-3">Ação</th>
                     <th className="px-4 py-3">Marca</th>
                     <th className="px-4 py-3">Tokens (In / Out)</th>
                     <th className="px-4 py-3">Custo (USD)</th>
+                    <th className="px-4 py-3">Tentativa</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Data</th>
                   </tr>
@@ -150,6 +209,16 @@ export default async function AICostsPage() {
                         </td>
 
                         <td className="px-4 py-3.5">
+                          {job.ref_post_id ? (
+                            <Link href={`/content/${job.ref_post_id}/review`} className="inline-flex items-center gap-1 font-semibold text-accent hover:underline">
+                              {actionLabel(job)}<ExternalLink className="h-3 w-3" aria-hidden="true" />
+                            </Link>
+                          ) : (
+                            <span className="font-semibold text-ink">{actionLabel(job)}</span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2">
                             {brand.name && <BrandBadge name={brand.name} color={brand.color} size={20} />}
                             <span className="font-semibold text-ink">{brand.name || 'Geral'}</span>
@@ -169,6 +238,13 @@ export default async function AICostsPage() {
 
                         <td className="px-4 py-3.5">
                           <span className="font-extrabold text-accent">{formatUsd(job.cost_usd)}</span>
+                        </td>
+
+                        <td className="px-4 py-3.5 text-xs">
+                          <span className="text-muted">{job.retry_attempt > 1 ? `${job.retry_attempt}ª tentativa` : '1ª'}</span>
+                          {job.charged && job.status === 'error' && (
+                            <span className="ml-1 inline-flex items-center rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold text-warning" title="Falhou mas consumiu tokens">cobrado</span>
+                          )}
                         </td>
 
                         <td className="px-4 py-3.5">
@@ -193,6 +269,17 @@ export default async function AICostsPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="flex items-center justify-between gap-4 border-t border-line px-4 py-3 text-xs text-muted">
+              <span>{total} registro(s) · página {page} de {pageCount}</span>
+              <div className="flex items-center gap-2">
+                {page > 1
+                  ? <Link href={pageHref(page - 1)} className="rounded-lg border border-line px-3 py-1.5 font-semibold text-ink hover:border-accent/40">Anterior</Link>
+                  : <span className="rounded-lg border border-line px-3 py-1.5 font-semibold text-faint opacity-50">Anterior</span>}
+                {page < pageCount
+                  ? <Link href={pageHref(page + 1)} className="rounded-lg border border-line px-3 py-1.5 font-semibold text-ink hover:border-accent/40">Próxima</Link>
+                  : <span className="rounded-lg border border-line px-3 py-1.5 font-semibold text-faint opacity-50">Próxima</span>}
+              </div>
             </div>
           </div>
         )}
