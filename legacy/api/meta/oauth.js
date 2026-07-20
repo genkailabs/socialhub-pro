@@ -1,11 +1,11 @@
 // api/meta/oauth.js
-// Endpoint Serverless da Vercel para iniciar o fluxo oficial de OAuth com a Meta / Instagram Graph API
+// Endpoint serverless legado para iniciar o fluxo oficial de OAuth com a Meta / Instagram Graph API
 
 export default async function handler(req, res) {
   const { brand_id, redirect_uri } = req.query;
   
   const appId = process.env.META_APP_ID || '1398041688806808';
-  const baseUrl = process.env.VITE_APP_URL || 'https://socialhub-pro-steel.vercel.app';
+  const baseUrl = process.env.VITE_APP_URL || 'https://socialhub-pro-1.onrender.com';
   const callbackUrl = `${baseUrl}/api/meta/callback`;
   
   // O state armazena de forma segura o ID da marca e o timestamp para evitar CSRF
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   const state = Buffer.from(JSON.stringify(stateObj)).toString('base64');
   
   // Escopos necessarios para acessar Instagram Business via Graph API
-  // Podem ser customizados via variavel de ambiente META_OAUTH_SCOPES na Vercel
+  // Podem ser customizados via variavel de ambiente META_OAUTH_SCOPES no provedor de deploy.
   const defaultScopes = [
     'public_profile',
     'pages_show_list',

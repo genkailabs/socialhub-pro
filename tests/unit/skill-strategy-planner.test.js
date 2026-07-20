@@ -110,7 +110,7 @@ describe('skill editorial-planner', () => {
 
   it('aceita item de Reel e de Stories', () => {
     const base = {
-      date: '2026-07-20', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      date: '2026-07-20', suggestedTime: '12:00', topic: 't', title: 'x', objective: 'o', pillar: 'p',
       stage: 'descoberta', cta: 'c', rationale: 'r', summary: 's', hook: 'h',
       targetAudience: 'a', estimatedDuration: '30 segundos'
     };
@@ -122,7 +122,7 @@ describe('skill editorial-planner', () => {
   // String livre deixaria a IA inventar formato que morre depois, na producao.
   it('recusa formato fora do registro', () => {
     const base = {
-      date: '2026-07-20', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      date: '2026-07-20', suggestedTime: '12:00', topic: 't', title: 'x', objective: 'o', pillar: 'p',
       stage: 'descoberta', cta: 'c', rationale: 'r', summary: 's', hook: 'h',
       targetAudience: 'a', estimatedDuration: '30 segundos'
     };
@@ -131,7 +131,7 @@ describe('skill editorial-planner', () => {
   });
 
   it('sobe a versao ao mudar prompt e schema', () => {
-    expect(editorialPlannerSkill.version).toBe(3);
+    expect(editorialPlannerSkill.version).toBe(4);
   });
 
   it('exige data no formato certo', () => {
@@ -156,7 +156,7 @@ describe('skill editorial-planner', () => {
 
   it('nao tem campo de legenda na saida', () => {
     const itemOk = {
-      date: '2026-07-20', format: 'carousel', topic: 'Sinais de ansiedade',
+      date: '2026-07-20', suggestedTime: '12:00', format: 'carousel', topic: 'Sinais de ansiedade',
       title: 'Cinco sinais', objective: 'Educar', pillar: 'Educacao',
       stage: 'descoberta', cta: 'Salve este post', rationale: 'Abre a semana educando.',
       summary: 'Explica sinais comuns.', hook: 'Voce reconhece estes sinais?',
@@ -183,7 +183,7 @@ describe('skill editorial-planner', () => {
 
   it('exige justificativa e estagio validos em cada item', () => {
     const item = {
-      date: '2026-07-20', format: 'image', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      date: '2026-07-20', suggestedTime: '12:00', format: 'image', topic: 't', title: 'x', objective: 'o', pillar: 'p',
       stage: 'descoberta', cta: 'c', rationale: 'r', summary: 's', hook: 'h',
       targetAudience: 'a', estimatedDuration: 'Nao se aplica'
     };
@@ -199,7 +199,7 @@ describe('skill editorial-planner', () => {
 
   it('exige dados estrategicos e resumo semanal no contrato', () => {
     const item = {
-      date: '2026-07-20', format: 'reel', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      date: '2026-07-20', suggestedTime: '12:00', format: 'reel', topic: 't', title: 'x', objective: 'o', pillar: 'p',
       stage: 'descoberta', cta: 'c', rationale: 'r', summary: 'Resumo da ideia.',
       hook: 'Gancho da ideia.', targetAudience: 'Pequenos negocios', estimatedDuration: '30 segundos'
     };

@@ -18,7 +18,7 @@ Gerenciador de redes sociais multi-marca (SaaS) para agências: workspaces por m
 | UI | React 18, Tailwind CSS 3, Radix UI, lucide-react, recharts |
 | Auth / DB | Supabase (Postgres + Auth + RLS) via `@supabase/ssr` |
 | Testes | Vitest (unit) + Playwright (e2e) |
-| Deploy | Vercel |
+| Deploy | Render |
 | Integração real | Meta Graph API v21.0 (Instagram/Facebook) |
 
 ---
@@ -73,11 +73,13 @@ Migrações em `supabase/migrations/`. Modelo (resumo):
 
 ---
 
-## Deploy (Vercel)
+## Deploy (Render)
 
-1. Importar o repositório no Vercel (framework detectado: Next.js via `vercel.json`).
-2. Configurar env vars (as `NEXT_PUBLIC_*` e as de servidor) em Project Settings.
-3. No Supabase Auth, adicionar a URL de produção em **Redirect URLs** e `/auth/callback`.
+URL de produção: https://socialhub-pro-1.onrender.com
+
+1. O serviço Render usa `render.yaml`.
+2. Configurar env vars (as `NEXT_PUBLIC_*` e as de servidor) no painel do Render.
+3. No Supabase Auth, adicionar `https://socialhub-pro-1.onrender.com/auth/callback` em **Redirect URLs**.
 
 Headers de segurança são definidos em `next.config.js`.
 

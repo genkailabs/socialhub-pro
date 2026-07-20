@@ -1,5 +1,5 @@
 // api/meta/callback.js
-// Endpoint Serverless da Vercel para receber o callback da Meta e salvar tokens reais no Supabase
+// Endpoint serverless legado para receber o callback da Meta e salvar tokens reais.
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://geoqbbrlyepmhwgdbjmz.supabase.co';
@@ -8,7 +8,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
   const { code, state, error, error_description } = req.query;
-  const baseUrl = process.env.VITE_APP_URL || 'https://socialhub-pro-steel.vercel.app';
+  const baseUrl = process.env.VITE_APP_URL || 'https://socialhub-pro-1.onrender.com';
 
   async function logAudit(brandId, status, msg) {
     try {

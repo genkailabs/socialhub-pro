@@ -18,7 +18,8 @@ export function itemDetails(item = {}) {
     hook: item.hook || DETAIL_FALLBACK,
     cta: item.cta || DETAIL_FALLBACK,
     audience: item.target_audience || DETAIL_FALLBACK,
-    duration: item.estimated_duration || DETAIL_FALLBACK
+    duration: item.estimated_duration || DETAIL_FALLBACK,
+    suggestedTime: item.suggested_time || DETAIL_FALLBACK
   };
 }
 

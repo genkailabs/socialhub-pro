@@ -9,7 +9,7 @@ import { attachPlanningItemVersions } from '@/lib/planning-data';
 import { normalizePlanningItemStatus } from '@/lib/planning-status';
 
 const items = [
-  { id: 'idea-1', status: 'idea', format: 'reel', objective: 'Alcance', title: 'Tema 1', summary: 'Resumo', hook: 'Gancho', cta: 'Comente', target_audience: 'Donos de negócio', estimated_duration: '30s' },
+  { id: 'idea-1', status: 'idea', format: 'reel', objective: 'Alcance', title: 'Tema 1', summary: 'Resumo', hook: 'Gancho', cta: 'Comente', target_audience: 'Donos de negócio', estimated_duration: '30s', suggested_time: '12:00' },
   { id: 'approved-1', status: 'approved', format: 'carousel', objective: 'Educar' },
   { id: 'production-1', status: 'in_production', format: 'carousel', objective: 'Educar' },
   { id: 'ready-1', status: 'ready', format: 'image', objective: 'Conversão' },
@@ -50,7 +50,7 @@ describe('cartao de planejamento', () => {
   it('entrega todos os detalhes que aparecem ao expandir o card', () => {
     expect(itemDetails(items[0])).toEqual({
       objective: 'Alcance', summary: 'Resumo', hook: 'Gancho', cta: 'Comente',
-      audience: 'Donos de negócio', duration: '30s'
+      audience: 'Donos de negócio', duration: '30s', suggestedTime: '12:00'
     });
   });
 });

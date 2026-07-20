@@ -1,6 +1,6 @@
 # Handoff — Social Hub / Jornada Instagram
 
-Estado em 2026-07-17. Branch `feat/jornada-instagram` (LOCAL — nunca deu push; Railway roda código antigo).
+Estado em 2026-07-17. Branch `feat/jornada-instagram` (LOCAL — confirmar push antes de deploy; Render roda a aplicação publicada).
 
 ## O que está pronto (Fases 0-5)
 
@@ -11,7 +11,7 @@ diagnóstico → DNA versionado → estratégia → plano semanal → produção
 - **Skills**: brand-context, instagram-audit, content-strategy, editorial-planner (v2, 4 formatos), post-producer, reel-producer, story-planner, content-review.
 - **Registro de formatos** `lib/formats.js`: formato ≠ publicabilidade. image/carousel publicam; reel/stories saem como roteiro (§5.1).
 - **Rotas novas**: `/instagram/diagnostico`, `/planning`, `/content/[id]/review`. Estratégia mora em `/autopilot`. Nav atualizada (Piloto agora aparece = "Estrategia e Piloto").
-- **Correções**: media_urls (agendamento), approval-flow (horário respeitado), crons Vercel→Railway, escopo OAuth instagram_manage_insights.
+- **Correções**: media_urls (agendamento), approval-flow (horário respeitado), cron via Supabase/Edge Functions, escopo OAuth instagram_manage_insights.
 
 ## Migrations aplicadas e verificadas no Supabase (geoqbbrlyepmhwgdbjmz)
 
@@ -29,7 +29,7 @@ Próximos passos, em ordem:
 1. **APLICAR A MIGRATION (bloqueio de deploy).** `supabase/migrations/20260717_publish_idempotency.sql` no **SQL Editor** do projeto `geoqbbrlyepmhwgdbjmz` (dashboard.supabase.com → SQL Editor → colar → Run). NÃO usar `supabase db push`: o CLI está linkado no ref MORTO `qmubkbszgjnaeeeyylgz` (ver memória `supabase-account`). Sem essa migration, `status='publishing'` viola o CHECK e trava a publicação.
 2. **Commitar** design (Codex) + Fase 6 juntos quando o Codex terminar.
 3. **Teste manual do usuário** (só ele loga): diagnóstico→estratégia→plano→criar conteúdo em localhost:3000. Verificar QUALIDADE da IA: plano inclui Reel/Stories? roteiro de Reel é gravável? revisão é útil ou barulhenta?
-4. **Push** (nunca deu push; Railway = código antigo). Deploy só DEPOIS da migration aplicada.
+4. **Push**. Deploy só DEPOIS da migration aplicada.
 
 ## Fase 6 — publicação confiável (FEITA em código, migration pendente de apply)
 
@@ -43,6 +43,6 @@ Implementado em 2026-07-17 (branch local, não pushado):
 ## Regras aprendidas (importantes)
 
 - **Migrations locais NÃO são fonte de verdade** do banco. Sondar via PostgREST antes de DDL. Ver memória `schema-supabase-diverge-das-migrations`.
-- Railway hospeda, Supabase é banco+Auth. Não confundir.
+- Render hospeda, Neon/Supabase são banco/Auth conforme ambiente configurado. Não confundir hospedagem com banco.
 - Sonda read-only: `GET {url}/rest/v1/{tabela}?select={col}&limit=0`. Scripts em scratchpad. Classificador de segurança às vezes bloqueia node lendo .env.local — repetir.
 - Plano completo: `C:\Users\Damien\.claude\plans\tingly-jumping-hoare.md`.

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Calendar, Check, ChevronDown, ChevronUp, Pencil, Sparkles, Target, Wand2, X } from 'lucide-react';
+import { AlertCircle, Calendar, Check, ChevronDown, ChevronUp, Clock, Pencil, Sparkles, Target, Wand2, X } from 'lucide-react';
 import {
   approveAllPlanItems, createPlanItem, generateWeekPlan, removePlanItem,
   replacePlanItem, restorePlanItemVersion, setPlanItemStatus, updatePlanItem
@@ -34,6 +34,10 @@ function dataCurta(iso) {
   return `${DIAS[date.getUTCDay()]}, ${String(date.getUTCDate()).padStart(2, '0')}/${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function horarioSugerido(time) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time || '')) ? time : 'A definir';
+}
+
 function StatusBadge({ status }) {
   const classes = {
     idea: 'bg-line text-muted', approved: 'bg-success/10 text-success', in_production: 'bg-accent/10 text-accent', ready: 'bg-success/10 text-success'
@@ -53,6 +57,9 @@ function PlanningItemCard({ item, busy, onApprove, onEdit, onProduce, onRemove, 
         <div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="font-mono text-[9px] font-bold uppercase tracking-wider text-accent">{formatLabel(item.format)}</span><span className="text-[10px] text-muted">• {dataCurta(item.date)}</span></div><h4 className="mt-2 text-[13px] font-semibold leading-snug text-ink">{item.title || item.topic}</h4><p className="mt-1 text-[10px] text-muted">Pilar: {item.pillar || 'Não informado'}</p></div>
         <StatusBadge status={item.status} />
       </div>
+      <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-accent">
+        <Clock className="h-3 w-3" aria-hidden="true" />Melhor horario: {horarioSugerido(item.suggested_time)}
+      </p>
 
       <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-accent hover:text-accent-ink">Ver detalhes {expanded ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}</button>
       {expanded && <dl className="mt-3 grid gap-2 rounded-xl bg-surface p-3 text-xs"><div><dt className="font-bold text-ink">Objetivo</dt><dd className="mt-0.5 text-muted">{details.objective}</dd></div><div><dt className="font-bold text-ink">Resumo</dt><dd className="mt-0.5 text-muted">{details.summary}</dd></div><div><dt className="font-bold text-ink">Gancho</dt><dd className="mt-0.5 text-muted">{details.hook}</dd></div><div className="grid grid-cols-2 gap-2"><div><dt className="font-bold text-ink">CTA</dt><dd className="mt-0.5 text-muted">{details.cta}</dd></div><div><dt className="font-bold text-ink">Público</dt><dd className="mt-0.5 text-muted">{details.audience}</dd></div></div><div><dt className="font-bold text-ink">Duração</dt><dd className="mt-0.5 text-muted">{details.duration}</dd></div></dl>}

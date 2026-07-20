@@ -13,7 +13,7 @@ Social Hub não é só gerador de legenda: entende marca (Brand DNA), acompanha 
 | Framework | Next.js 14 (App Router) + React 18 |
 | UI | Tailwind CSS, Radix UI, Recharts, lucide-react |
 | Banco/Auth | Supabase (Postgres + Auth) |
-| Hospedagem | Railway (substituiu Vercel) |
+| Hospedagem | Render (`https://socialhub-pro-1.onrender.com`) |
 | Testes | Vitest (392 unit tests), Playwright (e2e) |
 | Imagem | sharp, next/og (render on-brand sem custo) |
 
@@ -51,7 +51,7 @@ Design completo: [docs/superpowers/specs/2026-07-18-motor-pesquisa-conteudo.md](
 
 ## 6. Infra e deploy
 
-- **Railway** hospeda a aplicação (Node standalone).
+- **Render** hospeda a aplicação (Node standalone).
 - **Supabase** = banco + Auth. Schema do banco de produção **diverge das migrations locais** — sondar o banco antes de qualquer DDL; aplicar migrações novas à mão no SQL Editor.
 - **Cron** a cada 5min: `publish-due` (fila de publicação com idempotência via estado `publishing`) e `youtube-sync`.
 
@@ -91,9 +91,9 @@ Fluxo público de aprovação: `app/approve/[token]` (link enviado ao cliente, s
 ## 10. Pendências conhecidas
 
 1. Migração `supabase/migrations/20260718_research_cache.sql` **não aplicada** no banco de produção (SQL Editor) — cache de pesquisa degrada sem ela, mas o fluxo funciona.
-2. `POLLINATIONS_SECRET_KEY` **não setada no Railway** — só em `.env.local`; remover `GEMINI_API_KEY`/`TAVILY_API_KEY`/`DEAPI_API_KEY` do Railway se existirem.
+2. `POLLINATIONS_SECRET_KEY` deve ser conferida no Render e em `.env.local`; remover `GEMINI_API_KEY`/`TAVILY_API_KEY`/`DEAPI_API_KEY` se não forem usadas.
 3. Redes sociais mockadas ainda a remover da UI.
-4. Deploy do frontend no Vercel (RF-06 do PRD) — adiado, fora desta rodada.
+4. Deploy do frontend está no Render.
 
 ## 11. Testes
 

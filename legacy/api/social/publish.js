@@ -1,5 +1,5 @@
 // api/social/publish.js
-// Endpoint Serverless unificado da Vercel para Publicação Instantânea em Redes Sociais
+// Endpoint serverless legado para publicação instantânea em redes sociais
 // Suporta Meta Graph API (Instagram/Facebook) com fallback resiliente para modo Sandbox.
 
 import { createClient } from '@supabase/supabase-js';
