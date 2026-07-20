@@ -1,4 +1,4 @@
-import { LayoutDashboard, GitBranch, Handshake, Sparkles, Coins, Users, CheckSquare, Inbox, BarChart3, Stethoscope, CalendarRange, Wand2 } from 'lucide-react';
+import { LayoutDashboard, GitBranch, Handshake, Sparkles, Coins, Users, CheckSquare, BarChart3, Stethoscope, CalendarRange, Wand2 } from 'lucide-react';
 
 export const NAV_GROUPS = [
   { label: 'Modulos Principais', items: [
@@ -12,11 +12,10 @@ export const NAV_GROUPS = [
   ]},
   { label: 'Administracao', items: [
     { href: '/approvals', label: 'Aprovacoes', icon: CheckSquare },
-    { href: '/connections', label: 'Conexoes (Meta/YT)', icon: Users },
+    { href: '/connections', label: 'Conexoes', icon: Users },
     { href: '/ai-costs', label: 'Custos da IA', icon: Coins, adminOnly: true }
   ]},
   { label: 'Relatorios', items: [
-    { href: '/metrics', label: 'Relatorios', icon: BarChart3 },
-    { href: '#', label: 'Inbox', icon: Inbox, soon: true }
+    { href: '/metrics', label: 'Relatorios', icon: BarChart3 }
   ]}
 ];
