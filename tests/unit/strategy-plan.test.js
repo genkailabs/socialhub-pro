@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   weekStartOf, nextWeekStart, monthPeriod, activeStrategy,
-  approvedItems, planProgress, itemWithinWeek, describeSignals
+  approvedItems, planProgress, itemWithinWeek, describeSignals,
+  remainingPlanSlots
 } from '@/lib/strategy-plan';
 
 describe('describeSignals', () => {
@@ -121,5 +122,38 @@ describe('itemWithinWeek', () => {
 
   it('recusa data invalida', () => {
     expect(itemWithinWeek('qualquer', '2026-07-20')).toBe(false);
+  });
+});
+
+// RF-01/RF-02: vaga só é ocupada por item decidido (aprovado/em producao/pronto).
+// Removidos (rejected) e ideias pendentes não contam, senão o usuário remove
+// itens e o sistema deixa de sugerir substitutos.
+describe('remainingPlanSlots', () => {
+  it('todos aprovados: nenhuma vaga restante', () => {
+    const items = [{ status: 'approved' }, { status: 'approved' }, { status: 'approved' }];
+    expect(remainingPlanSlots(3, items)).toBe(0);
+  });
+
+  it('todos rejeitados: todas as vagas ficam livres', () => {
+    const items = [{ status: 'rejected' }, { status: 'rejected' }, { status: 'rejected' }];
+    expect(remainingPlanSlots(3, items)).toBe(3);
+  });
+
+  it('mistura de aprovados/rejeitados/ideias: só os decididos ocupam vaga', () => {
+    const items = [
+      { status: 'approved' }, { status: 'ready' }, { status: 'in_production' },
+      { status: 'rejected' }, { status: 'idea' }
+    ];
+    expect(remainingPlanSlots(5, items)).toBe(2);
+  });
+
+  it('nunca devolve negativo quando há mais decididos que vagas', () => {
+    const items = [{ status: 'approved' }, { status: 'approved' }, { status: 'ready' }];
+    expect(remainingPlanSlots(2, items)).toBe(0);
+  });
+
+  it('lista vazia devolve todas as vagas', () => {
+    expect(remainingPlanSlots(3, [])).toBe(3);
+    expect(remainingPlanSlots(3, null)).toBe(3);
   });
 });

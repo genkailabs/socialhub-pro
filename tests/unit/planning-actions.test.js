@@ -412,7 +412,7 @@ describe('generateWeekPlan', () => {
         if (table === 'editorial_plan_items') return {
           select: (fields) => fields.includes('regeneration_count')
             ? ({ eq: () => ({ eq: vi.fn().mockResolvedValue({ data: [] }) }) })
-            : ({ eq: () => ({ neq: vi.fn().mockResolvedValue({ data: [{ status: 'approved' }, { status: 'ready' }, { status: 'rejected' }] }) }) }),
+            : ({ eq: () => ({ neq: vi.fn().mockResolvedValue({ data: [{ status: 'approved' }, { status: 'ready' }, { status: 'in_production' }] }) }) }),
           delete: () => ({ eq: () => ({ eq: deleteStatus }) })
         };
         throw new Error(`Tabela inesperada: ${table}`);
