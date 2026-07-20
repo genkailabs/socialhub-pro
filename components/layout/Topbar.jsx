@@ -2,21 +2,23 @@
 import { useState } from 'react';
 import { Search, Bell } from 'lucide-react';
 import { BrandSwitcher } from './BrandSwitcher';
+import { MobileNav } from './MobileNav';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { signOut } from '@/app/login/actions';
 
-export function Topbar({ brands, activeId }) {
+export function Topbar({ brands, activeId, canAccessAICosts = false, accountEmail = '' }) {
   const [searchFocused, setSearchFocused] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-line bg-surface/90 px-6 backdrop-blur-md lg:px-8">
-      <div className="flex items-center gap-6">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center gap-3">
+        <MobileNav canAccessAICosts={canAccessAICosts} accountEmail={accountEmail} />
         <BrandSwitcher brands={brands} activeId={activeId} />
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Barra de busca escuro pill com borda fina */}
-        <div className={`relative flex items-center transition-all duration-300 ${searchFocused ? 'w-64' : 'w-52'}`}>
+      <div className="flex items-center gap-3 sm:gap-4">
+        {/* Barra de busca em pílula — escondida no mobile para não estourar a largura */}
+        <div className={`relative hidden items-center transition-all duration-300 md:flex ${searchFocused ? 'w-64' : 'w-52'}`}>
           <Search className="absolute left-3.5 h-4 w-4 text-muted pointer-events-none" />
           <input
             type="text"
