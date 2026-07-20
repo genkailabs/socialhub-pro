@@ -55,3 +55,6 @@ worktrees/
 PENCIL DESGINER/
 sales-ops-dashboard/
 app/preview-sales-ops/
+
+# Supabase CLI temp
+supabase/.temp/
