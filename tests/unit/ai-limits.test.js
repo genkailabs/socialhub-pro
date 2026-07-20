@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkLimit, periodStart } from '@/lib/ai/limits';
+import { checkLimit, periodStart, usageForSkill } from '@/lib/ai/limits';
 
 // Supabase falso: ai_limits devolve `limits`, generation_jobs devolve `count`.
 function makeSupabase({ limits = [], count = 0 } = {}) {
@@ -90,5 +90,34 @@ describe('checkLimit', () => {
     const supabase = { from: vi.fn(() => { throw new Error('sem tabela ai_limits'); }) };
 
     await expect(checkLimit(ctx(supabase))).resolves.toEqual({ allowed: true });
+  });
+});
+
+// RF-05: contador de uso na tela de Planejamento. Precisa de used + max + saldo.
+describe('usageForSkill', () => {
+  const args = (supabase) => ({ supabase, brandId: 'brand-1', skillId: 'editorial-planner' });
+
+  it('devolve uso e saldo quando há limite configurado', async () => {
+    const supabase = makeSupabase({ limits: [{ brand_id: null, skill_id: 'editorial-planner', period: 'month', max_runs: 12 }], count: 6 });
+
+    await expect(usageForSkill(args(supabase))).resolves.toEqual({ used: 6, max: 12, period: 'month', remaining: 6 });
+  });
+
+  it('sem limite configurado devolve max null e remaining null', async () => {
+    const supabase = makeSupabase({ limits: [], count: 4 });
+
+    await expect(usageForSkill(args(supabase))).resolves.toEqual({ used: 4, max: null, period: 'month', remaining: null });
+  });
+
+  it('nunca devolve saldo negativo quando o uso passa do teto', async () => {
+    const supabase = makeSupabase({ limits: [{ brand_id: 'brand-1', skill_id: 'editorial-planner', period: 'month', max_runs: 3 }], count: 5 });
+
+    await expect(usageForSkill(args(supabase))).resolves.toEqual({ used: 5, max: 3, period: 'month', remaining: 0 });
+  });
+
+  it('não quebra o produto se a consulta falhar', async () => {
+    const supabase = { from: vi.fn(() => { throw new Error('sem tabela'); }) };
+
+    await expect(usageForSkill(args(supabase))).resolves.toEqual({ used: 0, max: null, period: 'month', remaining: null });
   });
 });

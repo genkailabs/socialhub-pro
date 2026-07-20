@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Calendar, Check, ChevronDown, ChevronUp, Clock, Pencil, Sparkles, Target, Wand2, X } from 'lucide-react';
+import { AlertCircle, Calendar, Check, ChevronDown, ChevronUp, Clock, Coins, Pencil, Sparkles, Target, Wand2, X } from 'lucide-react';
 import {
   approveAllPlanItems, createPlanItem, generateWeekPlan, removePlanItem,
   replacePlanItem, restorePlanItemVersion, setPlanItemStatus, updatePlanItem
@@ -15,6 +15,13 @@ import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PlanningItemForm } from '@/components/planning/PlanningItemForm';
 import { availablePlanningItemActions, itemDetails, PlanningSummary } from '@/components/planning/PlanningSummary';
 import { normalizePlanningItemStatus } from '@/lib/planning-status';
+import { remainingPlanSlots } from '@/lib/strategy-plan';
+
+// Selo pequeno junto de cada ação que gasta IA, para o custo ficar visível no
+// momento da decisão (RF-04). Sem UI nova grande — apenas o aviso.
+function CreditHint({ className = '' }) {
+  return <span className={`inline-flex items-center gap-1 text-[10px] font-semibold text-muted ${className}`}><Coins className="h-3 w-3" aria-hidden="true" />usa 1 crédito</span>;
+}
 
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 const COLUNAS = [
@@ -67,7 +74,7 @@ function PlanningItemCard({ item, busy, onApprove, onEdit, onProduce, onRemove, 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {actions.includes('edit') && <Button size="sm" variant="ghost" disabled={isBusy} onClick={() => onEdit(item)}><Pencil className="h-3.5 w-3.5" aria-hidden="true" />Editar</Button>}
         {actions.includes('approve') && <Button size="sm" disabled={isBusy} onClick={() => onApprove(item.id)}><Check className="h-3.5 w-3.5" aria-hidden="true" />Aprovar</Button>}
-        {actions.includes('replace') && <Button size="sm" variant="ghost" disabled={isBusy} onClick={() => onReplace(item)}><Wand2 className="h-3.5 w-3.5" aria-hidden="true" />Trocar</Button>}
+        {actions.includes('replace') && <span className="inline-flex items-center gap-1.5"><Button size="sm" variant="ghost" disabled={isBusy} onClick={() => onReplace(item)}><Wand2 className="h-3.5 w-3.5" aria-hidden="true" />Trocar</Button><CreditHint /></span>}
         {actions.includes('remove') && <Button size="sm" variant="ghost" disabled={isBusy} onClick={() => onRemove(item)}><X className="h-3.5 w-3.5" aria-hidden="true" />Remover</Button>}
         {actions.includes('produce') && <Button size="sm" disabled={isBusy} onClick={() => onProduce(item.id)}><Wand2 className="h-3.5 w-3.5" aria-hidden="true" />{isBusy ? 'Gerando...' : 'Gerar conteúdo'}</Button>}
         {actions.includes('viewContent') && <Link href={`/content/${item.post_id}/review`} className="inline-flex h-8 items-center gap-1 rounded-full bg-accent/10 px-3 text-xs font-bold text-accent">Ver conteúdo</Link>}
@@ -76,7 +83,7 @@ function PlanningItemCard({ item, busy, onApprove, onEdit, onProduce, onRemove, 
   );
 }
 
-export function PlanningPanel({ brandId, weekStart, plan, hasStrategy }) {
+export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerWeek = 3, planningUsage = null }) {
   const router = useRouter();
   const [busy, setBusy] = useState('');
   const [generatingPlan, setGeneratingPlan] = useState(false);
@@ -88,6 +95,9 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy }) {
   const items = (plan?.items || []).map((item) => ({ ...item, status: normalizePlanningItemStatus(item.status) }));
   const ideaCount = items.filter((item) => item.status === 'idea').length;
   const approvedCount = items.filter((item) => item.status === 'approved').length;
+  // Vagas ainda não preenchidas por itens decididos. Só faz sentido "preencher"
+  // (e gastar IA) quando há vaga real — senão o botão nem aparece (RF-03).
+  const remainingSlots = remainingPlanSlots(postsPerWeek, items);
 
   function confirm(message) { return typeof window !== 'undefined' && window.confirm(message); }
   async function run(key, work) {
@@ -98,7 +108,12 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy }) {
   }
 
   async function generate() {
-    if (items.some((item) => item.status === 'idea') && !confirm('Substituir as ideias atuais por novas sugestões? As ideias atuais serão removidas.')) return;
+    // Só preenche vagas vazias: itens aprovados e removidos não são tocados;
+    // apenas ideias ainda não aprovadas podem ser trocadas pelas novas.
+    const pergunta = items.length
+      ? `Preencher ${remainingSlots} vaga(s) com novas sugestões? Itens aprovados e removidos não mudam; ideias ainda não aprovadas podem ser substituídas.`
+      : null;
+    if (pergunta && !confirm(pergunta)) return;
     setGeneratingPlan(true); setMessage(null);
     try { const result = await generateWeekPlan({ brandId, weekStart }); if (result?.error) throw new Error(result.error); if (result.discarded) setMessage({ type: 'warn', text: `${result.count} ideias sugeridas; ${result.discarded} ficaram fora da semana.` }); router.refresh(); }
     catch (error) { setMessage({ type: 'error', text: error.message || 'Não foi possível sugerir a semana.' }); }
@@ -136,12 +151,18 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy }) {
     if (result) setMessage({ type: 'ok', text: `${result.count} ideias aprovadas. A produção continua sendo uma ação separada.` });
   }
 
-  if (!hasStrategy) return <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-6 text-center"><Target className="mx-auto h-8 w-8 text-muted" aria-hidden="true" /><p className="mt-3 text-sm font-bold text-ink">Primeiro, a estratégia</p><p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">Aprove uma estratégia no Piloto Automático antes de escolher os temas da semana.</p></div>;
+  if (!hasStrategy) return <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-6 text-center"><Target className="mx-auto h-8 w-8 text-muted" aria-hidden="true" /><p className="mt-3 text-sm font-bold text-ink">Primeiro, a estratégia</p><p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">Aprove uma estratégia na tela de Estratégia antes de escolher os temas da semana.</p></div>;
+
+  const usageLabel = planningUsage
+    ? (planningUsage.max != null
+        ? `${planningUsage.used} de ${planningUsage.max} gerações usadas ${planningUsage.period === 'day' ? 'hoje' : 'neste mês'}`
+        : `${planningUsage.used} ${planningUsage.used === 1 ? 'geração usada' : 'gerações usadas'} ${planningUsage.period === 'day' ? 'hoje' : 'neste mês'}`)
+    : null;
 
   return <div className="space-y-5">
-    <section className="rounded-2xl border border-line bg-surface p-5 shadow-soft"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="flex items-center gap-2 text-sm font-bold text-ink"><Calendar className="h-4 w-4 text-muted" aria-hidden="true" />Semana de {dataCurta(weekStart)}</p><p className="mt-1 text-xs text-muted">Você decide o que aprovar antes de qualquer conteúdo ser criado.</p></div><Button onClick={generate} disabled={generatingPlan}><Sparkles className="h-4 w-4" aria-hidden="true" />{generatingPlan ? 'Planejando...' : items.length ? 'Sugerir de novo' : 'Planejar minha semana'}</Button></div></section>
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-soft"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="flex items-center gap-2 text-sm font-bold text-ink"><Calendar className="h-4 w-4 text-muted" aria-hidden="true" />Semana de {dataCurta(weekStart)}</p><p className="mt-1 text-xs text-muted">Você decide o que aprovar antes de qualquer conteúdo ser criado.</p>{usageLabel && <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-muted"><Coins className="h-3 w-3" aria-hidden="true" />{usageLabel}</p>}</div>{(!items.length || remainingSlots > 0) && <div className="flex flex-col items-end gap-1"><Button onClick={generate} disabled={generatingPlan}><Sparkles className="h-4 w-4" aria-hidden="true" />{generatingPlan ? 'Planejando...' : items.length ? `Preencher vagas vazias (${remainingSlots})` : 'Planejar minha semana'}</Button><CreditHint /></div>}</div></section>
 
-    <div role="group" className="flex flex-wrap gap-2" aria-label="Ações do planejamento"><Button variant="outline" onClick={approveAll} disabled={!ideaCount || busy === 'approve-all'}>Aprovar todas as ideias</Button><Button onClick={produceAll} disabled={!approvedCount || busy === 'produce-all'}><Wand2 className="h-4 w-4" aria-hidden="true" />Gerar conteúdos aprovados</Button><Button variant="ghost" onClick={addIdea}><Pencil className="h-4 w-4" aria-hidden="true" />Adicionar ideia</Button></div>
+    <div role="group" className="flex flex-wrap items-center gap-2" aria-label="Ações do planejamento"><Button variant="outline" onClick={approveAll} disabled={!ideaCount || busy === 'approve-all'}>Aprovar todas as ideias</Button><span className="inline-flex items-center gap-1.5"><Button onClick={produceAll} disabled={!approvedCount || busy === 'produce-all'}><Wand2 className="h-4 w-4" aria-hidden="true" />Gerar conteúdos aprovados</Button><CreditHint /></span><Button variant="ghost" onClick={addIdea}><Pencil className="h-4 w-4" aria-hidden="true" />Adicionar ideia</Button></div>
 
     {showForm && <PlanningItemForm item={formItem} busy={busy === 'form'} onCancel={() => { setShowForm(false); setFormItem(null); }} onSave={saveItem} onRestoreVersion={restoreVersion} />}
     {generatingPlan && <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft"><LoadingIndicator compact label="Montando seu planejamento" description="Organizando temas, formatos e a sequência da semana." /></div>}

@@ -5,6 +5,8 @@ import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listStrategies, getWeekPlan } from '@/lib/planning-data';
 import { activeStrategy, nextWeekStart } from '@/lib/strategy-plan';
+import { usageForSkill } from '@/lib/ai/limits';
+import { createClient } from '@/lib/supabase/server';
 
 export default async function PlanningPage() {
   const brands = await listBrands();
@@ -13,6 +15,11 @@ export default async function PlanningPage() {
   const semana = nextWeekStart();
   const strategies = active ? await listStrategies(active.id) : [];
   const plan = active ? await getWeekPlan(active.id, semana) : null;
+  const strategy = activeStrategy(strategies);
+  const postsPerWeek = strategy?.frequency?.postsPerWeek || 3;
+  const planningUsage = active
+    ? await usageForSkill({ supabase: await createClient(), brandId: active.id, skillId: 'editorial-planner' })
+    : null;
 
   return (
     <div className="space-y-7">
@@ -32,7 +39,9 @@ export default async function PlanningPage() {
           brandId={active.id}
           weekStart={semana}
           plan={plan}
-          hasStrategy={!!activeStrategy(strategies)}
+          hasStrategy={!!strategy}
+          postsPerWeek={postsPerWeek}
+          planningUsage={planningUsage}
         />
       )}
     </div>
