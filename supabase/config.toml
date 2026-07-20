@@ -1,8 +1,8 @@
 project_id = "geoqbbrlyepmhwgdbjmz"
 
 [auth]
-site_url = "https://socialhub-pro-1.onrender.com"
-additional_redirect_urls = ["https://socialhub-pro-1.onrender.com/auth/callback"]
+site_url = "https://socialhub-mvp-production.up.railway.app"
+additional_redirect_urls = ["https://socialhub-mvp-production.up.railway.app/auth/callback"]
 
 [auth.mfa.totp]
 enroll_enabled = true
