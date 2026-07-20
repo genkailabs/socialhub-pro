@@ -4,7 +4,7 @@ export const NAV_GROUPS = [
   { label: 'Modulos Principais', items: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/instagram/diagnostico', label: 'Diagnostico', icon: Stethoscope },
-    { href: '/autopilot', label: 'Estrategia e Piloto', icon: Wand2 },
+    { href: '/strategy', label: 'Estrategia', icon: Wand2 },
     { href: '/planning', label: 'Planejamento', icon: CalendarRange },
     { href: '/composer', label: 'Composer (Postar)', icon: GitBranch },
     { href: '/calendar', label: 'Calendario e Links', icon: Handshake },

@@ -106,3 +106,9 @@ docs/superpowers/  # specs e plans
 - Redes além de Instagram/Facebook aparecem como **"Em breve"** (sem integração ainda) — por design, não por simulação.
 - Inbox e Relatórios multi-rede ficam fora do núcleo até haver dado real.
 - Conexão real do IG, composer, agendamento e aprovação chegam nos milestones M2–M5.
+
+## Notas de simplificação (2026-07-20)
+
+- **Piloto Automático despublicado (RF-06/07/08).** A rota `/autopilot` virou `/strategy`, contendo só o `StrategyPanel` (pilares/objetivos que o Planejamento consome). O `AutopilotForm` e o toggle `content_plans.active` saíram da interface. `lib/autopilot.js`, `lib/content-plan-actions.js`, `content_plans` e os testes **continuam no código** — apenas deixaram de ser expostos até haver decisão de produto sobre reativar a geração diária como algo separado e opcional.
+- **Impacto em produção: nenhum.** `runDailyAutopilot` não é chamado por nenhum cron/rota/Edge Function hoje, então marcas com `content_plans.active = true` não geravam nada e continuam sem gerar. Remover a UI não muda comportamento em produção.
+- A barra de onboarding (`PipelineProgress`) foi reescrita para a jornada real — Brand Kit → Estratégia → Planejar semana → Aprovar & agendar → Publicar — deixando de prometer geração automática diária.

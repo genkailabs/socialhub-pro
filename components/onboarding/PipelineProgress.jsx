@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { Check, ArrowRight, Info, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ActivatePilotButton } from './ActivatePilotButton';
 
 const STEPS = [
   {
@@ -9,12 +8,12 @@ const STEPS = [
     todo: 'Defina nicho, tom de voz e cores — é o que a IA usa para criar on-brand.'
   },
   {
-    key: 'pilot', label: 'Ativar Piloto', href: '/autopilot', cta: 'Ativar Piloto Automático',
-    todo: 'Ligue o Piloto para a IA gerar posts todos os dias. Sem isso, nada é gerado.'
+    key: 'strategy', label: 'Estratégia', href: '/strategy', cta: 'Definir estratégia',
+    todo: 'Aprove os pilares e objetivos da marca. É o norte que o Planejamento segue.'
   },
   {
-    key: 'generate', label: 'IA gera rascunho', href: '/approvals', cta: 'Ver rascunhos',
-    todo: 'A IA cria os criativos do dia sozinha (roda 09:00, na nuvem) como rascunho.'
+    key: 'plan', label: 'Planejar semana', href: '/planning', cta: 'Planejar a semana',
+    todo: 'Gere os temas da semana e aprove os que quiser produzir. Planejar é barato.'
   },
   {
     key: 'approve', label: 'Aprovar & agendar', href: '/calendar', cta: 'Agendar no Calendário',
@@ -29,8 +28,8 @@ const STEPS = [
 function detailFor(key, c) {
   switch (key) {
     case 'kit': return 'Marca configurada.';
-    case 'pilot': return 'Piloto ativo — gerando todo dia.';
-    case 'generate': return c.waiting > 0 ? `${c.waiting} rascunho(s) aguardando você.` : 'Rascunhos sendo gerados.';
+    case 'strategy': return 'Estratégia aprovada.';
+    case 'plan': return `${c.planItems} tema(s) planejado(s).`;
     case 'approve': return c.scheduled > 0 ? `${c.scheduled} post(s) agendado(s).` : 'Post enviado para publicação.';
     case 'publish': return `${c.published} post(s) publicado(s).`;
     default: return '';
@@ -39,7 +38,7 @@ function detailFor(key, c) {
 
 export function PipelineProgress({ pipeline }) {
   if (!pipeline) return null;
-  const { brandId, done, currentIndex, counts } = pipeline;
+  const { done, currentIndex, counts } = pipeline;
   const allDone = currentIndex === -1;
   const next = allDone ? null : STEPS[currentIndex];
 
@@ -49,9 +48,9 @@ export function PipelineProgress({ pipeline }) {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-accent" />
-            <h2 className="text-base font-bold text-ink tracking-tight">Fluxo Autônomo · Piloto de Conteúdo IA</h2>
+            <h2 className="text-base font-bold text-ink tracking-tight">Fluxo do seu conteúdo</h2>
           </div>
-          <p className="text-xs text-muted">A Inteligência Artificial analisa o Brand DNA diariamente e prepara rascunhos prontos para aprovação.</p>
+          <p className="text-xs text-muted">Da estratégia à publicação: você conduz cada etapa e a IA ajuda no caminho.</p>
         </div>
         {allDone && (
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-success/15 border border-success/30 px-3 py-1.5 text-xs font-bold font-mono text-success">
@@ -103,20 +102,16 @@ export function PipelineProgress({ pipeline }) {
             <Info className="h-4 w-4 shrink-0 text-accent" />
             <span><strong className="font-bold text-accent">Próxima etapa recomendada:</strong> {next.todo}</span>
           </p>
-          {next.key === 'pilot' ? (
-            <ActivatePilotButton brandId={brandId} label={next.cta} />
-          ) : (
-            <Link
-              href={next.href}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-black transition-all hover:bg-accent-soft shadow-md shadow-accent/20"
-            >
-              {next.cta} <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
+          <Link
+            href={next.href}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-black transition-all hover:bg-accent-soft shadow-md shadow-accent/20"
+          >
+            {next.cta} <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       ) : (
         <p className="mt-5 rounded-xl border border-line bg-surface-2/60 p-3.5 text-xs text-muted flex items-center gap-2">
-          <span>🎉 Tudo pronto: o Piloto gera, você aprova no Calendário e a publicação sai no horário agendado!</span>
+          <span>Tudo pronto: você planeja, aprova no Calendário e a publicação sai no horário agendado.</span>
         </p>
       )}
     </section>
