@@ -5,8 +5,10 @@ import { Sparkles } from 'lucide-react';
 import { NAV_GROUPS } from '@/data/nav';
 import { cn } from '@/lib/utils';
 
-export function Sidebar({ canAccessAICosts = false }) {
+export function Sidebar({ canAccessAICosts = false, accountEmail = '' }) {
   const pathname = usePathname();
+  const account = accountEmail || 'Conta';
+  const initials = (accountEmail || '?').replace(/@.*/, '').slice(0, 2).toUpperCase();
   return (
     <aside className="flex w-[240px] shrink-0 flex-col justify-between border-r border-line bg-surface">
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -65,11 +67,10 @@ export function Sidebar({ canAccessAICosts = false }) {
       <div className="border-t border-line p-3">
         <div className="flex items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-surface-2 transition-colors">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-white">
-            GE
+            {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-ink">GenkaiLabs</p>
-            <p className="truncate text-[11px] text-muted">Plano Enterprise</p>
+            <p className="truncate text-[13px] font-semibold text-ink" title={account}>{account}</p>
           </div>
         </div>
       </div>

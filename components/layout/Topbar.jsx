@@ -23,18 +23,18 @@ export function Topbar({ brands, activeId }) {
             placeholder="Buscar no hub..."
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            className="w-full h-9 pl-9 pr-4 rounded-lg bg-surface-2 border border-line text-xs text-ink placeholder:text-faint focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all duration-200"
+            className="w-full h-9 pl-9 pr-4 rounded-full bg-surface-2 border border-line text-xs text-ink placeholder:text-faint focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all duration-200"
           />
         </div>
 
-        {/* Notificações pulsantes */}
-        <button 
-          type="button" 
+        {/* Notificações — sem indicador falso: só mostra ponto quando houver
+            dado real de não-lida (RF-18). Até lá, apenas o sino. */}
+        <button
+          type="button"
           aria-label="Notificações"
           className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 border border-line text-muted transition-colors hover:text-ink hover:border-accent/40"
         >
           <Bell className="h-4 w-4" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent animate-pulse" />
         </button>
 
         <ThemeToggle />

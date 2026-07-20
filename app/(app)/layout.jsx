@@ -12,5 +12,5 @@ export default async function AppLayout({ children }) {
   const brands = await listBrands();
   const activeId = await getActiveBrandId();
 
-  return <AppShell brands={brands} activeId={activeId} canAccessAICosts={canAccessAICosts(user.email)}>{children}</AppShell>;
+  return <AppShell brands={brands} activeId={activeId} canAccessAICosts={canAccessAICosts(user.email)} accountEmail={user.email}>{children}</AppShell>;
 }
