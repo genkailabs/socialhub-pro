@@ -1,5 +1,6 @@
 'use client';
 import { cva } from 'class-variance-authority';
+import React from 'react';
 import { cn } from '@/lib/utils';
 
 const styles = cva(
