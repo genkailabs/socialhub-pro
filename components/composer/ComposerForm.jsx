@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { ComposerTypeSelector } from './ComposerTypeSelector';
 import { StoryComposer } from './StoryComposer';
+import { ReelComposer } from './ReelComposer';
 import { createClient } from '@/lib/supabase/client';
 import { publishNow, schedulePost, saveDraft, submitForApproval } from '@/lib/posts-actions';
 import { composeCaption, normalizeHashtags, IG_CAROUSEL_MAX, IG_CAPTION_MAX } from '@/lib/posts-media';
@@ -29,6 +30,7 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
   const [firstComment, setFirstComment] = useState('');
   const [media, setMedia] = useState([]); // { file, url }
   const [slide, setSlide] = useState(0);
+  const [cover, setCover] = useState(null);
   const [mode, setMode] = useState('now'); // 'now' | 'schedule'
   const [when, setWhen] = useState('');
   const [busy, setBusy] = useState('');    // qual ação está rodando
@@ -40,6 +42,10 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
   const composedLen = composeCaption(caption, hashtags).length;
 
   function handleFormatChange(newFormat) {
+    if (newFormat !== 'reel') {
+      setCover(null);
+    }
+    
     if (newFormat === 'image') {
       if (media.some(m => m.isVideo) || media.length > 1) {
         setMedia(cur => cur.filter(m => !m.isVideo).slice(0, 1));
@@ -50,11 +56,14 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
         setMedia(cur => cur.filter(m => !m.isVideo));
         setSlide(0);
       }
-    } else if (newFormat === 'stories' || newFormat === 'reel') {
+    } else if (newFormat === 'stories') {
       if (media.length > 1) {
         setMedia([media[0]]);
         setSlide(0);
       }
+    } else if (newFormat === 'reel') {
+      setMedia(cur => cur.filter(m => m.isVideo).slice(0, 1));
+      setSlide(0);
     }
     setFormat(newFormat);
   }
@@ -112,7 +121,7 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
         const done = { now: 'Publicado no Instagram!', schedule: 'Post agendado!', draft: 'Rascunho salvo!' }[action];
         setMsg({ type: 'ok', text: done });
       }
-      if (action !== 'approval') { setCaption(''); setHashtags(''); setFirstComment(''); setMedia([]); setWhen(''); setSlide(0); }
+      if (action !== 'approval') { setCaption(''); setHashtags(''); setFirstComment(''); setMedia([]); setWhen(''); setSlide(0); setCover(null); }
     } catch (e) {
       setMsg({ type: 'err', text: e.message });
     } finally {
@@ -169,11 +178,20 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
         {/* imagens */}
         <div>
           <label className="mb-1.5 block text-xs font-bold text-ink">
-            {format === 'stories' ? 'Mídia do Story' : 'Imagens'}
-            {format !== 'stories' && <span className="font-normal text-faint"> · 1 imagem ou carrossel (2–{IG_CAROUSEL_MAX})</span>}
+            {format === 'stories' ? 'Mídia do Story' : format === 'reel' ? 'Mídia do Reel' : 'Imagens'}
+            {format !== 'stories' && format !== 'reel' && <span className="font-normal text-faint"> · 1 imagem ou carrossel (2–{IG_CAROUSEL_MAX})</span>}
           </label>
           {format === 'stories' ? (
             <StoryComposer media={media} onAddFiles={addFiles} onRemove={() => { setMedia([]); setSlide(0); }} />
+          ) : format === 'reel' ? (
+            <ReelComposer 
+              media={media} 
+              cover={cover} 
+              onAddMedia={addFiles} 
+              onRemoveMedia={() => { setMedia([]); setSlide(0); setCover(null); }} 
+              onAddCover={(file) => setCover({ file, url: URL.createObjectURL(file) })} 
+              onRemoveCover={() => setCover(null)} 
+            />
           ) : (
             <>
               {media.length > 0 && (
