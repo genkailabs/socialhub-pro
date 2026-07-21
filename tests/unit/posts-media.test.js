@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   cleanUrls, mediaKind, validateInstagramMedia, normalizeHashtags, composeCaption,
-  IG_CAROUSEL_MAX, IG_CAPTION_MAX
+  IG_CAROUSEL_MAX, IG_CAPTION_MAX, isTempMediaPath, uploadTempMedia
 } from '@/lib/posts-media';
 
 describe('cleanUrls', () => {
@@ -64,5 +64,45 @@ describe('composeCaption', () => {
   it('respeita limite de caracteres do IG', () => {
     const long = 'x'.repeat(IG_CAPTION_MAX + 500);
     expect(composeCaption(long, '').length).toBe(IG_CAPTION_MAX);
+  });
+});
+
+describe('isTempMediaPath', () => {
+  it('retorna true para path começando com temp/', () => {
+    expect(isTempMediaPath('temp/brand/123.jpg')).toBe(true);
+  });
+  it('retorna true para URL pública contendo /temp/', () => {
+    expect(isTempMediaPath('https://supa.com/storage/v1/object/public/media/temp/brand/123.jpg')).toBe(true);
+  });
+  it('retorna false para caminhos permanentes', () => {
+    expect(isTempMediaPath('brand/123.jpg')).toBe(false);
+    expect(isTempMediaPath('https://supa.com/storage/v1/object/public/media/brand/123.jpg')).toBe(false);
+  });
+});
+
+describe('uploadTempMedia', () => {
+  it('faz upload e retorna path e publicUrl', async () => {
+    const mockSupabase = {
+      storage: {
+        from: () => ({
+          upload: async (path) => ({ error: null }),
+          getPublicUrl: (path) => ({ data: { publicUrl: `https://mock.url/${path}` } })
+        })
+      }
+    };
+    const res = await uploadTempMedia(mockSupabase, 'brand1', { name: 'test.mp4', type: 'video/mp4' });
+    expect(res.path).toMatch(/^temp\/brand1\//);
+    expect(res.path).toMatch(/\.mp4$/);
+    expect(res.publicUrl).toBe(`https://mock.url/${res.path}`);
+  });
+  it('lança erro em caso de falha no supabase', async () => {
+    const mockSupabase = {
+      storage: {
+        from: () => ({
+          upload: async () => ({ error: { message: 'storage error' } })
+        })
+      }
+    };
+    await expect(uploadTempMedia(mockSupabase, 'brand1', { name: 't.jpg' })).rejects.toThrow('Falha no upload temporário: storage error');
   });
 });

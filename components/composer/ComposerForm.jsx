@@ -10,7 +10,7 @@ import { ReelComposer } from './ReelComposer';
 import { DynamicPreview } from './DynamicPreview';
 import { createClient } from '@/lib/supabase/client';
 import { publishNow, schedulePost, saveDraft, submitForApproval } from '@/lib/posts-actions';
-import { composeCaption, normalizeHashtags, IG_CAROUSEL_MAX, IG_CAPTION_MAX } from '@/lib/posts-media';
+import { composeCaption, normalizeHashtags, IG_CAROUSEL_MAX, IG_CAPTION_MAX, uploadTempMedia } from '@/lib/posts-media';
 import { Button } from '@/components/ui/Button';
 
 const EMOJIS = ['🔥', '🚀', '✨', '💡', '🎉', '❤️', '👏', '📈', '✅', '👀', '💬', '🙌'];
@@ -104,8 +104,25 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
 
     setBusy(action); setMsg(null); setApprovalLink('');
     try {
-      const imageUrls = await Promise.all(media.map((m) => uploadImage(brandId, m.file)));
-      const payload = { brandId, caption, hashtags, imageUrls };
+      const supabase = createClient();
+      let coverUrl = null;
+
+      const imageUrls = await Promise.all(media.map(async (m) => {
+        if (!m.file) return m.url;
+        if (format === 'stories' || format === 'reel') {
+          const res = await uploadTempMedia(supabase, brandId, m.file);
+          return res.publicUrl;
+        } else {
+          return await uploadImage(brandId, m.file);
+        }
+      }));
+
+      if (format === 'reel' && cover?.file) {
+        const res = await uploadTempMedia(supabase, brandId, cover.file);
+        coverUrl = res.publicUrl;
+      }
+
+      const payload = { brandId, caption, hashtags, imageUrls, ...(coverUrl && { coverUrl }) };
       let res;
       if (action === 'now') res = await publishNow({ ...payload, firstComment });
       else if (action === 'schedule') res = await schedulePost({ ...payload, scheduledAt: new Date(when).toISOString() });
