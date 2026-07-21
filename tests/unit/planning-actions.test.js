@@ -17,6 +17,7 @@ import {
   createPlanItem,
   generateWeekPlan,
   removePlanItem,
+  restorePlanItem,
   replacePlanItem,
   restorePlanItemVersion,
   setPlanItemStatus,
@@ -129,17 +130,54 @@ describe('approveAllPlanItems', () => {
 describe('removePlanItem', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('rejeita o item sem chamar IA', async () => {
+  it('rejeita o item sem chamar IA e devolve o status anterior para o desfazer', async () => {
     const update = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }));
+    // §7: antes de rejeitar, lê o status atual — é ele que o "Desfazer" recoloca.
+    const select = vi.fn(() => ({
+      eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: { status: 'approved' }, error: null }) }))
+    }));
     const supabase = {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
-      from: vi.fn(() => ({ update }))
+      from: vi.fn(() => ({ update, select }))
     };
     mocks.createClient.mockResolvedValue(supabase);
 
-    await expect(removePlanItem({ itemId: 'item-1' })).resolves.toEqual({ ok: true });
+    await expect(removePlanItem({ itemId: 'item-1' })).resolves.toEqual({ ok: true, previousStatus: 'approved' });
     expect(update).toHaveBeenCalledWith({ status: 'rejected' });
     expect(mocks.runSkill).not.toHaveBeenCalled();
+  });
+});
+
+// §7: desfazer devolve o item ao estado exato de antes da remoção.
+describe('restorePlanItem', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const supabaseComUpdate = (statusFilter) => ({
+    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
+    from: vi.fn(() => ({ update: vi.fn(() => ({ eq: vi.fn(() => ({ eq: statusFilter })) })) }))
+  });
+
+  it('devolve o item ao status que ele tinha', async () => {
+    const statusFilter = vi.fn().mockResolvedValue({ error: null });
+    mocks.createClient.mockResolvedValue(supabaseComUpdate(statusFilter));
+
+    await expect(restorePlanItem({ itemId: 'item-1', status: 'approved' })).resolves.toEqual({ ok: true });
+    // Só restaura o que está removido: evita "ressuscitar" item que já mudou.
+    expect(statusFilter).toHaveBeenCalledWith('status', 'rejected');
+    expect(mocks.runSkill).not.toHaveBeenCalled();
+  });
+
+  it('status inesperado vira ideia em vez de gravar lixo', async () => {
+    const updates = [];
+    mocks.createClient.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
+      from: vi.fn(() => ({
+        update: vi.fn((patch) => { updates.push(patch); return { eq: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })) }; })
+      }))
+    });
+
+    await expect(restorePlanItem({ itemId: 'item-1', status: 'publicado_no_tiktok' })).resolves.toEqual({ ok: true });
+    expect(updates).toEqual([{ status: 'idea' }]);
   });
 });
 

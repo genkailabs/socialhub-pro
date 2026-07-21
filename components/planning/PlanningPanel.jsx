@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Calendar, Check, ChevronDown, ChevronUp, Clock, Coins, Pencil, Sparkles, Target, Wand2, X } from 'lucide-react';
 import {
   approveAllPlanItems, createPlanItem, generateWeekPlan, removePlanItem,
-  replacePlanItem, restorePlanItemVersion, setPlanItemStatus, updatePlanItem
+  replacePlanItem, restorePlanItem, restorePlanItemVersion, setPlanItemStatus, updatePlanItem
 } from '@/lib/planning-actions';
 import { produceApprovedPlanItems, produceFromPlanItem } from '@/lib/content-actions';
 import { formatLabel } from '@/lib/content-production';
@@ -85,6 +85,16 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
   const [message, setMessage] = useState(null);
   const [formItem, setFormItem] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  // §7: remover mostra um aviso com "Desfazer" por alguns segundos, em vez de
+  // pedir confirmação antes. Remover é reversível — confirmar a cada clique
+  // cansa mais do que ajuda.
+  const [undo, setUndo] = useState(null);
+
+  useEffect(() => {
+    if (!undo) return undefined;
+    const timer = setTimeout(() => setUndo(null), 8000);
+    return () => clearTimeout(timer);
+  }, [undo]);
   // A leitura normaliza estados antigos, mas manter essa proteção no cliente
   // evita que um cache antigo esconda itens durante a atualização da migração.
   const items = (plan?.items || []).map((item) => ({ ...item, status: normalizePlanningItemStatus(item.status) }));
@@ -133,6 +143,28 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
     if (instruction === null || !confirm('Trocar esta ideia por uma nova sugestão da IA? A versão atual poderá ser restaurada depois.')) return;
     await run(item.id, () => replacePlanItem({ itemId: item.id, instruction }));
   }
+  // §7: remove direto e oferece desfazer. A remoção é soft (vira "rejected"),
+  // então o desfazer devolve o item ao status exato que ele tinha.
+  async function remove(item) {
+    setUndo(null);
+    const result = await run(item.id, () => removePlanItem({ itemId: item.id }));
+    if (result) setUndo({ itemId: item.id, title: item.title || item.topic, status: result.previousStatus || 'idea' });
+  }
+
+  async function desfazerRemocao() {
+    if (!undo) return;
+    const alvo = undo;
+    setUndo(null);
+    await run(alvo.itemId, () => restorePlanItem({ itemId: alvo.itemId, status: alvo.status }));
+  }
+
+  // §8: replanejar troca as ideias ainda não aprovadas por novas. Não produz
+  // conteúdo nem imagem — é a operação barata, de propósito.
+  async function replanejar() {
+    if (!confirm('Trocar as ideias ainda não aprovadas por novas sugestões? Itens aprovados, em produção e prontos não mudam.')) return;
+    await generate();
+  }
+
   async function produce(itemId) { await run(itemId, () => produceFromPlanItem({ itemId })); }
   async function produceAll() {
     if (!approvedCount) return;
@@ -157,7 +189,7 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
   return <div className="space-y-5">
     <section className="rounded-2xl border border-line bg-surface p-5 shadow-soft"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="flex items-center gap-2 text-sm font-bold text-ink"><Calendar className="h-4 w-4 text-muted" aria-hidden="true" />Semana de {dataCurta(weekStart)}</p><p className="mt-1 text-xs text-muted">Você decide o que aprovar antes de qualquer conteúdo ser criado.</p>{usageLabel && <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-muted"><Coins className="h-3 w-3" aria-hidden="true" />{usageLabel}</p>}</div>{(!items.length || remainingSlots > 0) && <div className="flex flex-col items-end gap-1"><Button onClick={generate} disabled={generatingPlan}><Sparkles className="h-4 w-4" aria-hidden="true" />{generatingPlan ? 'Planejando...' : items.length ? `Preencher vagas vazias (${remainingSlots})` : 'Planejar minha semana'}</Button><CreditHint /></div>}</div></section>
 
-    <div role="group" className="flex flex-wrap items-center gap-2" aria-label="Ações do planejamento"><Button variant="outline" onClick={approveAll} disabled={!ideaCount || busy === 'approve-all'}>Aprovar todas as ideias</Button><span className="inline-flex items-center gap-1.5"><Button onClick={produceAll} disabled={!approvedCount || busy === 'produce-all'}><Wand2 className="h-4 w-4" aria-hidden="true" />Gerar conteúdos aprovados</Button><CreditHint /></span><Button variant="ghost" onClick={addIdea}><Pencil className="h-4 w-4" aria-hidden="true" />Adicionar ideia</Button></div>
+    <div role="group" className="flex flex-wrap items-center gap-2" aria-label="Ações do planejamento"><Button variant="outline" onClick={approveAll} disabled={!ideaCount || busy === 'approve-all'}>Aprovar todas as ideias</Button><span className="inline-flex items-center gap-1.5"><Button onClick={produceAll} disabled={!approvedCount || busy === 'produce-all'}><Wand2 className="h-4 w-4" aria-hidden="true" />Gerar conteúdos aprovados</Button><CreditHint /></span><Button variant="ghost" onClick={addIdea}><Pencil className="h-4 w-4" aria-hidden="true" />Adicionar ideia</Button>{ideaCount > 0 && <span className="inline-flex items-center gap-1.5"><Button variant="outline" onClick={replanejar} disabled={generatingPlan}><Sparkles className="h-4 w-4" aria-hidden="true" />Replanejar</Button><CreditHint /></span>}</div>
 
     {showForm && <PlanningItemForm item={formItem} busy={busy === 'form'} onCancel={() => { setShowForm(false); setFormItem(null); }} onSave={saveItem} onRestoreVersion={restoreVersion} />}
     {generatingPlan && <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft"><LoadingIndicator compact label="Montando seu planejamento" description="Organizando temas, formatos e a sequência da semana." /></div>}
@@ -168,7 +200,26 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
     {!items.length ? <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-7 text-center"><p className="text-sm font-bold text-ink">Nenhuma ideia planejada ainda</p><p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">Peça sugestões para a semana ou adicione suas próprias ideias. Planejar não cria conteúdo.</p></div> : (() => {
       // §20: o caminho inteiro do conteúdo, de ideia a publicado.
       const grupos = groupPlanningItemsByColumn(items);
-      return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">{PLANNING_COLUMNS.map((column) => { const columnItems = grupos[column.key] || []; return <section key={column.key} className="rounded-2xl border border-line bg-surface p-4"><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-bold text-ink">{column.title}</h3><p className="mt-0.5 text-[11px] text-muted">{column.hint}</p></div><span className="font-mono text-[11px] font-bold tabular-nums text-muted">{columnItems.length}</span></div><div className="mt-4 space-y-3">{columnItems.length ? columnItems.map((item) => <PlanningItemCard key={item.id} item={item} busy={busy} onApprove={(itemId) => run(itemId, () => setPlanItemStatus({ itemId, status: 'approved' }))} onEdit={(nextItem) => { setFormItem(nextItem); setShowForm(true); }} onProduce={produce} onReplace={replace} onRemove={(nextItem) => { if (confirm(`Remover “${nextItem.title || nextItem.topic}” do planejamento?`)) run(nextItem.id, () => removePlanItem({ itemId: nextItem.id })); }} />) : <p className="py-5 text-center text-xs text-muted">Nada aqui ainda.</p>}</div></section>; })}</div>;
+      return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">{PLANNING_COLUMNS.map((column) => { const columnItems = grupos[column.key] || []; return <section key={column.key} className="rounded-2xl border border-line bg-surface p-4"><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-bold text-ink">{column.title}</h3><p className="mt-0.5 text-[11px] text-muted">{column.hint}</p></div><span className="font-mono text-[11px] font-bold tabular-nums text-muted">{columnItems.length}</span></div><div className="mt-4 space-y-3">{columnItems.length ? columnItems.map((item) => <PlanningItemCard key={item.id} item={item} busy={busy} onApprove={(itemId) => run(itemId, () => setPlanItemStatus({ itemId, status: 'approved' }))} onEdit={(nextItem) => { setFormItem(nextItem); setShowForm(true); }} onProduce={produce} onReplace={replace} onRemove={remove} />) : <p className="py-5 text-center text-xs text-muted">Nada aqui ainda.</p>}</div></section>; })}</div>;
     })()}
+
+    {/* §7: aviso de remoção com desfazer. Fica fixo no rodapé para não empurrar
+        o quadro nem sumir quando a coluna rola. */}
+    {undo && (
+      <div role="status" className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+        <div className="flex items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3 shadow-lift">
+          <p className="text-[13px] text-ink">
+            Planejamento removido{undo.title ? <> — <span className="font-semibold">{undo.title}</span></> : null}
+          </p>
+          <button
+            type="button"
+            onClick={desfazerRemocao}
+            className="shrink-0 text-[13px] font-semibold text-accent transition-colors hover:text-accent-ink"
+          >
+            Desfazer
+          </button>
+        </div>
+      </div>
+    )}
   </div>;
 }
