@@ -4,6 +4,7 @@ import {
   ImagePlus, Send, Clock, CheckCircle2, AlertCircle, X, Hash, Smile,
   FileText, Link2, Copy, Check, ChevronLeft, ChevronRight, Heart, MessageCircle, Bookmark
 } from 'lucide-react';
+import { ComposerTypeSelector } from './ComposerTypeSelector';
 import { createClient } from '@/lib/supabase/client';
 import { publishNow, schedulePost, saveDraft, submitForApproval } from '@/lib/posts-actions';
 import { composeCaption, normalizeHashtags, IG_CAROUSEL_MAX, IG_CAPTION_MAX } from '@/lib/posts-media';
@@ -21,6 +22,7 @@ async function uploadImage(brandId, file) {
 }
 
 export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
+  const [format, setFormat] = useState('image');
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [firstComment, setFirstComment] = useState('');
@@ -38,6 +40,9 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
 
   function addFiles(list) {
     const incoming = Array.from(list || []);
+    if (format === 'image' && (media.length + incoming.length) > 1) {
+      setFormat('carousel');
+    }
     setMedia((cur) => {
       const room = IG_CAROUSEL_MAX - cur.length;
       const next = incoming.slice(0, Math.max(0, room)).map((file) => ({ file, url: URL.createObjectURL(file) }));
@@ -46,6 +51,9 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
     setMsg(null);
   }
   function removeAt(i) {
+    if (format === 'carousel' && (media.length - 1) <= 1) {
+      setFormat('image');
+    }
     setMedia((cur) => cur.filter((_, idx) => idx !== i));
     setSlide(0);
   }
@@ -97,6 +105,12 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       {/* editor */}
       <div className="space-y-4">
+        {/* formato */}
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-ink">Formato</label>
+          <ComposerTypeSelector value={format} onChange={setFormat} />
+        </div>
+
         {/* legenda */}
         <div>
           <div className="mb-1.5 flex items-center justify-between">
