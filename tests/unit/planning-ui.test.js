@@ -6,7 +6,12 @@ import {
   summarizePlanning
 } from '@/components/planning/PlanningSummary';
 import { attachPlanningItemVersions } from '@/lib/planning-data';
-import { normalizePlanningItemStatus } from '@/lib/planning-status';
+import {
+  normalizePlanningItemStatus,
+  PLANNING_COLUMNS,
+  columnForPlanningItem,
+  groupPlanningItemsByColumn
+} from '@/lib/planning-status';
 
 const items = [
   { id: 'idea-1', status: 'idea', format: 'reel', objective: 'Alcance', title: 'Tema 1', summary: 'Resumo', hook: 'Gancho', cta: 'Comente', target_audience: 'Donos de negócio', estimated_duration: '30s', suggested_time: '12:00' },
@@ -76,5 +81,38 @@ describe('versoes carregadas no planejamento', () => {
       { id: 'legacy-idea', status: 'idea', versions: [] },
       { id: 'legacy-ready', status: 'ready', versions: [] }
     ]);
+  });
+});
+
+// MVP V2 §20: colunas cobrem o caminho inteiro, de ideia a publicado.
+describe('colunas do planejamento (§20)', () => {
+  it('tem as cinco colunas na ordem do fluxo', () => {
+    expect(PLANNING_COLUMNS.map((c) => c.key)).toEqual([
+      'ideas', 'approved', 'creating', 'scheduled', 'published'
+    ]);
+  });
+
+  it('mapeia cada status para a coluna certa', () => {
+    expect(columnForPlanningItem({ status: 'idea' })).toBe('ideas');
+    expect(columnForPlanningItem({ status: 'approved' })).toBe('approved');
+    expect(columnForPlanningItem({ status: 'in_production' })).toBe('creating');
+    expect(columnForPlanningItem({ status: 'ready' })).toBe('scheduled');
+  });
+
+  // O sistema nao pode afirmar ter publicado o que nao publicou: so o estado
+  // real do post move o item para "Publicados".
+  it('so vai para Publicados quando o post saiu de verdade', () => {
+    expect(columnForPlanningItem({ status: 'ready', post_status: 'scheduled' })).toBe('scheduled');
+    expect(columnForPlanningItem({ status: 'ready', post_status: 'published' })).toBe('published');
+  });
+
+  it('item removido nao aparece em coluna nenhuma', () => {
+    expect(columnForPlanningItem({ status: 'rejected' })).toBeNull();
+    expect(groupPlanningItemsByColumn([{ status: 'rejected' }]).ideas).toEqual([]);
+  });
+
+  it('normaliza status legado antes de escolher a coluna', () => {
+    expect(columnForPlanningItem({ status: 'proposed' })).toBe('ideas');
+    expect(columnForPlanningItem({ status: 'produced' })).toBe('scheduled');
   });
 });

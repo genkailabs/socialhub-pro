@@ -1,0 +1,5 @@
+# Artefatos de design/handoff — não fazem parte do runtime do app
+Redesign do gerenciador de mídia/
+Redesign do gerenciador de mídia.zip
+*.zip
+legacy/

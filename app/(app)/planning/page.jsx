@@ -4,7 +4,7 @@ import { PlanningPanel } from '@/components/planning/PlanningPanel';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listStrategies, getWeekPlan } from '@/lib/planning-data';
-import { activeStrategy, nextWeekStart } from '@/lib/strategy-plan';
+import { activeStrategy, planningWindowStart } from '@/lib/strategy-plan';
 import { usageForSkill } from '@/lib/ai/limits';
 import { createClient } from '@/lib/supabase/server';
 
@@ -12,7 +12,7 @@ export default async function PlanningPage() {
   const brands = await listBrands();
   const active = resolveActive(brands, await getActiveBrandId());
 
-  const semana = nextWeekStart();
+  const semana = planningWindowStart();
   const strategies = active ? await listStrategies(active.id) : [];
   const plan = active ? await getWeekPlan(active.id, semana) : null;
   const strategy = activeStrategy(strategies);
@@ -27,7 +27,7 @@ export default async function PlanningPage() {
         <h1 className="text-2xl font-extrabold tracking-tight">Planejamento</h1>
         <p className="mt-1 text-sm text-muted">
           {active
-            ? <>Os temas da próxima semana de <strong className="text-ink">{active.name}</strong>. Você aprova antes de virar conteúdo.</>
+            ? <>Os temas dos próximos 7 dias de <strong className="text-ink">{active.name}</strong>, a partir de hoje. Você aprova antes de virar conteúdo.</>
             : 'Crie uma marca primeiro.'}
         </p>
       </div>

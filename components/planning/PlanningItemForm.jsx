@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { History, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { plannableFormats } from '@/lib/formats';
 
 const EMPTY_VALUES = {
   date: '', title: '', topic: '', format: 'image', pillar: '', objective: '',
@@ -40,7 +41,7 @@ export function PlanningItemForm({ item, onCancel, onSave, onRestoreVersion, bus
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="text-xs font-semibold text-ink">Data<input required type="date" value={values.date || ''} onChange={(e) => update('date', e.target.value)} className={INPUT_CLASS} /></label>
         <label className="text-xs font-semibold text-ink">HorÃ¡rio sugerido<input type="time" value={values.suggested_time || ''} onChange={(e) => update('suggested_time', e.target.value)} className={INPUT_CLASS} /></label>
-        <label className="text-xs font-semibold text-ink">Formato<select value={values.format || 'image'} onChange={(e) => update('format', e.target.value)} className={INPUT_CLASS}><option value="image">Imagem</option><option value="carousel">Carrossel</option><option value="reel">Reel</option><option value="stories">Stories</option></select></label>
+        <label className="text-xs font-semibold text-ink">Formato<select value={values.format || 'image'} onChange={(e) => update('format', e.target.value)} className={INPUT_CLASS}>{plannableFormats().map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}</select></label>
         <label className="text-xs font-semibold text-ink md:col-span-2">Título<input required value={values.title || ''} onChange={(e) => update('title', e.target.value)} className={INPUT_CLASS} /></label>
         <label className="text-xs font-semibold text-ink">Tema<input value={values.topic || ''} onChange={(e) => update('topic', e.target.value)} className={INPUT_CLASS} /></label>
         <label className="text-xs font-semibold text-ink">Pilar<input value={values.pillar || ''} onChange={(e) => update('pillar', e.target.value)} className={INPUT_CLASS} /></label>

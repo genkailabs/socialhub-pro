@@ -2,8 +2,47 @@ import { describe, expect, it } from 'vitest';
 import {
   weekStartOf, nextWeekStart, monthPeriod, activeStrategy,
   approvedItems, planProgress, itemWithinWeek, describeSignals,
-  remainingPlanSlots
+  remainingPlanSlots, planningWindowStart, planningWindowDates, emptyWindowDates
 } from '@/lib/strategy-plan';
+
+// MVP V2 §1: janela movel de 7 dias a partir de HOJE, nunca semana fechada.
+describe('planningWindowStart', () => {
+  it('comeca hoje, nao na proxima segunda', () => {
+    // Terca-feira 21/07 ao meio-dia UTC.
+    const terca = new Date('2026-07-21T12:00:00.000Z');
+    expect(planningWindowStart(terca)).toBe('2026-07-21');
+    expect(nextWeekStart(terca)).toBe('2026-07-27');
+  });
+
+  // O produto pensa datas em Sao Paulo (UTC-3). Sem o ajuste, das 21h a
+  // meia-noite o UTC ja virou e a janela comecaria no dia seguinte.
+  it('usa o dia de Sao Paulo, nao o de UTC', () => {
+    // 21/07 02:00 UTC = 20/07 23:00 em Sao Paulo.
+    expect(planningWindowStart(new Date('2026-07-21T02:00:00.000Z'))).toBe('2026-07-20');
+  });
+});
+
+describe('planningWindowDates', () => {
+  it('devolve 7 dias em sequencia a partir do inicio', () => {
+    expect(planningWindowDates('2026-07-21')).toEqual([
+      '2026-07-21', '2026-07-22', '2026-07-23', '2026-07-24',
+      '2026-07-25', '2026-07-26', '2026-07-27'
+    ]);
+  });
+});
+
+// §4: dia que ja tem conteudo decidido nao pode ser sobrescrito.
+describe('emptyWindowDates', () => {
+  it('remove da janela os dias ja ocupados', () => {
+    expect(emptyWindowDates('2026-07-21', ['2026-07-22', '2026-07-24'])).toEqual([
+      '2026-07-21', '2026-07-23', '2026-07-25', '2026-07-26', '2026-07-27'
+    ]);
+  });
+
+  it('ignora data vazia e aceita timestamp completo', () => {
+    expect(emptyWindowDates('2026-07-21', [null, '2026-07-21T00:00:00.000Z'])).not.toContain('2026-07-21');
+  });
+});
 
 describe('describeSignals', () => {
   it('sem sinais nao inventa contexto', () => {

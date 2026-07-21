@@ -9,15 +9,18 @@ describe('registro de formatos', () => {
     expect(formatIds().sort()).toEqual(['carousel', 'image', 'reel', 'stories']);
   });
 
-  // §5.1: a IA pensa a semana inteira, nao so no que o publicador sabe postar.
-  it('todos os formatos podem ser planejados', () => {
-    expect(plannableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image', 'reel', 'stories']);
+  // MVP V2 §12: o MVP nao gera roteiro de video, entao Reel sai do que se
+  // oferece para planejar. Volta num modulo proprio (Assistente de Videos).
+  it('o MVP planeja imagem, carrossel e stories — nao reel', () => {
+    expect(plannableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image', 'stories']);
   });
 
   it('so imagem e carrossel publicam automaticamente nesta fase', () => {
     expect(publishableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image']);
   });
 
+  // Vale mesmo para Reel, que saiu do planejamento (§12): itens ja gravados na
+  // base continuam existindo e continuam sendo o usuario quem posta.
   it('reel e stories exigem postagem manual', () => {
     expect(needsManualPosting('reel')).toBe(true);
     expect(needsManualPosting('stories')).toBe(true);

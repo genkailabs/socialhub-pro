@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/Badge';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PlanningItemForm } from '@/components/planning/PlanningItemForm';
 import { availablePlanningItemActions, itemDetails, PlanningSummary } from '@/components/planning/PlanningSummary';
-import { normalizePlanningItemStatus } from '@/lib/planning-status';
+import { normalizePlanningItemStatus, PLANNING_COLUMNS, groupPlanningItemsByColumn } from '@/lib/planning-status';
 import { remainingPlanSlots } from '@/lib/strategy-plan';
 
 // Selo pequeno junto de cada ação que gasta IA, para o custo ficar visível no
@@ -25,11 +25,6 @@ function CreditHint({ className = '' }) {
 }
 
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-const COLUNAS = [
-  { key: 'ideas', title: 'Ideias', statuses: ['idea'] },
-  { key: 'production', title: 'Em produção', statuses: ['approved', 'in_production'] },
-  { key: 'ready', title: 'Prontos para publicar', statuses: ['ready'] }
-];
 
 const STATUS = {
   idea: 'Ideia', approved: 'Aprovado', in_production: 'Em produção', ready: 'Pronto', rejected: 'Removido'
@@ -170,6 +165,10 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
     {message && <p role="status" className={`flex items-center gap-1.5 text-xs font-semibold ${message.type === 'error' ? 'text-danger' : message.type === 'warn' ? 'text-warning' : 'text-success'}`}><AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />{message.text}</p>}
 
     {items.length > 0 && <PlanningSummary items={items} weeklySummary={plan?.weekly_summary} />}
-    {!items.length ? <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-7 text-center"><p className="text-sm font-bold text-ink">Nenhuma ideia planejada ainda</p><p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">Peça sugestões para a semana ou adicione suas próprias ideias. Planejar não cria conteúdo.</p></div> : <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">{COLUNAS.map((column) => { const columnItems = items.filter((item) => column.statuses.includes(item.status)); return <section key={column.key} className="rounded-[22px] border border-line bg-surface p-5"><div className="flex items-center justify-between"><h3 className="text-[15px] font-bold text-ink">{column.title}</h3><span className="font-mono text-[11px] font-bold text-muted">{columnItems.length}</span></div><div className="mt-4 space-y-3">{columnItems.length ? columnItems.map((item) => <PlanningItemCard key={item.id} item={item} busy={busy} onApprove={(itemId) => run(itemId, () => setPlanItemStatus({ itemId, status: 'approved' }))} onEdit={(nextItem) => { setFormItem(nextItem); setShowForm(true); }} onProduce={produce} onReplace={replace} onRemove={(nextItem) => { if (confirm(`Remover “${nextItem.title || nextItem.topic}” do planejamento?`)) run(nextItem.id, () => removePlanItem({ itemId: nextItem.id })); }} />) : <p className="py-5 text-center text-xs text-muted">Nada aqui ainda.</p>}</div></section>; })}</div>}
+    {!items.length ? <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-7 text-center"><p className="text-sm font-bold text-ink">Nenhuma ideia planejada ainda</p><p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">Peça sugestões para a semana ou adicione suas próprias ideias. Planejar não cria conteúdo.</p></div> : (() => {
+      // §20: o caminho inteiro do conteúdo, de ideia a publicado.
+      const grupos = groupPlanningItemsByColumn(items);
+      return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">{PLANNING_COLUMNS.map((column) => { const columnItems = grupos[column.key] || []; return <section key={column.key} className="rounded-2xl border border-line bg-surface p-4"><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-bold text-ink">{column.title}</h3><p className="mt-0.5 text-[11px] text-muted">{column.hint}</p></div><span className="font-mono text-[11px] font-bold tabular-nums text-muted">{columnItems.length}</span></div><div className="mt-4 space-y-3">{columnItems.length ? columnItems.map((item) => <PlanningItemCard key={item.id} item={item} busy={busy} onApprove={(itemId) => run(itemId, () => setPlanItemStatus({ itemId, status: 'approved' }))} onEdit={(nextItem) => { setFormItem(nextItem); setShowForm(true); }} onProduce={produce} onReplace={replace} onRemove={(nextItem) => { if (confirm(`Remover “${nextItem.title || nextItem.topic}” do planejamento?`)) run(nextItem.id, () => removePlanItem({ itemId: nextItem.id })); }} />) : <p className="py-5 text-center text-xs text-muted">Nada aqui ainda.</p>}</div></section>; })}</div>;
+    })()}
   </div>;
 }

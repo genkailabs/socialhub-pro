@@ -77,8 +77,13 @@ describe('skill content-strategy', () => {
   });
 
   it('recomenda formatos do registro, nao texto livre', () => {
-    expect(stratOut.safeParse({ ...estrategiaOk, formats: ['reel', 'image'] }).success).toBe(true);
+    expect(stratOut.safeParse({ ...estrategiaOk, formats: ['stories', 'image'] }).success).toBe(true);
     expect(stratOut.safeParse({ ...estrategiaOk, formats: ['live no youtube'] }).success).toBe(false);
+  });
+
+  // §12: recomendar Reel criaria estrategia que o Planejamento nao executa.
+  it('nao recomenda formato de video fora do escopo do MVP', () => {
+    expect(stratOut.safeParse({ ...estrategiaOk, formats: ['reel'] }).success).toBe(false);
   });
 });
 
@@ -92,14 +97,15 @@ describe('skill editorial-planner', () => {
     expect(editorialPlannerSkill.id).toBe('editorial-planner');
   });
 
-  // §5.1: a IA planeja a semana inteira, nao so o que o publicador posta hoje.
-  it('oferece os quatro formatos, inclusive os que nao publicam sozinhos', () => {
+  // §5.1 + §12: a IA planeja os formatos que o MVP entrega — incluindo os que
+  // nao publicam sozinhos (stories) — mas nao oferece video.
+  it('oferece os formatos do MVP e nao oferece reel', () => {
     const { system } = planPrompt();
 
-    expect(system).toContain('reel');
     expect(system).toContain('stories');
     expect(system).toContain('carousel');
     expect(system).toContain('image');
+    expect(system).not.toContain('reel');
   });
 
   it('pede variacao de formato em vez de so post no feed', () => {
@@ -108,15 +114,16 @@ describe('skill editorial-planner', () => {
     expect(system).toContain('nao vive so de post no feed');
   });
 
-  it('aceita item de Reel e de Stories', () => {
+  it('aceita item de Stories, que nao publica sozinho', () => {
     const base = {
       date: '2026-07-20', suggestedTime: '12:00', topic: 't', title: 'x', objective: 'o', pillar: 'p',
       stage: 'descoberta', cta: 'c', rationale: 'r', summary: 's', hook: 'h',
       targetAudience: 'a', estimatedDuration: '30 segundos'
     };
 
-    expect(planOut.safeParse(weeklyPlan([{ ...base, format: 'reel' }])).success).toBe(true);
     expect(planOut.safeParse(weeklyPlan([{ ...base, format: 'stories' }])).success).toBe(true);
+    // §12: o MVP nao planeja video — o schema recusa, nao so o prompt.
+    expect(planOut.safeParse(weeklyPlan([{ ...base, format: 'reel' }])).success).toBe(false);
   });
 
   // String livre deixaria a IA inventar formato que morre depois, na producao.
@@ -131,7 +138,7 @@ describe('skill editorial-planner', () => {
   });
 
   it('sobe a versao ao mudar prompt e schema', () => {
-    expect(editorialPlannerSkill.version).toBe(4);
+    expect(editorialPlannerSkill.version).toBe(5);
   });
 
   it('exige data no formato certo', () => {
@@ -199,7 +206,7 @@ describe('skill editorial-planner', () => {
 
   it('exige dados estrategicos e resumo semanal no contrato', () => {
     const item = {
-      date: '2026-07-20', suggestedTime: '12:00', format: 'reel', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      date: '2026-07-20', suggestedTime: '12:00', format: 'stories', topic: 't', title: 'x', objective: 'o', pillar: 'p',
       stage: 'descoberta', cta: 'c', rationale: 'r', summary: 'Resumo da ideia.',
       hook: 'Gancho da ideia.', targetAudience: 'Pequenos negocios', estimatedDuration: '30 segundos'
     };
