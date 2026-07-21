@@ -90,14 +90,15 @@ describe('onboarding-actions', () => {
   });
 
   describe('resetOnboarding', () => {
-    it('resetOnboarding retorna ok e seta not_started e step 0', async () => {
+    it('resetOnboarding retorna ok e seta not_started, step 0 e onboarding_answers zerado', async () => {
       const res = await resetOnboarding({ brandId: 'brd-1' });
       expect(res.ok).toBe(true);
       expect(mockUpsert).toHaveBeenCalledWith(
         expect.objectContaining({
           brand_id: 'brd-1',
           onboarding_status: 'not_started',
-          onboarding_step: 0
+          onboarding_step: 0,
+          onboarding_answers: {}
         }),
         { onConflict: 'brand_id' }
       );
