@@ -43,8 +43,8 @@ describe('estados', () => {
     expect(statusAfterApproval('stories')).toBe('scheduled');
   });
 
-  it('reel aprovado vai para o usuario postar', () => {
-    expect(statusAfterApproval('reel')).toBe('ready_to_post');
+  it('reel aprovado vai para agendamento', () => {
+    expect(statusAfterApproval('reel')).toBe('scheduled');
   });
 
   it('bloqueado pela revisao volta para rascunho, nao para aprovacao', () => {

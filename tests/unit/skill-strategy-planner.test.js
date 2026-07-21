@@ -81,9 +81,8 @@ describe('skill content-strategy', () => {
     expect(stratOut.safeParse({ ...estrategiaOk, formats: ['live no youtube'] }).success).toBe(false);
   });
 
-  // §12: recomendar Reel criaria estrategia que o Planejamento nao executa.
-  it('nao recomenda formato de video fora do escopo do MVP', () => {
-    expect(stratOut.safeParse({ ...estrategiaOk, formats: ['reel'] }).success).toBe(false);
+  it('recomenda formato de video (reel)', () => {
+    expect(stratOut.safeParse({ ...estrategiaOk, formats: ['reel'] }).success).toBe(true);
   });
 });
 
@@ -97,15 +96,13 @@ describe('skill editorial-planner', () => {
     expect(editorialPlannerSkill.id).toBe('editorial-planner');
   });
 
-  // §5.1 + §12: a IA planeja os formatos que o MVP entrega — incluindo os que
-  // nao publicam sozinhos (stories) — mas nao oferece video.
-  it('oferece os formatos do MVP e nao oferece reel', () => {
+  it('oferece os formatos do MVP incluindo reel', () => {
     const { system } = planPrompt();
 
     expect(system).toContain('stories');
     expect(system).toContain('carousel');
     expect(system).toContain('image');
-    expect(system).not.toContain('reel');
+    expect(system).toContain('reel');
   });
 
   // Bug de producao (2026-07-21): pedir 14 temas com 7 datas disponiveis e um
@@ -149,8 +146,7 @@ describe('skill editorial-planner', () => {
     };
 
     expect(planOut.safeParse(weeklyPlan([{ ...base, format: 'stories' }])).success).toBe(true);
-    // §12: o MVP nao planeja video — o schema recusa, nao so o prompt.
-    expect(planOut.safeParse(weeklyPlan([{ ...base, format: 'reel' }])).success).toBe(false);
+    expect(planOut.safeParse(weeklyPlan([{ ...base, format: 'reel' }])).success).toBe(true);
   });
 
   // String livre deixaria a IA inventar formato que morre depois, na producao.

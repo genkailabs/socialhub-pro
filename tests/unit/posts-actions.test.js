@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   publishInstagramCarousel: vi.fn(),
   publishInstagramComment: vi.fn(),
   publishInstagramStory: vi.fn(),
+  publishInstagramReel: vi.fn(),
   recordDnaSignal: vi.fn()
 }));
 
@@ -14,7 +15,8 @@ vi.mock('@/lib/meta/graph', () => ({
   publishInstagramImage: mocks.publishInstagramImage,
   publishInstagramCarousel: mocks.publishInstagramCarousel,
   publishInstagramComment: mocks.publishInstagramComment,
-  publishInstagramStory: mocks.publishInstagramStory
+  publishInstagramStory: mocks.publishInstagramStory,
+  publishInstagramReel: mocks.publishInstagramReel
 }));
 vi.mock('@/lib/dna-signals', () => ({ recordDnaSignal: mocks.recordDnaSignal }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -124,6 +126,36 @@ describe('publishNow', () => {
     expect(insert.mock.calls[0][0]).toMatchObject({
       format: 'stories',
       media_url: 'temp/brand-1/123.mp4'
+    });
+  });
+
+  it('publica reel com cover_url e limpa ambos arquivos temporarios', async () => {
+    const { supabase, insert } = makeSupabase({ data: { id: 'post-reel' }, error: null });
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.publishInstagramReel.mockResolvedValue('ig-reel-1');
+
+    const res = await publishNow({
+      ...payload,
+      format: 'reel',
+      imageUrls: ['temp/brand-1/video.mp4'],
+      coverUrl: 'temp/brand-1/cover.jpg'
+    });
+
+    expect(res).toEqual({ ok: true, id: 'ig-reel-1' });
+    expect(mocks.publishInstagramReel).toHaveBeenCalledWith(expect.objectContaining({
+      videoUrl: 'temp/brand-1/video.mp4',
+      coverUrl: 'temp/brand-1/cover.jpg'
+    }));
+    
+    expect(supabase.storage.from).toHaveBeenCalledWith('media');
+    const storageMock = supabase.storage.from('media');
+    expect(storageMock.remove).toHaveBeenCalledWith(['temp/brand-1/video.mp4']);
+    expect(storageMock.remove).toHaveBeenCalledWith(['temp/brand-1/cover.jpg']);
+    
+    expect(insert.mock.calls[0][0]).toMatchObject({
+      format: 'reel',
+      media_url: 'temp/brand-1/video.mp4',
+      cover_url: 'temp/brand-1/cover.jpg'
     });
   });
 });

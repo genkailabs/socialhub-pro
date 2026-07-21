@@ -9,21 +9,18 @@ describe('registro de formatos', () => {
     expect(formatIds().sort()).toEqual(['carousel', 'image', 'reel', 'stories']);
   });
 
-  // MVP V2 §12: o MVP nao gera roteiro de video, entao Reel sai do que se
-  // oferece para planejar. Volta num modulo proprio (Assistente de Videos).
-  it('o MVP planeja imagem, carrossel e stories — nao reel', () => {
-    expect(plannableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image', 'stories']);
+  // MVP V2 §12: o MVP agora planeja e publica Reels.
+  it('o MVP planeja imagem, carrossel, stories e reel', () => {
+    expect(plannableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image', 'reel', 'stories']);
   });
 
   // MVP V2: Story virou arte estatica, entao o sistema tambem publica.
-  it('imagem, carrossel e stories publicam automaticamente', () => {
-    expect(publishableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image', 'stories']);
+  it('imagem, carrossel, stories e reel publicam automaticamente', () => {
+    expect(publishableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image', 'reel', 'stories']);
   });
 
-  // So Reel sobra como roteiro. Itens ja gravados na base continuam existindo e
-  // continuam sendo o usuario quem posta (§12).
-  it('so reel exige postagem manual', () => {
-    expect(needsManualPosting('reel')).toBe(true);
+  it('nenhum formato exige postagem manual', () => {
+    expect(needsManualPosting('reel')).toBe(false);
     expect(needsManualPosting('stories')).toBe(false);
     expect(needsManualPosting('image')).toBe(false);
   });
@@ -61,6 +58,6 @@ describe('registro de formatos', () => {
 
   it('formatById devolve o formato pedido', () => {
     expect(formatById('carousel')).toMatchObject({ id: 'carousel', publishable: true });
-    expect(formatById('reel')).toMatchObject({ id: 'reel', publishable: false });
+    expect(formatById('reel')).toMatchObject({ id: 'reel', publishable: true });
   });
 });

@@ -115,7 +115,7 @@ describe('publishPostTo', () => {
 
   it('recusa formato não publicável (§5.1)', async () => {
     const graph = fakeGraph();
-    await expect(publishPostTo({ platform: 'instagram', token: igToken, urls: ['u1'], format: 'reel', graph, retryOptions }))
+    await expect(publishPostTo({ platform: 'instagram', token: igToken, urls: ['u1'], format: 'unknown_format', graph, retryOptions }))
       .rejects.toThrow(/nao publicavel/i);
     expect(graph.publishInstagramImage).not.toHaveBeenCalled();
   });
