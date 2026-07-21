@@ -5,6 +5,7 @@ import {
   FileText, Link2, Copy, Check, ChevronLeft, ChevronRight, Heart, MessageCircle, Bookmark
 } from 'lucide-react';
 import { ComposerTypeSelector } from './ComposerTypeSelector';
+import { StoryComposer } from './StoryComposer';
 import { createClient } from '@/lib/supabase/client';
 import { publishNow, schedulePost, saveDraft, submitForApproval } from '@/lib/posts-actions';
 import { composeCaption, normalizeHashtags, IG_CAROUSEL_MAX, IG_CAPTION_MAX } from '@/lib/posts-media';
@@ -38,15 +39,37 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
   const tags = normalizeHashtags(hashtags);
   const composedLen = composeCaption(caption, hashtags).length;
 
+  function handleFormatChange(newFormat) {
+    if (format === 'stories' && newFormat !== 'stories') {
+      if (media.some(m => m.isVideo)) {
+        setMedia([]);
+        setSlide(0);
+      }
+    } else if (newFormat === 'stories' && format !== 'stories') {
+      if (media.length > 1) {
+        setMedia(media.slice(0, 1));
+        setSlide(0);
+      }
+    }
+    setFormat(newFormat);
+  }
+
   function addFiles(list) {
     const incoming = Array.from(list || []);
     if (format === 'image' && (media.length + incoming.length) > 1) {
       setFormat('carousel');
     }
     setMedia((cur) => {
-      const room = IG_CAROUSEL_MAX - cur.length;
-      const next = incoming.slice(0, Math.max(0, room)).map((file) => ({ file, url: URL.createObjectURL(file) }));
-      return [...cur, ...next];
+      const isStories = format === 'stories';
+      const room = isStories ? 1 - cur.length : IG_CAROUSEL_MAX - cur.length;
+      if (room <= 0 && !isStories) return cur;
+      
+      const next = incoming.slice(0, Math.max(0, isStories ? 1 : room)).map((file) => ({ 
+        file, 
+        url: URL.createObjectURL(file),
+        isVideo: file.type.startsWith('video/')
+      }));
+      return isStories ? next : [...cur, ...next];
     });
     setMsg(null);
   }
@@ -108,7 +131,7 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
         {/* formato */}
         <div>
           <label className="mb-1.5 block text-xs font-bold text-ink">Formato</label>
-          <ComposerTypeSelector value={format} onChange={setFormat} />
+          <ComposerTypeSelector value={format} onChange={handleFormatChange} />
         </div>
 
         {/* legenda */}
@@ -140,26 +163,35 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
 
         {/* imagens */}
         <div>
-          <label className="mb-1.5 block text-xs font-bold text-ink">Imagens <span className="font-normal text-faint">· 1 imagem ou carrossel (2–{IG_CAROUSEL_MAX})</span></label>
-          {media.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-2">
-              {media.map((m, i) => (
-                <div key={i} className="group relative">
-                  <img src={m.url} alt="" onClick={() => setSlide(i)}
-                    className={`h-16 w-16 cursor-pointer rounded-lg border-2 object-cover transition-all ${i === slide ? 'border-accent' : 'border-line'}`} />
-                  <button type="button" onClick={() => removeAt(i)}
-                    className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-app opacity-0 transition-opacity group-hover:opacity-100"><X className="h-3 w-3" /></button>
+          <label className="mb-1.5 block text-xs font-bold text-ink">
+            {format === 'stories' ? 'Mídia do Story' : 'Imagens'}
+            {format !== 'stories' && <span className="font-normal text-faint"> · 1 imagem ou carrossel (2–{IG_CAROUSEL_MAX})</span>}
+          </label>
+          {format === 'stories' ? (
+            <StoryComposer media={media} onAddFiles={addFiles} onRemove={() => removeAt(0)} />
+          ) : (
+            <>
+              {media.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {media.map((m, i) => (
+                    <div key={i} className="group relative">
+                      <img src={m.url} alt="" onClick={() => setSlide(i)}
+                        className={`h-16 w-16 cursor-pointer rounded-lg border-2 object-cover transition-all ${i === slide ? 'border-accent' : 'border-line'}`} />
+                      <button type="button" onClick={() => removeAt(i)}
+                        className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-app opacity-0 transition-opacity group-hover:opacity-100"><X className="h-3 w-3" /></button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-          {media.length < IG_CAROUSEL_MAX && (
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-line-strong bg-surface-2 px-4 py-5 text-center transition-colors hover:border-accent/50 hover:bg-accent-tint/40">
-              <ImagePlus className="h-5 w-5 text-muted" />
-              <span className="text-xs font-semibold text-ink">Clique para enviar {media.length > 0 ? 'mais imagens' : 'imagens'}</span>
-              <span className="text-[11px] text-faint">PNG, JPG · enviadas ao Storage do Supabase</span>
-              <input type="file" accept="image/*" multiple onChange={(e) => addFiles(e.target.files)} className="hidden" />
-            </label>
+              )}
+              {media.length < IG_CAROUSEL_MAX && (
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-line-strong bg-surface-2 px-4 py-5 text-center transition-colors hover:border-accent/50 hover:bg-accent-tint/40">
+                  <ImagePlus className="h-5 w-5 text-muted" />
+                  <span className="text-xs font-semibold text-ink">Clique para enviar {media.length > 0 ? 'mais imagens' : 'imagens'}</span>
+                  <span className="text-[11px] text-faint">PNG, JPG · enviadas ao Storage do Supabase</span>
+                  <input type="file" accept="image/*" multiple onChange={(e) => addFiles(e.target.files)} className="hidden" />
+                </label>
+              )}
+            </>
           )}
         </div>
 
@@ -220,7 +252,10 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
           </div>
           <div className="relative aspect-square w-full bg-surface-2">
             {view
-              ? <img src={view.url} alt="prévia" className="h-full w-full object-cover" />
+              ? (view.isVideo 
+                  ? <video src={view.url} className="h-full w-full object-cover" muted autoPlay loop playsInline />
+                  : <img src={view.url} alt="prévia" className="h-full w-full object-cover" />
+                )
               : <div className="grid h-full place-items-center text-[11px] text-faint">A imagem aparece aqui</div>}
             {media.length > 1 && (
               <>
