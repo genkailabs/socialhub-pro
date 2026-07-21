@@ -45,3 +45,20 @@ Thumbs.db
 
 # Superpowers brainstorming visual companion (mockups persistidos localmente)
 .superpowers/
+
+# Git Worktrees
+.worktrees/
+worktrees/
+
+# Internos da ferramenta Codex (2.5GB de skills) e experimentos fora da jornada
+.codex/
+PENCIL DESGINER/
+sales-ops-dashboard/
+app/preview-sales-ops/
+
+# Supabase CLI temp
+supabase/.temp/
+
+# Sentry
+.sentryclirc
+.env.sentry-build-plugin

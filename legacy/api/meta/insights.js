@@ -1,5 +1,5 @@
 // api/meta/insights.js
-// Endpoint Serverless da Vercel para consultar métricas e insights REAIS da Graph API do Instagram
+// Endpoint serverless legado para consultar métricas e insights REAIS da Graph API do Instagram
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://geoqbbrlyepmhwgdbjmz.supabase.co';

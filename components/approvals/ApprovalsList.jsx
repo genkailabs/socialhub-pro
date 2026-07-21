@@ -28,7 +28,7 @@ export function ApprovalsList({ posts }) {
   return (
     <div className="space-y-3">
       {posts.map((p) => (
-        <div key={p.id} className="rounded-2xl border border-line bg-surface p-4 shadow-soft transition-shadow hover:shadow-lift">
+        <div key={p.id} className="rounded-2xl glass p-4 shadow-soft transition-shadow hover:shadow-lift">
           <div className="flex gap-4">
             {p.media_url && (
               <img src={p.media_url} alt="" className="h-16 w-16 shrink-0 rounded-xl border border-line object-cover" />

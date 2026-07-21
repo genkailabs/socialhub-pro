@@ -4,11 +4,11 @@ import { Instagram, Facebook, Youtube, Linkedin, Music2, MessageCircle, Video, T
 // gradient: stops da identidade da marca (usado no header do card). caps: o que dá pra publicar.
 export const PLATFORMS = [
   { id: 'instagram', name: 'Instagram', subtitle: 'Feed, Reels & Stories', icon: Instagram, color: '#E1306C',
-    gradient: ['#FEDA75', '#FA7E1E', '#D62976', '#962FBF'], caps: ['Feed', 'Reels', 'Stories'], integrated: true },
+    gradient: ['#FEDA75', '#FA7E1E', '#D62976', '#962FBF'], caps: ['Feed', 'Reels', 'Stories'], integrated: true, connectPath: '/api/meta/oauth' },
   { id: 'facebook', name: 'Facebook', subtitle: 'Página comercial', icon: Facebook, color: '#1877F2',
-    gradient: ['#1877F2', '#0A5DC2'], caps: ['Página', 'Grupos'], integrated: true },
+    gradient: ['#1877F2', '#0A5DC2'], caps: ['Página', 'Grupos'], integrated: true, connectPath: '/api/meta/oauth' },
   { id: 'youtube', name: 'YouTube', subtitle: 'Canal & Shorts', icon: Youtube, color: '#FF0000',
-    gradient: ['#FF4E45', '#C4302B'], caps: ['Vídeos', 'Shorts'], integrated: false },
+    gradient: ['#FF4E45', '#C4302B'], caps: ['Métricas', 'Analytics', 'Horários'], integrated: true, connectPath: '/api/youtube/oauth' },
   { id: 'tiktok', name: 'TikTok', subtitle: 'Creator / Business', icon: Video, color: '#FE2C55',
     gradient: ['#25F4EE', '#111111', '#FE2C55'], caps: ['Vídeos', 'Lives'], integrated: false },
   { id: 'linkedin', name: 'LinkedIn', subtitle: 'Company Page', icon: Linkedin, color: '#0A66C2',
@@ -36,6 +36,12 @@ export function platformById(id) {
 }
 
 export function platformGradient(p) {
-  const stops = p?.gradient?.length ? p.gradient : [p?.color || '#6366F1', p?.color || '#6366F1'];
+  const stops = p?.gradient?.length ? p.gradient : [p?.color || '#007AFF', p?.color || '#007AFF'];
   return `linear-gradient(135deg, ${stops.join(', ')})`;
+}
+
+// URL do fluxo OAuth do provedor (Meta para IG/FB, Google para YouTube).
+export function connectHref(p, brandId) {
+  const base = p?.connectPath || '/api/meta/oauth';
+  return `${base}?brand_id=${brandId}`;
 }

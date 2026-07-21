@@ -1,5 +1,5 @@
 // api/social/sync.js
-// Endpoint Serverless unificado da Vercel para Sincronização de Dados Reais das Redes Sociais
+// Endpoint serverless legado para sincronização de dados reais das redes sociais
 // Suporta Meta Graph API (Instagram/Facebook), YouTube Data API v3, TikTok, LinkedIn, X, Pinterest.
 // ESTRITAMENTE SEM MOCKS: Retorna apenas dados reais das APIs oficiais ou '0'/aviso oficial.
 

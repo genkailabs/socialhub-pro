@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeSpec, parseSpec } from '@/lib/ai/spec';
-import { estimateCostUsd, formatUsd, deapiImageCostUsd } from '@/lib/ai/cost';
+import { estimateCostUsd, formatUsd, pollinationsImageCostUsd } from '@/lib/ai/cost';
 import { buildContentPrompt } from '@/lib/ai/prompt';
 import { resolvePalette, TEMPLATES } from '@/lib/ai/templates';
 import { renderNode, slideCount } from '@/lib/ai/render';
 
 describe('normalizeSpec', () => {
-  it('template inválido cai p/ quote', () => {
-    expect(normalizeSpec({ template: 'xyz' }).template).toBe('quote');
+  it('template inválido cai p/ notícia', () => {
+    expect(normalizeSpec({ template: 'xyz' }).template).toBe('news');
   });
   it('carrossel força >=2 slides', () => {
     const s = normalizeSpec({ template: 'tips_carousel', bullets: ['a', 'b', 'c'] });
@@ -30,11 +30,24 @@ describe('normalizeSpec', () => {
     expect(normalizeSpec({ image_prompt: 'x'.repeat(900) }).imagePrompt.length).toBe(600);
     expect(normalizeSpec({}).imagePrompt).toBe('');
   });
+  it('preserva a decisão da IA sobre texto na imagem', () => {
+    const withText = normalizeSpec({ template: 'promo', headline: 'Oferta especial', image_text: true, image_title: 'Só hoje', image_text_position: 'top' });
+    expect(withText.imageText).toBe(true);
+    expect(withText.imageTitle).toBe('Só hoje');
+    expect(withText.imageTextPosition).toBe('top');
+    expect(normalizeSpec({ template: 'quote', image_text: false }).imageText).toBe(false);
+  });
 });
 
 describe('parseSpec', () => {
   it('parseia JSON string', () => {
     expect(parseSpec('{"template":"promo","caption":"oi"}').caption).toBe('oi');
+  });
+  it('aceita JSON retornado dentro de bloco de código pela IA', () => {
+    expect(parseSpec('```json\n{"template":"promo","caption":"oi"}\n```').caption).toBe('oi');
+  });
+  it('repara pequenas sujeiras comuns na resposta da IA', () => {
+    expect(parseSpec('Claro:\n{“template”:“promo”,“caption”:“oi”,}').caption).toBe('oi');
   });
   it('erro em JSON inválido', () => {
     expect(() => parseSpec('não é json')).toThrow();
@@ -44,23 +57,23 @@ describe('parseSpec', () => {
 describe('estimateCostUsd', () => {
   it('calcula por tokens', () => {
     const c = estimateCostUsd('deepseek-chat', { prompt_tokens: 1_000_000, completion_tokens: 0 });
-    expect(c).toBeCloseTo(0.27, 5);
+    expect(c).toBeCloseTo(0.14, 5);
   });
   it('modelo desconhecido usa fallback', () => {
-    expect(estimateCostUsd('x', { prompt_tokens: 0, completion_tokens: 1_000_000 })).toBeCloseTo(1.10, 5);
+    expect(estimateCostUsd('x', { prompt_tokens: 0, completion_tokens: 1_000_000 })).toBeCloseTo(0.28, 5);
   });
   it('formatUsd mostra 4 casas p/ valor pequeno', () => {
     expect(formatUsd(0.0003)).toBe('$0.0003');
   });
 });
 
-describe('deapiImageCostUsd', () => {
+describe('pollinationsImageCostUsd', () => {
   it('multiplica pelo nº de imagens', () => {
-    expect(deapiImageCostUsd(0)).toBe(0);
-    expect(deapiImageCostUsd(4)).toBeCloseTo(deapiImageCostUsd(1) * 4, 6);
+    expect(pollinationsImageCostUsd(0)).toBe(0);
+    expect(pollinationsImageCostUsd(4)).toBeCloseTo(pollinationsImageCostUsd(1) * 4, 6);
   });
   it('trata entrada inválida como zero', () => {
-    expect(deapiImageCostUsd('x')).toBe(0);
+    expect(pollinationsImageCostUsd('x')).toBe(0);
   });
 });
 
@@ -72,11 +85,65 @@ describe('buildContentPrompt', () => {
     expect(format).toBe('tips_carousel');
     expect(typeof system).toBe('string');
   });
-  it('formato inválido cai p/ quote', () => {
-    expect(buildContentPrompt({ brief: { format: 'zzz' } }).format).toBe('quote');
+  it('formato é texto livre, sem cair p/ notícia (comunicação adaptativa)', () => {
+    const { user, format } = buildContentPrompt({ brief: { format: 'Parecer Simplificado', topic: 'LGPD' } });
+    expect(format).toBe('Parecer Simplificado');
+    expect(user).toContain('Parecer Simplificado');
+  });
+  it('sem formato definido usa um rótulo genérico', () => {
+    expect(buildContentPrompt({ brief: {} }).format).toBe('post para redes sociais');
+  });
+  it('notícia (detectada por texto) pede post editorial sem chamada comercial', () => {
+    const { user, format } = buildContentPrompt({ brief: { format: 'Notícia', topic: 'novidades da IA' } });
+    expect(format).toBe('Notícia');
+    expect(user).toContain('notícia informativa');
+    expect(user).toMatch(/não inventar fatos/i);
+  });
+  it('formato fora do padrão notícia não recebe as regras editoriais de notícia', () => {
+    const { user } = buildContentPrompt({ brief: { format: 'Caso Clínico', topic: 'sono' } });
+    expect(user).not.toMatch(/notícia informativa editorial/i);
+  });
+  it('tom livre entra no prompt quando informado', () => {
+    const { user } = buildContentPrompt({ brief: { tone: 'Autoritário e técnico' } });
+    expect(user).toContain('Autoritário e técnico');
   });
   it('pede image_prompt no system (p/ a deAPI)', () => {
     expect(buildContentPrompt({}).system).toContain('image_prompt');
+  });
+  it('injeta contexto atual quando há research, sem vazar fontes', () => {
+    const { user } = buildContentPrompt({
+      brandKit: { niche: 'tech' },
+      brief: { topic: 'IA hoje', format: 'news' },
+      research: { summary: 'Modelo X lançado com recurso Y.', sources: [{ uri: 'https://secreta.com/artigo', title: 'Fonte' }] }
+    });
+    expect(user).toContain('contexto_atual');
+    expect(user).toContain('Modelo X lançado com recurso Y.');
+    expect(user).not.toContain('https://secreta.com/artigo');
+  });
+  it('sem research o prompt não menciona contexto atual', () => {
+    const { user } = buildContentPrompt({ brandKit: { niche: 'tech' }, brief: { topic: 'IA', format: 'news' } });
+    expect(user).not.toContain('contexto_atual');
+  });
+  it('injeta campos do Brand DNA no user prompt', () => {
+    const { user } = buildContentPrompt({
+      brandKit: { tone: 'x', personality: ['consultivo'], cta_policy: 'sempre', emoji_usage: 'poucos', storytelling: true, caption_length: 'longa' },
+      brief: {}
+    });
+    expect(user).toContain('consultivo');
+    expect(user).toMatch(/CTA|chamada para ação/i);
+    expect(user).toMatch(/emoji/i);
+  });
+  it.each([
+    ['advocacia', /Para advocacia:/i],
+    ['medicina', /Para medicina:/i],
+    ['odontologia', /Para odontologia:/i],
+    ['psicologia', /Para psicologia:/i],
+    ['arquitetura', /Para arquitetura:/i]
+  ])('aplica regra especifica para %s', (niche, rule) => {
+    const { user } = buildContentPrompt({ brandKit: { niche }, brief: { topic: 'tema' } });
+
+    expect(user).toMatch(rule);
+    expect(user).toMatch(/nao prometer resultado/i);
   });
 });
 
@@ -92,7 +159,10 @@ describe('resolvePalette', () => {
 });
 
 describe('TEMPLATES', () => {
-  it('tem os 4 templates', () => expect(TEMPLATES).toHaveLength(4));
+  it('inclui notícia como formato padrão', () => {
+    expect(TEMPLATES[0]).toBe('news');
+    expect(TEMPLATES).toHaveLength(5);
+  });
 });
 
 describe('renderNode', () => {

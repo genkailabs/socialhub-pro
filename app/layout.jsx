@@ -5,7 +5,7 @@ export const metadata = {
   description: 'Gerenciador de redes sociais multi-marca'
 };
 
-const themeScript = `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme:dark)').matches;if(d)document.documentElement.classList.add('dark');}catch(e){}})();`;
+const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`;
 
 export default function RootLayout({ children }) {
   return (
@@ -13,7 +13,7 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body className="font-theme">{children}</body>
     </html>
   );
 }

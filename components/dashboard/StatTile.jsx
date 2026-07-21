@@ -1,21 +1,30 @@
-export function StatTile({ label, value, hint, icon: Icon, accent }) {
+import { TrendingUp, TrendingDown } from 'lucide-react';
+
+export function StatTile({ label, value, hint, icon: Icon, change, changeType = 'positive' }) {
+  const isPositive = changeType === 'positive';
+  const isNegative = changeType === 'negative';
+
   return (
-    <div className={`group relative overflow-hidden rounded-2xl border p-4 shadow-soft transition-all duration-300 ease-emphasized hover:-translate-y-0.5 hover:shadow-lift ${
-      accent ? 'border-accent/30 bg-accent-tint' : 'border-line bg-surface'
-    }`}>
-      {accent && (
-        <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-accent/10 blur-xl" />
-      )}
-      <div className="relative flex items-center justify-between">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</p>
-        {Icon && (
-          <span className={`grid h-8 w-8 place-items-center rounded-lg ${accent ? 'bg-accent text-white' : 'bg-surface-2 text-muted'}`}>
-            <Icon className="h-4 w-4" />
-          </span>
-        )}
+    <div className="relative rounded-[20px] border border-line bg-surface p-5 shadow-soft">
+      <div className="flex items-start justify-between">
+        <span className="text-xs font-medium text-muted">{label}</span>
+        {Icon && <Icon className="h-[18px] w-[18px] text-accent" strokeWidth={2} />}
       </div>
-      <p className={`relative mt-2 text-[26px] font-extrabold leading-none tracking-tight ${accent ? 'text-accent-ink' : 'text-ink'}`}>{value}</p>
-      {hint && <p className="relative mt-1 text-[11px] text-muted">{hint}</p>}
+
+      <p className="mt-2 font-mono text-[25px] font-bold leading-none tracking-tight tabular-nums text-ink">
+        {value}
+      </p>
+      {hint && <p className="mt-1.5 font-mono text-[11px] text-muted">{hint}</p>}
+
+      {change && (
+        <div className={`mt-1.5 inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-semibold ${
+          isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-muted'
+        }`}>
+          {isPositive && <TrendingUp className="h-3 w-3 shrink-0" />}
+          {isNegative && <TrendingDown className="h-3 w-3 shrink-0" />}
+          <span>{change}</span>
+        </div>
+      )}
     </div>
   );
 }

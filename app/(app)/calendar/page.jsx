@@ -16,7 +16,7 @@ export default async function CalendarPage() {
   ));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight">Calendário</h1>
         <p className="mt-1 text-sm text-muted">{active ? <>Posts de <strong className="text-ink">{active.name}</strong> — clique num post para abrir os detalhes.</> : 'Crie uma marca primeiro.'}</p>

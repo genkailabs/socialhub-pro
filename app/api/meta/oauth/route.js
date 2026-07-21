@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { buildAuthUrl } from '@/lib/meta/graph';
-
-const DEFAULT_SCOPES = [
-  'public_profile', 'pages_show_list', 'pages_read_engagement',
-  'instagram_basic', 'instagram_content_publish', 'business_management'
-].join(',');
+import { scopeString } from '@/lib/meta/scopes';
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
@@ -29,7 +25,7 @@ export async function GET(request) {
     appId,
     redirectUri: `${appUrl}/api/meta/callback`,
     state,
-    scopes: process.env.META_OAUTH_SCOPES || DEFAULT_SCOPES
+    scopes: process.env.META_OAUTH_SCOPES || scopeString()
   });
   return NextResponse.redirect(authUrl);
 }

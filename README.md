@@ -2,6 +2,8 @@
 
 Gerenciador de redes sociais multi-marca (SaaS) para agências: workspaces por marca/cliente, agendamento de posts, calendário, relatórios e workflow de aprovação externa por link.
 
+> 📚 Documentação completa (arquitetura, banco de dados, motor de IA, decisões de projeto) na [wiki](./wiki/overview.md).
+
 > **Status:** rewrite em andamento para **Next.js (App Router)** — base "Núcleo Honesto". A integração **real do Instagram** (OAuth Meta + publicação + métricas via Graph API v21.0) é preservada; as demais redes aparecem como **"Em breve"** até terem integração real. **Nada de dados simulados.** Ver [docs/superpowers/specs/2026-07-10-rewrite-nucleo-honesto-design.md](docs/superpowers/specs/2026-07-10-rewrite-nucleo-honesto-design.md).
 >
 > Milestone atual: **M1 (Fundação)** — Next.js, auth Supabase, shell Studio Light. Milestones seguintes (M2–M5) portam marcas, conexões reais do IG, composer/agendamento, calendário/aprovação/dashboard. O código Vite anterior está em `legacy/` como referência para portar.
@@ -16,7 +18,7 @@ Gerenciador de redes sociais multi-marca (SaaS) para agências: workspaces por m
 | UI | React 18, Tailwind CSS 3, Radix UI, lucide-react, recharts |
 | Auth / DB | Supabase (Postgres + Auth + RLS) via `@supabase/ssr` |
 | Testes | Vitest (unit) + Playwright (e2e) |
-| Deploy | Vercel |
+| Deploy | Render |
 | Integração real | Meta Graph API v21.0 (Instagram/Facebook) |
 
 ---
@@ -71,11 +73,13 @@ Migrações em `supabase/migrations/`. Modelo (resumo):
 
 ---
 
-## Deploy (Vercel)
+## Deploy (Render)
 
-1. Importar o repositório no Vercel (framework detectado: Next.js via `vercel.json`).
-2. Configurar env vars (as `NEXT_PUBLIC_*` e as de servidor) em Project Settings.
-3. No Supabase Auth, adicionar a URL de produção em **Redirect URLs** e `/auth/callback`.
+URL de produção: https://socialhub-pro-1.onrender.com
+
+1. O serviço Render usa `render.yaml`.
+2. Configurar env vars (as `NEXT_PUBLIC_*` e as de servidor) no painel do Render.
+3. No Supabase Auth, adicionar `https://socialhub-pro-1.onrender.com/auth/callback` em **Redirect URLs**.
 
 Headers de segurança são definidos em `next.config.js`.
 
@@ -102,3 +106,16 @@ docs/superpowers/  # specs e plans
 - Redes além de Instagram/Facebook aparecem como **"Em breve"** (sem integração ainda) — por design, não por simulação.
 - Inbox e Relatórios multi-rede ficam fora do núcleo até haver dado real.
 - Conexão real do IG, composer, agendamento e aprovação chegam nos milestones M2–M5.
+
+## Infraestrutura de produção (Railway + Sentry)
+
+- **Hospedagem no Railway.** `railway.json` versiona build/start/healthcheck (espelha o antigo `render.yaml`). As variáveis de ambiente estão listadas em `.env.example` — cadastrar todas no painel do Railway. `APP_URL` precisa ser o domínio final (usado no callback do Meta OAuth e no middleware); se o domínio mudar, atualizar a Redirect URI no app do Facebook Developer.
+- **Sentry (monitoramento de erro).** `@sentry/nextjs` com configs server/client/edge que só inicializam quando há `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` — sem DSN é no-op, nada quebra. O runner de IA (`lib/ai/skills/run.js`) já reporta falhas via `captureError` (`lib/observability.js`). **Para novas Server Actions**, chamar `captureError(e, { ... })` no `catch` antes de devolver `{ error }` — hoje esses erros só voltavam para a UI sem registro. Gerar o DSN no painel do Sentry e colá-lo no Railway.
+
+## Notas de simplificação (2026-07-20)
+
+- **Piloto Automático despublicado (RF-06/07/08).** A rota `/autopilot` virou `/strategy`, contendo só o `StrategyPanel` (pilares/objetivos que o Planejamento consome). O `AutopilotForm` e o toggle `content_plans.active` saíram da interface. `lib/autopilot.js`, `lib/content-plan-actions.js`, `content_plans` e os testes **continuam no código** — apenas deixaram de ser expostos até haver decisão de produto sobre reativar a geração diária como algo separado e opcional.
+- **Impacto em produção: nenhum.** `runDailyAutopilot` não é chamado por nenhum cron/rota/Edge Function hoje, então marcas com `content_plans.active = true` não geravam nada e continuam sem gerar. Remover a UI não muda comportamento em produção.
+- A barra de onboarding (`PipelineProgress`) foi reescrita para a jornada real — Brand Kit → Estratégia → Planejar semana → Aprovar & agendar → Publicar — deixando de prometer geração automática diária.
+- **Shell responsivo (RF-20).** Abaixo de 768px o Sidebar fixo some e o menu vira gaveta (hambúrguer no Topbar → `MobileNav`, com overlay, fecha ao navegar/Esc). A lista de nav é fonte única (`components/layout/NavGroups.jsx`), usada por Sidebar e gaveta. Busca do Topbar some no mobile e padding do conteúdo encolhe, para não haver scroll horizontal. **Falta a conferência final em mobile real/emulado com sessão logada** (o shell só renderiza autenticado).
+- **Primitivos de UI (RF-16).** Novos `components/ui/Card.jsx` (cartão glass) e `components/ui/Badge.jsx` (pílula) reúnem classes já repetidas. Migrados sem mudança visual: `StatCard` (`/ai-costs`), `StatusBadge` (Planejamento) e o card interno do `DnaDashboard`. **Pendente de conferência visual**: `PlatformCard` (usa `bg-surface` + borda dinâmica, variante diferente do glass) e `BrandBadge` (é avatar de iniciais, não pílula) ficaram como estão para não inventar mudança visual — migrar só depois de validar a olho.

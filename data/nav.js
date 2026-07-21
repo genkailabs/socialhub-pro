@@ -1,23 +1,32 @@
-import { LayoutDashboard, PenSquare, Calendar, Share2, CheckSquare, Inbox, BarChart3, Palette, Wand2 } from 'lucide-react';
+import {
+  LayoutDashboard, Stethoscope, Compass, CalendarRange, PenLine, Sparkles,
+  CalendarDays, CheckSquare, BarChart3, Coins, Plug
+} from 'lucide-react';
 
+// Navegação agrupada por fluxo de trabalho (redesign 2026-07):
+// Criar → Publicar → Analisar. Dashboard fica no topo, isolado.
+// Conexões é configuração (não faz parte do fluxo diário): peso reduzido,
+// ancorado logo acima do rodapé de conta (group.isolated).
 export const NAV_GROUPS = [
-  { label: 'Conteúdo', items: [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/composer', label: 'Composer', icon: PenSquare },
-    { href: '/calendar', label: 'Calendário', icon: Calendar }
+  { items: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }
   ]},
-  { label: 'IA', items: [
-    { href: '/brand-kit', label: 'Brand Kit', icon: Palette },
-    { href: '/autopilot', label: 'Piloto', icon: Wand2 }
+  { label: 'Criar', items: [
+    { href: '/instagram/diagnostico', label: 'Diagnostico', icon: Stethoscope },
+    { href: '/strategy', label: 'Estrategia', icon: Compass },
+    { href: '/planning', label: 'Planejamento', icon: CalendarRange },
+    { href: '/composer', label: 'Composer', icon: PenLine },
+    { href: '/brand-kit', label: 'Brand Kit', icon: Sparkles }
   ]},
-  { label: 'Redes', items: [
-    { href: '/connections', label: 'Conexões', icon: Share2 }
+  { label: 'Publicar', items: [
+    { href: '/calendar', label: 'Calendario e Links', icon: CalendarDays },
+    { href: '/approvals', label: 'Aprovacoes', icon: CheckSquare }
   ]},
-  { label: 'Cliente', items: [
-    { href: '/approvals', label: 'Aprovações', icon: CheckSquare }
+  { label: 'Analisar', items: [
+    { href: '/metrics', label: 'Relatorios', icon: BarChart3 },
+    { href: '/ai-costs', label: 'Custos da IA', icon: Coins, adminOnly: true }
   ]},
-  { label: 'Em breve', items: [
-    { href: '#', label: 'Inbox', icon: Inbox, soon: true },
-    { href: '#', label: 'Relatórios', icon: BarChart3, soon: true }
+  { isolated: true, items: [
+    { href: '/connections', label: 'Conexoes', icon: Plug }
   ]}
 ];
