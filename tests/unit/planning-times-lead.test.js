@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   earliestTimeFor, isDatePlannable, suggestedTimeForDate, resolveSuggestedTime,
-  todayInSaoPaulo, FALLBACK_PLANNING_SLOTS, MIN_LEAD_MINUTES
+  scheduleIsoFromPlanning, todayInSaoPaulo, FALLBACK_PLANNING_SLOTS, MIN_LEAD_MINUTES
 } from '@/lib/planning-times';
 
 // O caso real reportado: terca-feira, 16:31 em Sao Paulo. Nenhum slot padrao
@@ -85,5 +85,18 @@ describe('resolveSuggestedTime', () => {
   it('devolve null quando nao ha horario possivel', () => {
     const quase = new Date('2026-07-22T02:40:00.000Z');
     expect(resolveSuggestedTime({ date: HOJE, aiTime: '23:59', now: quase })).toBeNull();
+  });
+});
+
+describe('scheduleIsoFromPlanning (§1: resolucao de horario na conversao ISO)', () => {
+  it('nunca agenda no passado quando o item tem horario sugerido vencido', () => {
+    // 12:00 em Sao Paulo no dia 2026-07-21 seria 2026-07-21T15:00:00.000Z.
+    // Como a conversao e chamada as 16:31, resolve para 18:00 (2026-07-21T21:00:00.000Z).
+    const iso = scheduleIsoFromPlanning(HOJE, '12:00', FALLBACK_PLANNING_SLOTS, 0, TERCA_1631);
+    expect(iso).toBe('2026-07-21T21:00:00.000Z');
+  });
+
+  it('mantem a conversao exata para datas futuras ou horarios ainda por vir', () => {
+    expect(scheduleIsoFromPlanning(AMANHA, '12:00', FALLBACK_PLANNING_SLOTS, 0, TERCA_1631)).toBe('2026-07-22T15:00:00.000Z');
   });
 });

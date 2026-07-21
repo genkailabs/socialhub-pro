@@ -20,8 +20,8 @@ import { remainingPlanSlots } from '@/lib/strategy-plan';
 
 // Selo pequeno junto de cada ação que gasta IA, para o custo ficar visível no
 // momento da decisão (RF-04). Sem UI nova grande — apenas o aviso.
-function CreditHint({ className = '' }) {
-  return <span className={`inline-flex items-center gap-1 text-[10px] font-semibold text-muted ${className}`}><Coins className="h-3 w-3" aria-hidden="true" />usa 1 crédito</span>;
+function CreditHint({ className = '', label = 'usa 1 crédito' }) {
+  return <span className={`inline-flex items-center gap-1 text-[10px] font-semibold text-muted ${className}`}><Coins className="h-3 w-3 shrink-0" aria-hidden="true" />{label}</span>;
 }
 
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -44,7 +44,9 @@ function horarioSugerido(time) {
 const STATUS_TONE = { idea: 'muted', approved: 'success', in_production: 'accent', ready: 'success' };
 
 function StatusBadge({ status }) {
-  return <Badge tone={STATUS_TONE[status] || 'muted'}>{STATUS[status] || status}</Badge>;
+  // `shrink-0` + `whitespace-nowrap`: dentro do card estreito do quadro, "Em
+  // produção" quebrava em duas linhas e desalinhava o cabeçalho.
+  return <Badge className="shrink-0 whitespace-nowrap" tone={STATUS_TONE[status] || 'muted'}>{STATUS[status] || status}</Badge>;
 }
 
 function PlanningItemCard({ item, busy, onApprove, onEdit, onProduce, onRemove, onReplace }) {
@@ -52,27 +54,42 @@ function PlanningItemCard({ item, busy, onApprove, onEdit, onProduce, onRemove, 
   const details = itemDetails(item);
   const actions = availablePlanningItemActions(item);
   const isBusy = busy === item.id;
+  const primaryAction = ['approve', 'produce', 'viewContent'].some((action) => actions.includes(action));
+  const secondaryActions = ['edit', 'replace', 'remove'].filter((action) => actions.includes(action));
+  const creditActions = [actions.includes('produce') && 'Gerar conteúdo', actions.includes('replace') && 'Trocar'].filter(Boolean);
 
   return (
     <article className="rounded-2xl border border-line bg-surface-2 p-3.5">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="font-mono text-[9px] font-bold uppercase tracking-wider text-accent">{formatLabel(item.format)}</span><span className="text-[10px] text-muted">• {dataCurta(item.date)}</span></div><h4 className="mt-2 text-[13px] font-semibold leading-snug text-ink">{item.title || item.topic}</h4><p className="mt-1 text-[10px] text-muted">Pilar: {item.pillar || 'Não informado'}</p></div>
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="font-mono text-[10px] font-bold uppercase tracking-wider text-accent">{formatLabel(item.format)}</span><span className="text-[11px] text-muted">• {dataCurta(item.date)}</span></div><h4 className="mt-2 text-sm font-semibold leading-snug text-ink">{item.title || item.topic}</h4><p className="mt-1 text-[11px] text-muted">Pilar: {item.pillar || 'Não informado'}</p></div>
         <StatusBadge status={item.status} />
       </div>
-      <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-accent">
-        <Clock className="h-3 w-3" aria-hidden="true" />Melhor horario: {horarioSugerido(item.suggested_time)}
+      {/* `flex` (não `inline-flex`): como <p> inline-level, esta linha colava no
+          botão "Ver detalhes" logo abaixo, sem espaço entre os dois textos. */}
+      <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-accent">
+        <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />Melhor horario: {horarioSugerido(item.suggested_time)}
       </p>
 
-      <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-accent hover:text-accent-ink">Ver detalhes {expanded ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}</button>
+      <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="mt-2.5 flex items-center gap-1 text-xs font-semibold text-accent hover:text-accent-ink">Ver detalhes {expanded ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}</button>
       {expanded && <dl className="mt-3 grid gap-2 rounded-xl bg-surface p-3 text-xs"><div><dt className="font-bold text-ink">Objetivo</dt><dd className="mt-0.5 text-muted">{details.objective}</dd></div><div><dt className="font-bold text-ink">Resumo</dt><dd className="mt-0.5 text-muted">{details.summary}</dd></div><div><dt className="font-bold text-ink">Gancho</dt><dd className="mt-0.5 text-muted">{details.hook}</dd></div><div className="grid grid-cols-2 gap-2"><div><dt className="font-bold text-ink">CTA</dt><dd className="mt-0.5 text-muted">{details.cta}</dd></div><div><dt className="font-bold text-ink">Público</dt><dd className="mt-0.5 text-muted">{details.audience}</dd></div></div><div><dt className="font-bold text-ink">Duração</dt><dd className="mt-0.5 text-muted">{details.duration}</dd></div></dl>}
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {actions.includes('edit') && <Button size="sm" variant="ghost" disabled={isBusy} onClick={() => onEdit(item)}><Pencil className="h-3.5 w-3.5" aria-hidden="true" />Editar</Button>}
-        {actions.includes('approve') && <Button size="sm" disabled={isBusy} onClick={() => onApprove(item.id)}><Check className="h-3.5 w-3.5" aria-hidden="true" />Aprovar</Button>}
-        {actions.includes('replace') && <span className="inline-flex items-center gap-1.5"><Button size="sm" variant="ghost" disabled={isBusy} onClick={() => onReplace(item)}><Wand2 className="h-3.5 w-3.5" aria-hidden="true" />Trocar</Button><CreditHint /></span>}
-        {actions.includes('remove') && <Button size="sm" variant="ghost" disabled={isBusy} onClick={() => onRemove(item)}><X className="h-3.5 w-3.5" aria-hidden="true" />Remover</Button>}
-        {actions.includes('produce') && <Button size="sm" disabled={isBusy} onClick={() => onProduce(item.id)}><Wand2 className="h-3.5 w-3.5" aria-hidden="true" />{isBusy ? 'Gerando...' : 'Gerar conteúdo'}</Button>}
-        {actions.includes('viewContent') && <Link href={`/content/${item.post_id}/review`} className="inline-flex h-8 items-center gap-1 rounded-full bg-accent/10 px-3 text-xs font-bold text-accent">Ver conteúdo</Link>}
+      {/* Uma ação principal ocupa a linha inteira e as secundárias ficam numa
+          linha compacta abaixo. Antes as quatro dividiam a mesma linha e
+          quebravam no meio do grupo, apertando o card. O custo continua visível
+          na hora da decisão (RF-04), só que numa linha própria em vez de roubar
+          largura do botão. */}
+      <div className="mt-3 space-y-2">
+        {primaryAction && <div className="flex">
+          {actions.includes('approve') && <Button size="sm" className="w-full" disabled={isBusy} onClick={() => onApprove(item.id)}><Check className="h-3.5 w-3.5" aria-hidden="true" />Aprovar</Button>}
+          {actions.includes('produce') && <Button size="sm" className="w-full" disabled={isBusy} onClick={() => onProduce(item.id)}><Wand2 className="h-3.5 w-3.5" aria-hidden="true" />{isBusy ? 'Gerando...' : 'Gerar conteúdo'}</Button>}
+          {actions.includes('viewContent') && <Link href={`/content/${item.post_id}/review`} className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full bg-accent/10 px-3 text-xs font-bold text-accent transition-colors hover:bg-accent/15">Ver conteúdo</Link>}
+        </div>}
+        {secondaryActions.length > 0 && <div className="flex flex-wrap gap-1.5">
+          {actions.includes('edit') && <Button size="sm" variant="ghost" className="gap-1.5 px-2.5" disabled={isBusy} onClick={() => onEdit(item)}><Pencil className="h-3.5 w-3.5" aria-hidden="true" />Editar</Button>}
+          {actions.includes('replace') && <Button size="sm" variant="ghost" className="gap-1.5 px-2.5" disabled={isBusy} onClick={() => onReplace(item)}><Wand2 className="h-3.5 w-3.5" aria-hidden="true" />Trocar</Button>}
+          {actions.includes('remove') && <Button size="sm" variant="ghost" className="gap-1.5 px-2.5" disabled={isBusy} onClick={() => onRemove(item)}><X className="h-3.5 w-3.5" aria-hidden="true" />Remover</Button>}
+        </div>}
+        {creditActions.length > 0 && <CreditHint label={`${creditActions.join(' e ')} ${creditActions.length > 1 ? 'usam' : 'usa'} 1 crédito`} />}
       </div>
     </article>
   );
@@ -200,7 +217,11 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
     {!items.length ? <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-7 text-center"><p className="text-sm font-bold text-ink">Nenhuma ideia planejada ainda</p><p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">Peça sugestões para a semana ou adicione suas próprias ideias. Planejar não cria conteúdo.</p></div> : (() => {
       // §20: o caminho inteiro do conteúdo, de ideia a publicado.
       const grupos = groupPlanningItemsByColumn(items);
-      return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">{PLANNING_COLUMNS.map((column) => { const columnItems = grupos[column.key] || []; return <section key={column.key} className="rounded-2xl border border-line bg-surface p-4"><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-bold text-ink">{column.title}</h3><p className="mt-0.5 text-[11px] text-muted">{column.hint}</p></div><span className="font-mono text-[11px] font-bold tabular-nums text-muted">{columnItems.length}</span></div><div className="mt-4 space-y-3">{columnItems.length ? columnItems.map((item) => <PlanningItemCard key={item.id} item={item} busy={busy} onApprove={(itemId) => run(itemId, () => setPlanItemStatus({ itemId, status: 'approved' }))} onEdit={(nextItem) => { setFormItem(nextItem); setShowForm(true); }} onProduce={produce} onReplace={replace} onRemove={remove} />) : <p className="py-5 text-center text-xs text-muted">Nada aqui ainda.</p>}</div></section>; })}</div>;
+      // O quadro nunca espreme a coluna: cada etapa tem uma largura mínima
+      // legível (20rem) e cresce para dividir o espaço que sobrar. Quando as 5
+      // etapas não cabem, o trilho rola na horizontal em vez de comprimir os
+      // cards até o conteúdo ficar ilegível.
+      return <div className="-mx-1 flex snap-x gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin]">{PLANNING_COLUMNS.map((column) => { const columnItems = grupos[column.key] || []; return <section key={column.key} className="flex min-w-[20rem] flex-1 snap-start flex-col rounded-2xl border border-line bg-surface p-4"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><h3 className="text-sm font-bold text-ink">{column.title}</h3><p className="mt-0.5 text-[11px] text-muted">{column.hint}</p></div><span className="font-mono text-[11px] font-bold tabular-nums text-muted">{columnItems.length}</span></div><div className="mt-4 space-y-3">{columnItems.length ? columnItems.map((item) => <PlanningItemCard key={item.id} item={item} busy={busy} onApprove={(itemId) => run(itemId, () => setPlanItemStatus({ itemId, status: 'approved' }))} onEdit={(nextItem) => { setFormItem(nextItem); setShowForm(true); }} onProduce={produce} onReplace={replace} onRemove={remove} />) : <p className="py-5 text-center text-xs text-muted">Nada aqui ainda.</p>}</div></section>; })}</div>;
     })()}
 
     {/* §7: aviso de remoção com desfazer. Fica fixo no rodapé para não empurrar
