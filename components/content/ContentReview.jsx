@@ -48,6 +48,8 @@ function Revisao({ review }) {
   );
 }
 
+// Cada card e uma arte 1080x1920 que o sistema publica. Nao ha nada para
+// gravar, entao a lista mostra o texto da arte — nao instrucao de captura.
 function Stories({ cards }) {
   return (
     <ol className="space-y-2">
@@ -56,17 +58,10 @@ function Stories({ cards }) {
           <div className="flex items-center gap-2">
             <span className="grid h-5 w-5 place-items-center rounded-full bg-accent text-[10px] font-bold text-white">{c.order || i + 1}</span>
             <span className="rounded-md border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted">{c.type}</span>
-            <span className="text-[10px] text-faint">{c.mediaType}</span>
           </div>
-          <p className="mt-1.5 text-sm text-ink">{c.screenText}</p>
-          <p className="mt-0.5 text-[11px] text-faint">Como gravar: {c.captureHint}</p>
-          {c.interaction && (
-            <p className="mt-1 text-[11px] text-accent">
-              {c.interaction.question}
-              {!!c.interaction.options?.length && ` — ${c.interaction.options.join(' / ')}`}
-            </p>
-          )}
-          {c.cta && <p className="mt-1 text-[11px] font-semibold text-ink">CTA: {c.cta}</p>}
+          <p className="mt-1.5 text-sm font-semibold text-ink">{c.title}</p>
+          {c.support && <p className="mt-0.5 text-xs text-muted">{c.support}</p>}
+          {c.cta && <p className="mt-1 text-[11px] font-semibold text-accent">CTA: {c.cta}</p>}
         </li>
       ))}
     </ol>

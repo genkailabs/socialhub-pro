@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import {
   styleForNiche, NICHE_STYLES, typeScale, hasTypographicHierarchy,
-  framePadding, densityFor
+  framePadding, frameInsets, densityFor, fitTitleSize, MAX_TITLE_LINES, MIN_TITLE_RATIO
 } from '@/lib/ai/art/style';
+import { artFonts } from '@/lib/ai/art/fonts';
 import { selectLayout, eligibleLayouts, layoutFits, layoutById, layoutIds } from '@/lib/ai/art/layouts';
 import { contrastRatio, checkArt, parseHex, MIN_CONTRAST_BODY } from '@/lib/ai/art/quality';
 
@@ -33,11 +35,15 @@ describe('styleForNiche', () => {
 
 // §16/§17: hierarquia e aproveitamento de espaco.
 describe('tipografia', () => {
-  it('escala proporcional ao lado menor, servindo feed e story', () => {
+  it('mesma escala para feed e story, esticada pela proporcao', () => {
     const feed = typeScale({ width: 1080, height: 1080 });
     const story = typeScale({ width: 1080, height: 1920 });
-    // Story e mais alto, mas o lado menor e o mesmo: a escala nao muda.
-    expect(story.title).toBe(feed.title);
+
+    // Uma regra so, com o lado menor de base — mas a peca alta tem mais area
+    // para o mesmo texto. Sem o esticao, o Story saia com o titulo de um Post
+    // perdido no meio de um quadro quase duas vezes maior (visto no PNG).
+    expect(story.title).toBeGreaterThan(feed.title);
+    expect(story.title / feed.title).toBeCloseTo(story.body / feed.body, 1);
     expect(feed.title).toBeGreaterThan(feed.subtitle);
     expect(feed.subtitle).toBeGreaterThan(feed.body);
   });
@@ -67,6 +73,68 @@ describe('tipografia', () => {
 });
 
 // §15: variacao automatica de layouts.
+// Cada regra abaixo veio de um defeito visto no PNG, não de teoria.
+describe('ajuste do titulo a caixa', () => {
+  const caber = (title, size, boxWidth) => fitTitleSize({ title, size, boxWidth, floor: 60 });
+
+  it('encolhe o titulo longo ate caber nas linhas permitidas', () => {
+    const longo = 'Voce acorda cansado mesmo dormindo oito horas por noite';
+
+    expect(caber(longo, 150, 818)).toBeLessThan(150);
+  });
+
+  it('nao mexe no titulo que ja cabe', () => {
+    expect(caber('Dormir bem', 120, 818)).toBe(120);
+  });
+
+  it('para no piso em vez de encolher ate sumir', () => {
+    const gigante = 'x'.repeat(400);
+
+    expect(caber(gigante, 150, 818)).toBe(60);
+  });
+
+  it('titulo vazio nao quebra a conta', () => {
+    expect(caber('', 120, 818)).toBe(120);
+  });
+
+  it('quatro linhas e o limite: acima disso vira cartaz, nao titulo', () => {
+    expect(MAX_TITLE_LINES).toBe(4);
+  });
+});
+
+describe('margens do quadro', () => {
+  it('no story a margem vertical protege as areas que o Instagram cobre', () => {
+    const story = frameInsets({ width: 1080, height: 1920 });
+
+    expect(story.x).toBe(framePadding({ width: 1080, height: 1920 }));
+    expect(story.top).toBeGreaterThan(story.x * 2);
+    expect(story.top).toBe(story.bottom);
+  });
+
+  it('no quadrado a margem e igual dos quatro lados', () => {
+    const feed = frameInsets({ width: 1080, height: 1080 });
+
+    expect(feed.top).toBe(feed.x);
+    expect(feed.bottom).toBe(feed.x);
+  });
+});
+
+// Sem os arquivos, o next/og cai na Noto Sans regular e todo fontWeight vira
+// enfeite: a arte sai sem negrito e a hierarquia morre. Falha de deploy que
+// nenhum outro teste pegaria.
+describe('fontes da arte', () => {
+  it('traz os tres pesos, com arquivo de verdade', () => {
+    const fontes = artFonts();
+
+    expect(fontes.map((f) => f.weight)).toEqual([400, 600, 800]);
+    for (const fonte of fontes) expect(fonte.data.length).toBeGreaterThan(1000);
+  });
+
+  it('a pasta de fontes existe no projeto', () => {
+    expect(existsSync('assets/fonts/Outfit-ExtraBold.ttf')).toBe(true);
+  });
+});
+
 describe('selecao de layout', () => {
   const comImagem = { hasImage: true, subtext: 'apoio', bullets: [] };
 
@@ -97,10 +165,28 @@ describe('selecao de layout', () => {
     expect(escolhido.id).not.toBe(layoutIds()[0]);
   });
 
-  it('sem candidato elegivel devolve fallback em vez de quebrar', () => {
-    const escolhido = selectLayout({ content: { hasImage: false, bullets: [], subtext: '' } });
-    expect(escolhido).toBeTruthy();
-    expect(eligibleLayouts({ hasImage: false, bullets: [], subtext: '' })).toEqual([]);
+  // Titulo sozinho, sem imagem, sem itens e sem apoio: e o caso da producao do
+  // Planejamento, e antes ele caia num texto solto no meio do quadro.
+  it('titulo sozinho tem layout proprio, nao fallback quebrado', () => {
+    const so_titulo = { hasImage: false, bullets: [], subtext: '' };
+
+    expect(selectLayout({ content: so_titulo }).id).toBe('declaracao');
+    expect(eligibleLayouts(so_titulo).map((l) => l.id)).toEqual(['declaracao']);
+  });
+
+  // A coluna lateral do editorial nao sobrevive ao 9:16 (visto no PNG).
+  it('layout que so funciona no quadrado nao entra no story', () => {
+    const comImagemEApoio = { hasImage: true, bullets: [], subtext: 'Apoio' };
+
+    expect(eligibleLayouts(comImagemEApoio, 'square').map((l) => l.id)).toContain('editorial');
+    expect(eligibleLayouts(comImagemEApoio, 'story').map((l) => l.id)).not.toContain('editorial');
+  });
+
+  // Variar layout e bom, mas nunca ao preco de jogar conteudo fora.
+  it('prefere quem aproveita mais do conteudo', () => {
+    const comItens = { hasImage: false, bullets: ['um', 'dois', 'tres'], subtext: 'Apoio' };
+
+    expect(selectLayout({ content: comItens }).id).toBe('cards');
   });
 
   it('a escolha e deterministica para o mesmo seed', () => {

@@ -3,7 +3,7 @@ import { normalizeSpec, parseSpec } from '@/lib/ai/spec';
 import { estimateCostUsd, formatUsd, pollinationsImageCostUsd } from '@/lib/ai/cost';
 import { buildContentPrompt } from '@/lib/ai/prompt';
 import { resolvePalette, TEMPLATES } from '@/lib/ai/templates';
-import { renderNode, slideCount } from '@/lib/ai/render';
+import { slideCount } from '@/lib/ai/render';
 
 describe('normalizeSpec', () => {
   it('template inválido cai p/ notícia', () => {
@@ -162,21 +162,6 @@ describe('TEMPLATES', () => {
   it('inclui notícia como formato padrão', () => {
     expect(TEMPLATES[0]).toBe('news');
     expect(TEMPLATES).toHaveLength(5);
-  });
-});
-
-describe('renderNode', () => {
-  for (const t of TEMPLATES) {
-    it(`monta um nó válido p/ ${t}`, () => {
-      const node = renderNode({ template: t, spec: { headline: 'Oi', subtext: 'sub', bullets: ['a', 'b'], brand: 'marca' }, palette: {}, slideIndex: 0 });
-      expect(node.type).toBe('div');
-      expect(Array.isArray(node.props.children)).toBe(true);
-      expect(node.props.style.display).toBe('flex');
-    });
-  }
-  it('slide de dica do carrossel usa o índice', () => {
-    const node = renderNode({ template: 'tips_carousel', spec: { bullets: ['primeira', 'segunda'] }, palette: {}, slideIndex: 2 });
-    expect(node.type).toBe('div');
   });
 });
 

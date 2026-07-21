@@ -23,6 +23,9 @@ build/
 
 # Test / tooling artifacts
 test-results/
+# Amostras de arte (`npm run art:samples`): geradas para inspeção humana, não
+# versionadas — quem manda é o renderizador, não o PNG de ontem.
+tests/visual/output/
 .tokensave/
 .claude/
 .agents/

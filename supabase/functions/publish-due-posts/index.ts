@@ -21,6 +21,18 @@ async function graphPost(path: string, params: URLSearchParams) {
   return data;
 }
 
+// Story (MVP V2): arte estatica 1080x1920, uma publicacao por card, na ordem.
+// Story nao tem legenda — a Meta ignora `caption` em media_type=STORIES.
+async function publishInstagramStories(token: Record<string, string>, urls: string[]) {
+  const ids: string[] = [];
+  for (const url of urls) {
+    const container = await graphPost(`${token.platform_user_id}/media`, new URLSearchParams({ image_url: url, media_type: 'STORIES', access_token: token.access_token }));
+    const published = await graphPost(`${token.platform_user_id}/media_publish`, new URLSearchParams({ creation_id: container.id, access_token: token.access_token }));
+    ids.push(published.id);
+  }
+  return ids[0];
+}
+
 async function publishInstagram(token: Record<string, string>, caption: string, urls: string[]) {
   if (urls.length === 1) {
     const container = await graphPost(`${token.platform_user_id}/media`, new URLSearchParams({ image_url: urls[0], caption, access_token: token.access_token }));
@@ -64,8 +76,14 @@ Deno.serve(async (request) => {
       for (const platform of networks) {
         const token = tokens?.find((row) => row.platform === platform);
         if (!token) throw new Error(`Token ativo ausente para ${platform}.`);
+        // O formato decide COMO publicar: Story vertical postado como foto de
+        // feed seria entregar coisa diferente da que foi aprovada.
+        const isStory = post.format === 'stories';
+        if (isStory && platform !== 'instagram') throw new Error('Story so publica no Instagram.');
         const id = platform === 'instagram'
-          ? await publishInstagram(token, post.content || '', urls)
+          ? isStory
+            ? await publishInstagramStories(token, urls)
+            : await publishInstagram(token, post.content || '', urls)
           : platform === 'facebook'
             ? await publishFacebook(token, post.content || '', urls[0])
             : (() => { throw new Error(`Plataforma nao suportada: ${platform}`); })();

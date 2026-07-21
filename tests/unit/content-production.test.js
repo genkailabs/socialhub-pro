@@ -1,25 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import {
-  templateForFormat, rendersArtwork, initialStatus, statusAfterApproval,
-  statusAfterReview, reviewableContent, contentTitle, contentBody, artworkCount
+  artSizeForFormat, rendersArtwork, initialStatus, statusAfterApproval,
+  statusAfterReview, reviewableContent, contentTitle, contentBody, artworkCount,
+  artContentFor, mediaTypeFor
 } from '@/lib/content-production';
 import { statusMeta } from '@/lib/calendar';
 
-describe('formato x template', () => {
-  // Eixos diferentes: formato e o container, template e o tratamento visual.
-  it('imagem e carrossel tem template de render', () => {
-    expect(templateForFormat('image')).toBe('news');
-    expect(templateForFormat('carousel')).toBe('tips_carousel');
+describe('formato x tamanho da arte', () => {
+  it('post e carrossel sao quadrados', () => {
+    expect(artSizeForFormat('image')).toBe('square');
+    expect(artSizeForFormat('carousel')).toBe('square');
   });
 
-  it('reel e stories nao rendem arte: sao roteiro', () => {
-    expect(templateForFormat('reel')).toBeNull();
+  // MVP V2: Story e arte estatica vertical, pelo mesmo pipeline.
+  it('story e vertical', () => {
+    expect(artSizeForFormat('stories')).toBe('story');
+    expect(rendersArtwork('stories')).toBe(true);
+  });
+
+  it('reel nao rende arte: e o unico que sobrou como roteiro', () => {
+    expect(artSizeForFormat('reel')).toBeNull();
     expect(rendersArtwork('reel')).toBe(false);
-    expect(rendersArtwork('stories')).toBe(false);
   });
 
-  it('formato desconhecido nao inventa template', () => {
-    expect(templateForFormat('tiktok')).toBeNull();
+  it('formato desconhecido nao inventa tamanho', () => {
+    expect(artSizeForFormat('tiktok')).toBeNull();
   });
 });
 
@@ -34,9 +39,12 @@ describe('estados', () => {
     expect(statusAfterApproval('carousel')).toBe('scheduled');
   });
 
-  it('reel e stories aprovados vao para o usuario postar', () => {
+  it('story aprovado vai para agendamento como qualquer publicavel', () => {
+    expect(statusAfterApproval('stories')).toBe('scheduled');
+  });
+
+  it('reel aprovado vai para o usuario postar', () => {
     expect(statusAfterApproval('reel')).toBe('ready_to_post');
-    expect(statusAfterApproval('stories')).toBe('ready_to_post');
   });
 
   it('bloqueado pela revisao volta para rascunho, nao para aprovacao', () => {
@@ -76,13 +84,13 @@ describe('reviewableContent', () => {
   it('achata os cards de stories', () => {
     const r = reviewableContent('stories', {
       cards: [
-        { type: 'abertura', screenText: 'Oi', cta: null },
-        { type: 'cta_final', screenText: 'Me chame', cta: 'Agende' }
+        { type: 'abertura', title: 'Oi', support: '', cta: null },
+        { type: 'cta_final', title: 'Me chame', support: 'Respondo hoje', cta: 'Agende' }
       ]
     });
 
     expect(r.hook).toBe('Oi');
-    expect(r.slides).toEqual(['[abertura] Oi', '[cta_final] Me chame']);
+    expect(r.slides).toEqual(['[abertura] Oi', '[cta_final] Me chame — Respondo hoje']);
     expect(r.cta).toBe('Agende');
   });
 
@@ -141,8 +149,74 @@ describe('artworkCount', () => {
     expect(artworkCount('carousel', { slides: [{}, {}, {}] })).toBe(3);
   });
 
-  it('reel e stories nao rendem arte', () => {
+  it('story rende uma arte por card', () => {
+    expect(artworkCount('stories', { cards: [{}, {}, {}, {}] })).toBe(4);
+  });
+
+  it('reel nao rende arte', () => {
     expect(artworkCount('reel', {})).toBe(0);
-    expect(artworkCount('stories', {})).toBe(0);
+  });
+});
+
+describe('artContentFor', () => {
+  const seq = {
+    cards: [
+      { order: 1, type: 'abertura', title: 'Voce dorme mal?', support: '', cta: null },
+      { order: 2, type: 'educativo', title: 'O sono tem fases', support: 'Cada uma cuida de uma coisa. Pular uma cobra depois.', cta: null },
+      { order: 3, type: 'cta_final', title: 'Vamos conversar', support: '', cta: 'Chame no direct' }
+    ]
+  };
+
+  it('cada card vira o texto de uma arte, na ordem', () => {
+    const c = artContentFor('stories', seq, 1, 'marca');
+
+    expect(c.title).toBe('O sono tem fases');
+    expect(c.subtitle).toContain('Cada uma cuida');
+    expect(c.brand).toBe('marca');
+  });
+
+  // Quem entra no meio da sequencia precisa saber onde esta.
+  it('marca a posicao na sequencia', () => {
+    expect(artContentFor('stories', seq, 0).eyebrow).toBe('1/3');
+    expect(artContentFor('stories', seq, 2).eyebrow).toBe('3/3');
+  });
+
+  it('so o ultimo card leva o CTA que a skill escreveu', () => {
+    expect(artContentFor('stories', seq, 0).cta).toBe('');
+    expect(artContentFor('stories', seq, 2).cta).toBe('Chame no direct');
+  });
+
+  it('card inexistente nao inventa texto', () => {
+    expect(artContentFor('stories', seq, 9).title).toBe('');
+  });
+
+  // A legenda inteira na arte e o erro classico: cabe no Instagram, nao na peca.
+  it('post usa o gancho e so a primeira frase da legenda', () => {
+    const c = artContentFor('image', { hook: 'Cinco sinais', caption: 'Primeira frase. Segunda frase que nao cabe.', cta: 'Salve' });
+
+    expect(c.title).toBe('Cinco sinais');
+    expect(c.subtitle).toBe('Primeira frase.');
+  });
+
+  it('carrossel repete o CTA so na ultima tela', () => {
+    const carrossel = { slides: [{ title: 'Um', body: 'a' }, { title: 'Dois', body: 'b' }], cta: 'Salve' };
+
+    expect(artContentFor('carousel', carrossel, 0).cta).toBe('');
+    expect(artContentFor('carousel', carrossel, 1).cta).toBe('Salve');
+  });
+});
+
+describe('mediaTypeFor', () => {
+  it('story nao e carrossel: sobe uma arte por vez', () => {
+    expect(mediaTypeFor('stories', ['a', 'b', 'c'])).toBe('story');
+  });
+
+  it('varias artes de feed sao carrossel', () => {
+    expect(mediaTypeFor('carousel', ['a', 'b'])).toBe('carousel');
+    expect(mediaTypeFor('image', ['a'])).toBe('image');
+  });
+
+  it('sem arte nao ha tipo de midia', () => {
+    expect(mediaTypeFor('image', [])).toBeNull();
   });
 });

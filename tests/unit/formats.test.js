@@ -15,15 +15,16 @@ describe('registro de formatos', () => {
     expect(plannableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image', 'stories']);
   });
 
-  it('so imagem e carrossel publicam automaticamente nesta fase', () => {
-    expect(publishableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image']);
+  // MVP V2: Story virou arte estatica, entao o sistema tambem publica.
+  it('imagem, carrossel e stories publicam automaticamente', () => {
+    expect(publishableFormats().map((f) => f.id).sort()).toEqual(['carousel', 'image', 'stories']);
   });
 
-  // Vale mesmo para Reel, que saiu do planejamento (§12): itens ja gravados na
-  // base continuam existindo e continuam sendo o usuario quem posta.
-  it('reel e stories exigem postagem manual', () => {
+  // So Reel sobra como roteiro. Itens ja gravados na base continuam existindo e
+  // continuam sendo o usuario quem posta (§12).
+  it('so reel exige postagem manual', () => {
     expect(needsManualPosting('reel')).toBe(true);
-    expect(needsManualPosting('stories')).toBe(true);
+    expect(needsManualPosting('stories')).toBe(false);
     expect(needsManualPosting('image')).toBe(false);
   });
 

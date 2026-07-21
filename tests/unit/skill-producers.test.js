@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { postProducerSkill, inputSchema as postIn, outputSchema as postOut } from '@/lib/ai/skills/post-producer';
-import { storyPlannerSkill, inputSchema as storyIn, outputSchema as storyOut, STORY_CARDS } from '@/lib/ai/skills/story-planner';
+import { storyPlannerSkill, inputSchema as storyIn, outputSchema as storyOut, STORY_CARDS, STORY_CARD_TYPES, STORY_CARD_LIMITS } from '@/lib/ai/skills/story-planner';
 import { reelProducerSkill, inputSchema as reelIn, outputSchema as reelOut } from '@/lib/ai/skills/reel-producer';
 import { producerOf } from '@/lib/formats';
 
@@ -113,25 +113,45 @@ describe('skill story-planner', () => {
     expect(system).toContain('fecha com uma acao clara');
   });
 
-  it('oferece os sete tipos de card', () => {
+  it('oferece os cinco tipos de card', () => {
     const { system } = prompt();
 
-    for (const t of ['abertura', 'educativo', 'enquete', 'caixa_de_perguntas', 'bastidores', 'prova_social', 'cta_final']) {
-      expect(system).toContain(t);
+    for (const t of STORY_CARD_TYPES) expect(system).toContain(t);
+    expect(STORY_CARD_TYPES).toEqual(['abertura', 'educativo', 'bastidores', 'prova_social', 'cta_final']);
+  });
+
+  // MVP V2: Story virou arte estatica. Pedir enquadramento seria pedir algo que
+  // ninguem vai executar.
+  it('nao pede gravacao, camera nem cena', () => {
+    const { system, user } = prompt();
+    const texto = `${system} ${user}`.toLowerCase();
+
+    for (const proibido of ['captureh', 'mediatype', 'enquadr', 'como filmar', 'video_curto']) {
+      expect(texto).not.toContain(proibido);
     }
+    // A palavra "gravar" so pode aparecer proibindo a gravacao.
+    expect(system).toContain('Nunca escreva instrucao de como gravar');
   });
 
-  // Interativo tem que servir ao tema, nao encher linguica.
-  it('proibe interacao decorativa', () => {
-    expect(prompt().system).toContain('enfeite');
+  // Sticker interativo nao passa pela Graph API: prometer seria mentir.
+  it('nao oferece enquete nem caixa de perguntas', () => {
+    const { system } = prompt();
+
+    expect(system).not.toContain('caixa_de_perguntas');
+    expect(system).toContain('Nao existe video, gravacao, camera, cena, fala, enquete nem caixa de perguntas.');
   });
 
-  it('lembra que quem posta e a propria pessoa, com um celular', () => {
-    expect(prompt().user).toContain('celular');
+  it('avisa que o proprio sistema gera a arte e publica', () => {
+    expect(prompt().user).toContain('o sistema gera a arte de cada card e publica sozinho');
   });
 
-  const cardOk = { order: 1, type: 'abertura', screenText: 'Oi', mediaType: 'foto', captureHint: 'De frente, perto da janela', interaction: null, cta: null };
-  const seqOk = { objective: 'Educar sobre ansiedade', cards: Array(3).fill(cardOk), estimatedDuration: '45 segundos', rationale: 'Abre e educa.' };
+  // Quem entra no meio da sequencia nao viu o card anterior.
+  it('exige card que se entende sozinho', () => {
+    expect(prompt().system).toContain('cada arte precisa fazer sentido sozinha');
+  });
+
+  const cardOk = { order: 1, type: 'abertura', title: 'Voce dorme mal?', support: '', cta: null };
+  const seqOk = { objective: 'Educar sobre sono', cards: Array(3).fill(cardOk), rationale: 'Abre e educa.' };
 
   it('aceita a sequencia esperada', () => {
     expect(storyOut.safeParse(seqOk).success).toBe(true);
@@ -143,14 +163,25 @@ describe('skill story-planner', () => {
     expect(storyOut.safeParse({ ...seqOk, cards: Array(STORY_CARDS.max + 1).fill(cardOk) }).success).toBe(false);
   });
 
-  it('aceita enquete com pergunta e opcoes', () => {
-    const enquete = { ...cardOk, order: 2, type: 'enquete', interaction: { question: 'Voce ja sentiu isso?', options: ['Sim', 'Nao'] } };
+  // O limite do texto e o da arte (§19), nao um numero inventado na skill.
+  it('recusa titulo maior do que a arte aguenta', () => {
+    const longo = { ...cardOk, title: 'x'.repeat(STORY_CARD_LIMITS.title + 1) };
 
-    expect(storyOut.safeParse({ ...seqOk, cards: [cardOk, enquete, cardOk] }).success).toBe(true);
+    expect(storyOut.safeParse({ ...seqOk, cards: [longo, cardOk, cardOk] }).success).toBe(false);
+  });
+
+  it('aceita card sem apoio: titulo que se basta e melhor que apoio enfeite', () => {
+    const { data } = storyOut.safeParse({ ...seqOk, cards: [{ order: 1, type: 'abertura', title: 'Oi', cta: null }, cardOk, cardOk] });
+
+    expect(data.cards[0].support).toBe('');
   });
 
   it('recusa tipo de card inventado', () => {
-    expect(storyOut.safeParse({ ...seqOk, cards: [{ ...cardOk, type: 'dancinha' }, cardOk, cardOk] }).success).toBe(false);
+    expect(storyOut.safeParse({ ...seqOk, cards: [{ ...cardOk, type: 'enquete' }, cardOk, cardOk] }).success).toBe(false);
+  });
+
+  it('sobe a versao: a saida mudou de formato', () => {
+    expect(storyPlannerSkill.version).toBe(2);
   });
 });
 

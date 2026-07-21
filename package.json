@@ -10,6 +10,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "art:samples": "vitest run --config vitest.visual.config.js",
     "e2e": "playwright test"
   },
   "dependencies": {

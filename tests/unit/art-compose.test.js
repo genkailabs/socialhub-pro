@@ -99,11 +99,12 @@ describe('composeArt (§13/§15)', () => {
     expect(collectText(node)).toContain('Como economizar');
   });
 
-  it('feed e story compartilham a escala tipografica', () => {
+  it('feed e story compartilham o renderizador, com o texto maior na peca alta', () => {
     const feed = composeArt({ layout: layoutById('cards'), content, palette, size: 'square' });
     const story = composeArt({ layout: layoutById('cards'), content, palette, size: 'story' });
     const maior = (n) => Math.max(...findStyles(n, (s) => typeof s.fontSize === 'number').map((s) => s.fontSize));
-    expect(maior(story)).toBe(maior(feed));
+
+    expect(maior(story)).toBeGreaterThan(maior(feed));
   });
 
   it('layout desconhecido cai em composicao valida em vez de quebrar', () => {

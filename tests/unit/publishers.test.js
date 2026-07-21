@@ -16,6 +16,7 @@ function fakeGraph() {
   return {
     publishInstagramImage: vi.fn().mockResolvedValue('img-1'),
     publishInstagramCarousel: vi.fn().mockResolvedValue('car-1'),
+    publishInstagramStory: vi.fn((args) => Promise.resolve(`story-${args.imageUrl}`)),
     publishFacebookPhoto: vi.fn().mockResolvedValue('fb-1')
   };
 }
@@ -83,6 +84,33 @@ describe('publishPostTo', () => {
     const id = await publishPostTo({ platform: 'facebook', token: fbToken, caption: 'm', urls: ['u1'], graph, retryOptions });
     expect(id).toBe('fb-1');
     expect(graph.publishFacebookPhoto).toHaveBeenCalledWith({ pageId: 'pg1', pageToken: 'tok', message: 'm', imageUrl: 'u1' });
+  });
+
+  // MVP V2: Story é sequência de artes verticais, uma publicação por card.
+  it('publica cada card do story separadamente, na ordem', async () => {
+    const graph = fakeGraph();
+    const id = await publishPostTo({ platform: 'instagram', token: igToken, urls: ['u1', 'u2', 'u3'], format: 'stories', graph, retryOptions });
+
+    expect(graph.publishInstagramStory).toHaveBeenCalledTimes(3);
+    expect(graph.publishInstagramStory.mock.calls.map((c) => c[0].imageUrl)).toEqual(['u1', 'u2', 'u3']);
+    // O id devolvido é o do card que abre a sequência.
+    expect(id).toBe('story-u1');
+  });
+
+  // Mandar a sequência como carrossel colocaria o Story no feed.
+  it('story nunca vira carrossel nem imagem de feed', async () => {
+    const graph = fakeGraph();
+    await publishPostTo({ platform: 'instagram', token: igToken, urls: ['u1', 'u2'], format: 'stories', graph, retryOptions });
+
+    expect(graph.publishInstagramCarousel).not.toHaveBeenCalled();
+    expect(graph.publishInstagramImage).not.toHaveBeenCalled();
+  });
+
+  it('story não publica no facebook', async () => {
+    const graph = fakeGraph();
+    await expect(publishPostTo({ platform: 'facebook', token: fbToken, urls: ['u1'], format: 'stories', graph, retryOptions }))
+      .rejects.toThrow(/so publica no Instagram/i);
+    expect(graph.publishFacebookPhoto).not.toHaveBeenCalled();
   });
 
   it('recusa formato não publicável (§5.1)', async () => {
