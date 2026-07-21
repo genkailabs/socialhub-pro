@@ -36,4 +36,22 @@ describe('onboarding-helpers', () => {
     expect(res.classification.segment).toBe('INFERRED');
     expect(res.classification.audience).toBe('INFERRED');
   });
+
+  it('manipula parametros nulos (null) defensivamente sem disparar exceção', () => {
+    expect(deriveBrandName(null, 'Bem-vindo à Loja Acme')).toBe('Loja Acme');
+    expect(deriveBrandName(null, null)).toBe('Sua Marca');
+
+    const pal = derivePalettePriority(null, null, null);
+    expect(pal).toBeDefined();
+    expect(pal.accent).toBe('#007AFF');
+
+    const classified = classifyInstagramData(null, null, null);
+    expect(classified).toBeDefined();
+    expect(classified.name).toBe('Sua Marca');
+    expect(classified.segment).toBe('Geral');
+    expect(classified.classification.name).toBe('NOT_FOUND');
+    expect(classified.classification.segment).toBe('NOT_FOUND');
+
+    expect(isOnboardingComplete(null)).toBe(false);
+  });
 });
