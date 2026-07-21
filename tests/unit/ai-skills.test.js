@@ -147,6 +147,42 @@ describe('runSkill', () => {
     expect(insert.mock.calls[0][0]).toMatchObject({ status: 'error', skill_id: 'teste' });
   });
 
+  // Bug de producao (2026-07-21): o editorial-planner falhou duas vezes com
+  // output_tokens batendo exatamente no teto. A resposta nao era invalida — ela
+  // tinha sido cortada, e repetir a mesma chamada dava o mesmo corte.
+  describe('resposta cortada no teto de tokens', () => {
+    const cortada = { content: '{"titulo":"Oi","itens":["a', usage: { completion_tokens: 4096 }, model: 'm', provider: 'deepseek', finishReason: 'length' };
+
+    it('diz que foi corte, nao que a resposta era invalida', async () => {
+      const { supabase, insert } = makeSupabase();
+      mocks.runText.mockResolvedValue(cortada);
+
+      await expect(runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() }))
+        .rejects.toThrow('resposta cortada no limite de');
+
+      expect(insert.mock.calls[0][0].error).toContain('cortada no limite de 4096');
+    });
+
+    it('a segunda tentativa vai com mais espaco, senao repete o mesmo corte', async () => {
+      const { supabase } = makeSupabase();
+      mocks.runText.mockResolvedValue(cortada);
+
+      await expect(runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() })).rejects.toThrow();
+
+      expect(mocks.runText.mock.calls[0][0].maxTokens).toBe(4096);
+      expect(mocks.runText.mock.calls[1][0].maxTokens).toBe(8000);
+    });
+
+    it('nao cresce o teto quando o problema foi a saida, nao o espaco', async () => {
+      const { supabase } = makeSupabase();
+      mocks.runText.mockResolvedValue({ content: 'lixo', usage: {}, model: 'm', provider: 'deepseek', finishReason: 'stop' });
+
+      await expect(runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() })).rejects.toThrow();
+
+      expect(mocks.runText.mock.calls[1][0].maxTokens).toBe(4096);
+    });
+  });
+
   // Custo tem que aparecer mesmo quando a chamada falha (RF-15).
   it('registra o custo quando o provedor derruba a chamada', async () => {
     const { supabase, insert } = makeSupabase();

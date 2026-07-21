@@ -42,7 +42,15 @@ describe('camada de provedores de texto', () => {
 
     const res = await runText({ system: 's', user: 'u' });
 
-    expect(res).toEqual({ content: 'oi', model: 'm', provider: 'deepseek', usage: {} });
+    expect(res).toEqual({ content: 'oi', model: 'm', provider: 'deepseek', usage: {}, finishReason: null });
+  });
+
+  // Quem chama precisa distinguir "resposta ruim" de "resposta cortada": uma se
+  // resolve com outro pedido, a outra com mais espaco.
+  it('repassa o motivo de parada do provedor', async () => {
+    mocks.deepseekChat.mockResolvedValue({ content: '{"a":', model: 'm', finishReason: 'length' });
+
+    expect((await runText({ system: 's', user: 'u' })).finishReason).toBe('length');
   });
 
   it('recusa provedor desconhecido em vez de cair em um padrao silencioso', async () => {

@@ -108,6 +108,33 @@ describe('skill editorial-planner', () => {
     expect(system).not.toContain('reel');
   });
 
+  // Bug de producao (2026-07-21): pedir 14 temas com 7 datas disponiveis e um
+  // item por data e um pedido impossivel, e a lista resultante estourava o teto
+  // de tokens — o usuario via "resposta nao era JSON".
+  describe('quantidade de temas', () => {
+    const comDatas = (n, postsPerWeek) => planPrompt({
+      strategy: { ...strategy, postsPerWeek },
+      availableDates: Array.from({ length: n }, (_, i) => `2026-07-2${i}`)
+    }).user;
+
+    it('nunca pede mais temas do que ha datas livres', () => {
+      expect(comDatas(3, 14)).toContain('Quantidade de temas a planejar: 3');
+    });
+
+    it('respeita a frequencia quando ela cabe na janela', () => {
+      expect(comDatas(7, 4)).toContain('Quantidade de temas a planejar: 4');
+    });
+
+    it('sem datas informadas, segue a frequencia da estrategia', () => {
+      expect(planPrompt({ strategy: { ...strategy, postsPerWeek: 5 } }).user).toContain('Quantidade de temas a planejar: 5');
+    });
+  });
+
+  // A semana inteira tem treze campos de texto por tema: teto curto corta o JSON.
+  it('reserva espaco de saida para a semana inteira', () => {
+    expect(editorialPlannerSkill.maxTokens).toBeGreaterThanOrEqual(8000);
+  });
+
   it('pede variacao de formato em vez de so post no feed', () => {
     const { system } = planPrompt();
 
