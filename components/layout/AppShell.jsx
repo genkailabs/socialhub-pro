@@ -1,9 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { isOnboardingComplete } from '@/lib/onboarding-helpers';
+import { GuidedOnboardingWizard } from '@/components/onboarding/guided/GuidedOnboardingWizard';
 
-export function AppShell({ children, brands, activeId, canAccessAICosts = false, accountEmail = '' }) {
+export function AppShell({ children, brands = [], activeId, activeKit = null, connectedPlatforms = {}, canAccessAICosts = false, accountEmail = '' }) {
   const [collapsed, setCollapsed] = useState(false);
 
   // Preferência de sidebar recolhida persiste como o tema (localStorage) — RF-20.
@@ -17,6 +19,22 @@ export function AppShell({ children, brands, activeId, canAccessAICosts = false,
       try { localStorage.setItem('sidebar-collapsed', next ? '1' : '0'); } catch {}
       return next;
     });
+  }
+
+  const activeBrand = brands.find((b) => b.id === activeId);
+  const needsOnboarding = activeId && activeKit && !isOnboardingComplete(activeKit);
+
+  if (needsOnboarding) {
+    return (
+      <div className="app-glow min-h-screen bg-app overflow-auto p-4 sm:p-6 lg:p-8">
+        <GuidedOnboardingWizard
+          brandId={activeId}
+          brandName={activeBrand?.name || 'Sua Marca'}
+          kit={activeKit}
+          connectedPlatforms={connectedPlatforms}
+        />
+      </div>
+    );
   }
 
   return (
