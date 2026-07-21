@@ -16,7 +16,8 @@ function fakeGraph() {
   return {
     publishInstagramImage: vi.fn().mockResolvedValue('img-1'),
     publishInstagramCarousel: vi.fn().mockResolvedValue('car-1'),
-    publishInstagramStory: vi.fn((args) => Promise.resolve(`story-${args.imageUrl}`)),
+    publishInstagramStory: vi.fn((args) => Promise.resolve(`story-${args.videoUrl || args.imageUrl}`)),
+    publishInstagramReel: vi.fn().mockResolvedValue('reel-1'),
     publishFacebookPhoto: vi.fn().mockResolvedValue('fb-1')
   };
 }
@@ -95,6 +96,23 @@ describe('publishPostTo', () => {
     expect(graph.publishInstagramStory.mock.calls.map((c) => c[0].imageUrl)).toEqual(['u1', 'u2', 'u3']);
     // O id devolvido é o do card que abre a sequência.
     expect(id).toBe('story-u1');
+  });
+
+  it('publica stories em vídeo corretamente', async () => {
+    const graph = fakeGraph();
+    const id = await publishPostTo({ platform: 'instagram', token: igToken, urls: ['u1.mp4', 'u2.jpg'], format: 'stories', graph, retryOptions });
+    expect(graph.publishInstagramStory).toHaveBeenCalledTimes(2);
+    expect(graph.publishInstagramStory.mock.calls[0][0].videoUrl).toBe('u1.mp4');
+    expect(graph.publishInstagramStory.mock.calls[0][0].isVideo).toBe(true);
+    expect(graph.publishInstagramStory.mock.calls[1][0].imageUrl).toBe('u2.jpg');
+    expect(id).toBe('story-u1.mp4');
+  });
+
+  it('publica reel corretamente', async () => {
+    const graph = fakeGraph();
+    const id = await publishPostTo({ platform: 'instagram', token: igToken, caption: 'my reel', urls: ['video.mp4'], format: 'reel', graph, retryOptions });
+    expect(id).toBe('reel-1');
+    expect(graph.publishInstagramReel).toHaveBeenCalledWith({ igId: 'ig1', token: 'tok', videoUrl: 'video.mp4', caption: 'my reel' });
   });
 
   // Mandar a sequência como carrossel colocaria o Story no feed.

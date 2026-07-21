@@ -21,16 +21,56 @@ async function graphPost(path: string, params: URLSearchParams) {
   return data;
 }
 
-// Story (MVP V2): arte estatica 1080x1920, uma publicacao por card, na ordem.
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function waitContainerReady(creationId: string, accessToken: string, tries = 20, delayMs = 3000) {
+  for (let i = 0; i < tries; i++) {
+    await sleep(delayMs);
+    const st = await (await fetch(`${GRAPH}/${creationId}?fields=status_code&access_token=${accessToken}`)).json();
+    if (st.status_code === 'FINISHED') return;
+    if (st.status_code === 'ERROR') throw new Error('A mídia não pôde ser processada pelo Instagram.');
+  }
+}
+
+// Story (MVP V2): arte estatica 1080x1920 ou video curto, uma publicacao por card, na ordem.
 // Story nao tem legenda — a Meta ignora `caption` em media_type=STORIES.
 async function publishInstagramStories(token: Record<string, string>, urls: string[]) {
   const ids: string[] = [];
   for (const url of urls) {
-    const container = await graphPost(`${token.platform_user_id}/media`, new URLSearchParams({ image_url: url, media_type: 'STORIES', access_token: token.access_token }));
+    const isVideo = !!url.match(/\.(mp4|mov)(\?.*)?$/i);
+    const params = new URLSearchParams({ media_type: 'STORIES', access_token: token.access_token });
+    if (isVideo) {
+      params.set('video_url', url);
+    } else {
+      params.set('image_url', url);
+    }
+    const container = await graphPost(`${token.platform_user_id}/media`, params);
+    
+    if (isVideo) {
+      await waitContainerReady(container.id, token.access_token, 20, 3000);
+    } else {
+      await waitContainerReady(container.id, token.access_token, 6, 1500);
+    }
+
     const published = await graphPost(`${token.platform_user_id}/media_publish`, new URLSearchParams({ creation_id: container.id, access_token: token.access_token }));
     ids.push(published.id);
   }
   return ids[0];
+}
+
+async function publishInstagramReels(token: Record<string, string>, caption: string, url: string, coverUrl?: string | null) {
+  const params = new URLSearchParams({
+    video_url: url,
+    media_type: 'REELS',
+    access_token: token.access_token
+  });
+  if (caption) params.set('caption', caption);
+  if (coverUrl) params.set('cover_url', coverUrl);
+
+  const container = await graphPost(`${token.platform_user_id}/media`, params);
+  await waitContainerReady(container.id, token.access_token, 20, 3000);
+  const published = await graphPost(`${token.platform_user_id}/media_publish`, new URLSearchParams({ creation_id: container.id, access_token: token.access_token }));
+  return published.id;
 }
 
 async function publishInstagram(token: Record<string, string>, caption: string, urls: string[]) {
@@ -78,19 +118,40 @@ Deno.serve(async (request) => {
         if (!token) throw new Error(`Token ativo ausente para ${platform}.`);
         // O formato decide COMO publicar: Story vertical postado como foto de
         // feed seria entregar coisa diferente da que foi aprovada.
+        const isReel = post.format === 'reel';
         const isStory = post.format === 'stories';
         if (isStory && platform !== 'instagram') throw new Error('Story so publica no Instagram.');
+        if (isReel && platform !== 'instagram') throw new Error('Reel so publica no Instagram.');
         const id = platform === 'instagram'
-          ? isStory
-            ? await publishInstagramStories(token, urls)
-            : await publishInstagram(token, post.content || '', urls)
+          ? isReel
+            ? await publishInstagramReels(token, post.content as string || '', urls[0], post.cover_url as string | null)
+            : isStory
+              ? await publishInstagramStories(token, urls)
+              : await publishInstagram(token, post.content as string || '', urls)
           : platform === 'facebook'
-            ? await publishFacebook(token, post.content || '', urls[0])
+            ? await publishFacebook(token, post.content as string || '', urls[0])
             : (() => { throw new Error(`Plataforma nao suportada: ${platform}`); })();
         posted.push({ platform, id });
       }
       const externalPostId = posted[0]?.id || null;
       await supabase.from('posts').update({ status: 'published', published_at: new Date().toISOString(), publishing_started_at: null, external_post_id: externalPostId, publication_attempt: { source: 'supabase_edge_function', posted } }).eq('id', post.id).eq('status', 'publishing');
+      
+      try {
+        const toRemove = [...urls];
+        if (post.cover_url && typeof post.cover_url === 'string') {
+          toRemove.push(post.cover_url);
+        }
+        const tempPaths = toRemove
+          .filter(u => u.includes('/storage/v1/object/public/media/temp/'))
+          .map(u => u.split('/storage/v1/object/public/media/')[1]);
+        
+        if (tempPaths.length > 0) {
+          await supabase.storage.from('media').remove(tempPaths);
+        }
+      } catch (err) {
+        // ignore errors on cleanup
+      }
+
       await supabase.from('publication_job_logs').insert({ run_id: runId, post_id: post.id, status: 'success', duration_ms: Date.now() - itemStarted, response: { posted } });
       results.push({ id: post.id, status: 'published' });
     } catch (error) {
