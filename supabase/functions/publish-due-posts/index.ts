@@ -146,7 +146,10 @@ Deno.serve(async (request) => {
           .map(u => u.split('/storage/v1/object/public/media/')[1]);
         
         if (tempPaths.length > 0) {
-          await supabase.storage.from('media').remove(tempPaths);
+          const { error: removeErr } = await supabase.storage.from('media').remove(tempPaths);
+          if (removeErr) {
+            console.error('Error removing media from post publishing:', removeErr);
+          }
         }
       } catch (err) {
         // ignore errors on cleanup
@@ -166,6 +169,24 @@ Deno.serve(async (request) => {
 
   // Cleanup orphaned temp media (age > 24h)
   try {
+    const { data: activePosts, error: activeError } = await supabase
+      .from('posts')
+      .select('media_url, media_urls, cover_url')
+      .in('status', ['scheduled', 'publishing']);
+
+    if (activeError) {
+      console.error('Error fetching active posts for cleanup:', activeError);
+    }
+
+    const activeReferences: string[] = [];
+    for (const post of activePosts || []) {
+      if (post.media_url) activeReferences.push(post.media_url as string);
+      if (post.cover_url) activeReferences.push(post.cover_url as string);
+      if (post.media_urls && Array.isArray(post.media_urls)) {
+        activeReferences.push(...(post.media_urls as string[]).filter(Boolean));
+      }
+    }
+
     const { data: rootItems } = await supabase.storage.from('media').list('temp');
     if (rootItems) {
       const pathsToRemove: string[] = [];
@@ -187,21 +208,8 @@ Deno.serve(async (request) => {
         
         if (ageHours >= 24) {
           const filePath = folderPath ? `temp/${folderPath}/${item.name}` : `temp/${item.name}`;
-          const { data: activePosts } = await supabase
-            .from('posts')
-            .select('media_url, media_urls, cover_url')
-            .in('status', ['scheduled', 'publishing']);
-            
-          let isReferenced = false;
-          for (const post of activePosts || []) {
-            if (post.media_url?.includes(filePath)) isReferenced = true;
-            if (post.cover_url?.includes(filePath)) isReferenced = true;
-            if (post.media_urls && Array.isArray(post.media_urls)) {
-              for (const url of post.media_urls) {
-                if (typeof url === 'string' && url.includes(filePath)) isReferenced = true;
-              }
-            }
-          }
+          
+          const isReferenced = activeReferences.some(ref => typeof ref === 'string' && ref.includes(filePath));
           
           if (!isReferenced) pathsToRemove.push(filePath);
         }
@@ -212,7 +220,11 @@ Deno.serve(async (request) => {
       if (pathsToRemove.length > 0) {
         const chunkSize = 50;
         for (let i = 0; i < pathsToRemove.length; i += chunkSize) {
-          await supabase.storage.from('media').remove(pathsToRemove.slice(i, i + chunkSize));
+          const chunk = pathsToRemove.slice(i, i + chunkSize);
+          const { error: removeErr } = await supabase.storage.from('media').remove(chunk);
+          if (removeErr) {
+            console.error('Error removing chunk in temp cleanup:', removeErr);
+          }
         }
       }
     }
