@@ -7,6 +7,7 @@ import {
 import { ComposerTypeSelector } from './ComposerTypeSelector';
 import { StoryComposer } from './StoryComposer';
 import { ReelComposer } from './ReelComposer';
+import { DynamicPreview } from './DynamicPreview';
 import { createClient } from '@/lib/supabase/client';
 import { publishNow, schedulePost, saveDraft, submitForApproval } from '@/lib/posts-actions';
 import { composeCaption, normalizeHashtags, IG_CAROUSEL_MAX, IG_CAPTION_MAX } from '@/lib/posts-media';
@@ -266,38 +267,16 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
 
       {/* prévia estilo Instagram */}
       <div className="lg:sticky lg:top-4">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted">Prévia</p>
-        <div className="overflow-hidden rounded-2xl glass shadow-soft">
-          <div className="flex items-center gap-2 p-3">
-            <span className="h-7 w-7 rounded-full bg-gradient-to-br from-accent to-accent-soft" />
-            <span className="text-xs font-bold text-ink">{brandName}</span>
-            {media.length > 1 && <span className="ml-auto rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold text-muted">{slide + 1}/{media.length}</span>}
-          </div>
-          <div className="relative aspect-square w-full bg-surface-2">
-            {view
-              ? (view.isVideo 
-                  ? <video src={view.url} className="h-full w-full object-cover" muted autoPlay loop playsInline />
-                  : <img src={view.url} alt="prévia" className="h-full w-full object-cover" />
-                )
-              : <div className="grid h-full place-items-center text-[11px] text-faint">A imagem aparece aqui</div>}
-            {media.length > 1 && (
-              <>
-                <button onClick={() => setSlide((s) => Math.max(0, s - 1))} className="absolute left-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-black/40 text-white backdrop-blur-sm"><ChevronLeft className="h-4 w-4" /></button>
-                <button onClick={() => setSlide((s) => Math.min(media.length - 1, s + 1))} className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-black/40 text-white backdrop-blur-sm"><ChevronRight className="h-4 w-4" /></button>
-                <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
-                  {media.map((_, i) => <span key={i} className={`h-1.5 w-1.5 rounded-full ${i === slide ? 'bg-white' : 'bg-white/50'}`} />)}
-                </div>
-              </>
-            )}
-          </div>
-          <div className="space-y-1.5 p-3">
-            <div className="flex gap-3 text-ink"><Heart className="h-4 w-4" /><MessageCircle className="h-4 w-4" /><Send className="h-4 w-4" /><Bookmark className="ml-auto h-4 w-4" /></div>
-            <p className="whitespace-pre-wrap text-xs text-ink">
-              <span className="font-bold">{brandName}</span> {caption || 'A legenda aparece aqui…'}
-              {tags.length > 0 && <span className="text-accent"> {tags.join(' ')}</span>}
-            </p>
-          </div>
-        </div>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted">Prévia interativa</p>
+        <DynamicPreview
+          format={format}
+          media={media}
+          slide={slide}
+          onSlideChange={setSlide}
+          caption={caption}
+          brandName={brandName}
+          cover={cover}
+        />
       </div>
     </div>
   );
