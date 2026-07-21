@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   publishInstagramImage: vi.fn(),
   publishInstagramCarousel: vi.fn(),
   publishInstagramComment: vi.fn(),
+  publishInstagramStory: vi.fn(),
   recordDnaSignal: vi.fn()
 }));
 
@@ -12,7 +13,8 @@ vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
 vi.mock('@/lib/meta/graph', () => ({
   publishInstagramImage: mocks.publishInstagramImage,
   publishInstagramCarousel: mocks.publishInstagramCarousel,
-  publishInstagramComment: mocks.publishInstagramComment
+  publishInstagramComment: mocks.publishInstagramComment,
+  publishInstagramStory: mocks.publishInstagramStory
 }));
 vi.mock('@/lib/dna-signals', () => ({ recordDnaSignal: mocks.recordDnaSignal }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -24,8 +26,13 @@ function makeSupabase(insertResult) {
   const insert = vi.fn(() => ({
     select: () => ({ maybeSingle: vi.fn().mockResolvedValue(insertResult) })
   }));
-  const supabase = {
+    const removeMock = vi.fn().mockResolvedValue({ data: {}, error: null });
+    const storageFromMock = vi.fn().mockReturnValue({ remove: removeMock });
+    const supabase = {
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
+    storage: {
+      from: storageFromMock
+    },
     from: vi.fn((table) => {
       if (table === 'social_tokens') {
         return {
@@ -91,5 +98,32 @@ describe('publishNow', () => {
     // Mas o usuário precisa saber que o registro falhou.
     expect(res.warning).toContain('não foi possível registrar');
     expect(res.warning).toContain('column posts.media_urls does not exist');
+  });
+
+  it('publica stories (vídeo) e remove do bucket temporário', async () => {
+    const { supabase, insert } = makeSupabase({ data: { id: 'post-story' }, error: null });
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.publishInstagramStory.mockResolvedValue('ig-story-1');
+
+    const res = await publishNow({
+      ...payload,
+      format: 'stories',
+      imageUrls: ['temp/brand-1/123.mp4']
+    });
+
+    expect(res).toEqual({ ok: true, id: 'ig-story-1' });
+    expect(mocks.publishInstagramStory).toHaveBeenCalledWith(expect.objectContaining({
+      isVideo: true,
+      imageUrl: 'temp/brand-1/123.mp4'
+    }));
+    
+    expect(supabase.storage.from).toHaveBeenCalledWith('media');
+    const storageMock = supabase.storage.from('media');
+    expect(storageMock.remove).toHaveBeenCalledWith(['temp/brand-1/123.mp4']);
+    
+    expect(insert.mock.calls[0][0]).toMatchObject({
+      format: 'stories',
+      media_url: 'temp/brand-1/123.mp4'
+    });
   });
 });
