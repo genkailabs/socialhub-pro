@@ -133,7 +133,7 @@ export function DiagnosticoPanel({ brandId, inicial }) {
       </div>
 
       {analysis && (
-        <div className="flex flex-col items-center gap-6 rounded-[24px] bg-[#1c1c1e] p-6 sm:flex-row sm:justify-between">
+        <div className="flex flex-col items-center gap-6 rounded-[24px] bg-[#211E1B] p-6 sm:flex-row sm:justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/50">Confianca da analise</p>
             <p className={`mt-2 font-mono text-[40px] font-bold leading-none ${confianca.cor === 'text-success' ? 'text-success' : confianca.cor === 'text-warning' ? 'text-warning' : 'text-white'}`}>
@@ -152,7 +152,7 @@ export function DiagnosticoPanel({ brandId, inicial }) {
           <div className="relative shrink-0">
             <svg width="112" height="112" viewBox="0 0 96 96" className="-rotate-90">
               <circle cx="48" cy="48" r="40" fill="none" stroke="#3A3A3C" strokeWidth="10" />
-              <circle cx="48" cy="48" r="40" fill="none" stroke="#007AFF" strokeWidth="10" strokeLinecap="round"
+              <circle cx="48" cy="48" r="40" fill="none" stroke="rgb(var(--c-accent))" strokeWidth="10" strokeLinecap="round"
                 strokeDasharray={circ} strokeDashoffset={circ - (confianca.pct / 100) * circ} />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">

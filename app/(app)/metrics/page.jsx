@@ -27,7 +27,7 @@ function getGrowth(history) {
 }
 
 function ConnectionPrompt({ platform, icon: Icon, children }) {
-  return <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-6"><div className="flex items-start gap-4"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-2 text-muted"><Icon className="h-5 w-5" /></span><div><h2 className="text-base font-bold text-ink">{platform} ainda nao conectado</h2><p className="mt-1 text-sm leading-relaxed text-muted">{children}</p><Link href="/connections" className="mt-4 inline-flex rounded-lg bg-accent px-3.5 py-2 text-xs font-bold text-black">Conectar {platform}</Link></div></div></div>;
+  return <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-6"><div className="flex items-start gap-4"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-2 text-muted"><Icon className="h-5 w-5" /></span><div><h2 className="text-base font-bold text-ink">{platform} ainda nao conectado</h2><p className="mt-1 text-sm leading-relaxed text-muted">{children}</p><Link href="/connections" className="mt-4 inline-flex rounded-lg bg-accent px-3.5 py-2 text-xs font-bold text-white">Conectar {platform}</Link></div></div></div>;
 }
 
 function InstagramReport({ instagram, history, activeSection }) {

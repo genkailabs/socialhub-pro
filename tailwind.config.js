@@ -8,9 +8,9 @@ module.exports = {
     extend: {
       colors: {
         app: c('--c-app'),
-        surface: { DEFAULT: c('--c-surface'), 2: c('--c-surface-2') },
+        surface: { DEFAULT: c('--c-surface'), 2: c('--c-surface-2'), 3: c('--c-surface-3') },
         line: { DEFAULT: c('--c-line'), strong: c('--c-line-strong') },
-        ink: c('--c-ink'),
+        ink: { DEFAULT: c('--c-ink'), 2: c('--c-ink-2') },
         muted: c('--c-muted'),
         faint: c('--c-faint'),
         accent: {
@@ -19,20 +19,22 @@ module.exports = {
           tint: c('--c-accent-tint'),
           ink: c('--c-accent-ink')
         },
-        success: c('--c-success'),
+        success: { DEFAULT: c('--c-success'), tint: c('--c-success-tint') },
         warning: c('--c-warning'),
         danger: c('--c-danger'),
         info: c('--c-info')
       },
       boxShadow: {
-        soft: '0 1px 3px rgb(var(--c-shadow) / 0.08), 0 8px 24px rgb(var(--c-shadow) / 0.12)',
-        lift: '0 4px 14px rgb(var(--c-shadow) / 0.12), 0 28px 60px rgb(var(--c-shadow) / 0.22)',
+        // Sombra do redesign: elevação sutil no light; no dark, só borda translúcida (sem sombra difusa)
+        soft: '0 8px 24px -12px rgb(var(--c-shadow) / 0.08)',
+        lift: '0 12px 32px -14px rgb(var(--c-shadow) / 0.12)',
         glow: '0 0 0 4px rgb(var(--c-accent) / 0.18)'
       },
-      borderRadius: { lg: '16px', xl: '20px', '2xl': '24px', '3xl': '32px', '4xl': '40px' },
+      // Escala de raios corrigida (menos arredondado). Cards grandes 20, médios 16-18, pequenos 9-14.
+      borderRadius: { lg: '12px', xl: '16px', '2xl': '18px', '3xl': '20px', '4xl': '24px' },
       fontFamily: {
         sans: [
-          'DM Sans', 'Outfit', 'Geist', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text',
+          'Outfit', 'DM Sans', 'Geist', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text',
           'Segoe UI', 'Roboto', 'system-ui', 'sans-serif'
         ],
         display: ['Outfit', 'DM Sans', 'Geist', 'SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],

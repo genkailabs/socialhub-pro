@@ -104,7 +104,7 @@ export function PipelineProgress({ pipeline }) {
           </p>
           <Link
             href={next.href}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-black transition-all hover:bg-accent-soft shadow-md shadow-accent/20"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white transition-all hover:bg-accent-ink shadow-md shadow-accent/20"
           >
             {next.cta} <ArrowRight className="h-3.5 w-3.5" />
           </Link>

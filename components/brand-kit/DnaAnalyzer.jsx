@@ -31,7 +31,7 @@ export function DnaAnalyzer({ brandId, brandName, kit, savedReport }) {
         <p className="text-sm font-bold text-ink">Fontes para a IA analisar</p>
 
         <label className="flex cursor-pointer items-center gap-2.5">
-          <input type="checkbox" checked={wantIg} onChange={(e) => setWantIg(e.target.checked)} className="h-4 w-4 accent-[#007AFF]" />
+          <input type="checkbox" checked={wantIg} onChange={(e) => setWantIg(e.target.checked)} className="h-4 w-4 accent-accent" />
           <Instagram className="h-4 w-4 text-accent" />
           <span className="text-sm text-ink">Analisar meu Instagram (bio + últimas legendas)</span>
         </label>

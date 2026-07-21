@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Coins, Sparkles, AlertCircle, CheckCircle2, Cpu, Image as ImageIcon, DollarSign, Layers, ExternalLink } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Card } from '@/components/ui/Card';
+import { SpendTrend } from '@/components/reports/SpendTrend';
 import { getAICostsSummary } from '@/lib/ai-costs-data';
 import { actionLabel, ACTION_OPTIONS, COST_PERIODS } from '@/lib/ai-costs-labels';
 import { formatUsd } from '@/lib/ai/cost';
@@ -97,6 +98,9 @@ export default async function AICostsPage({ searchParams }) {
           Detalhamento em tempo real do uso do <strong className="text-ink">DeepSeek (texto & prompt)</strong> e do <strong className="text-ink">Pollinations (imagens & pesquisa)</strong>.
         </p>
       </div>
+
+      {/* Gasto diário (novo no redesign) */}
+      <SpendTrend daily={summary.daily} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

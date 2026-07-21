@@ -91,7 +91,7 @@ export function FollowerTrend({ data, platform = 'Instagram' }) {
         </svg>
 
         {lastDate && (
-          <div className="absolute -top-1 flex flex-col gap-0.5 rounded-xl bg-[#1c1c1e] px-2.5 py-1.5 shadow-lg" style={{ left: `calc(2.5rem + ${(lastPoint[0] / W) * 100}% - 45px)` }}>
+          <div className="absolute -top-1 flex flex-col gap-0.5 rounded-xl bg-[#211E1B] px-2.5 py-1.5 shadow-lg" style={{ left: `calc(2.5rem + ${(lastPoint[0] / W) * 100}% - 45px)` }}>
             <span className="text-[8px] font-semibold text-white/60">{DOW[lastDate.getUTCDay()].toUpperCase()}, {lastDate.getUTCDate()}</span>
             <span className="text-[10px] font-bold text-white">{values[values.length - 1]} seguidores</span>
           </div>

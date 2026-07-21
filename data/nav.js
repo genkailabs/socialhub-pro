@@ -1,21 +1,32 @@
-import { LayoutDashboard, GitBranch, Handshake, Sparkles, Coins, Users, CheckSquare, BarChart3, Stethoscope, CalendarRange, Wand2 } from 'lucide-react';
+import {
+  LayoutDashboard, Stethoscope, Compass, CalendarRange, PenLine, Sparkles,
+  CalendarDays, CheckSquare, BarChart3, Coins, Plug
+} from 'lucide-react';
 
+// Navegação agrupada por fluxo de trabalho (redesign 2026-07):
+// Criar → Publicar → Analisar. Dashboard fica no topo, isolado.
+// Conexões é configuração (não faz parte do fluxo diário): peso reduzido,
+// ancorado logo acima do rodapé de conta (group.isolated).
 export const NAV_GROUPS = [
-  { label: 'Modulos Principais', items: [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/instagram/diagnostico', label: 'Diagnostico', icon: Stethoscope },
-    { href: '/strategy', label: 'Estrategia', icon: Wand2 },
-    { href: '/planning', label: 'Planejamento', icon: CalendarRange },
-    { href: '/composer', label: 'Composer (Postar)', icon: GitBranch },
-    { href: '/calendar', label: 'Calendario e Links', icon: Handshake },
-    { href: '/brand-kit', label: 'Brand Kit e DNA', icon: Sparkles }
+  { items: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }
   ]},
-  { label: 'Administracao', items: [
-    { href: '/approvals', label: 'Aprovacoes', icon: CheckSquare },
-    { href: '/connections', label: 'Conexoes', icon: Users },
+  { label: 'Criar', items: [
+    { href: '/instagram/diagnostico', label: 'Diagnostico', icon: Stethoscope },
+    { href: '/strategy', label: 'Estrategia', icon: Compass },
+    { href: '/planning', label: 'Planejamento', icon: CalendarRange },
+    { href: '/composer', label: 'Composer', icon: PenLine },
+    { href: '/brand-kit', label: 'Brand Kit', icon: Sparkles }
+  ]},
+  { label: 'Publicar', items: [
+    { href: '/calendar', label: 'Calendario e Links', icon: CalendarDays },
+    { href: '/approvals', label: 'Aprovacoes', icon: CheckSquare }
+  ]},
+  { label: 'Analisar', items: [
+    { href: '/metrics', label: 'Relatorios', icon: BarChart3 },
     { href: '/ai-costs', label: 'Custos da IA', icon: Coins, adminOnly: true }
   ]},
-  { label: 'Relatorios', items: [
-    { href: '/metrics', label: 'Relatorios', icon: BarChart3 }
+  { isolated: true, items: [
+    { href: '/connections', label: 'Conexoes', icon: Plug }
   ]}
 ];

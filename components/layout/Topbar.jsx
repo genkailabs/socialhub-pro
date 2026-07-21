@@ -1,18 +1,28 @@
 'use client';
 import { useState } from 'react';
-import { Search, Bell } from 'lucide-react';
+import { Search, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { BrandSwitcher } from './BrandSwitcher';
 import { MobileNav } from './MobileNav';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { signOut } from '@/app/login/actions';
 
-export function Topbar({ brands, activeId, canAccessAICosts = false, accountEmail = '' }) {
+export function Topbar({ brands, activeId, canAccessAICosts = false, accountEmail = '', onToggleSidebar, collapsed = false }) {
   const [searchFocused, setSearchFocused] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <MobileNav canAccessAICosts={canAccessAICosts} accountEmail={accountEmail} />
+        {/* Recolher/expandir sidebar — só desktop (no mobile o menu é gaveta) */}
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          className="hidden h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface-2 text-muted transition-colors hover:border-accent/40 hover:text-ink md:flex"
+        >
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
         <BrandSwitcher brands={brands} activeId={activeId} />
       </div>
 

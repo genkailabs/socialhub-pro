@@ -5,43 +5,53 @@
 @tailwind utilities;
 
 :root {
-  --c-app: 242 242 247;
+  /* Fundo neutro quente (não lavanda) — handoff redesign 2026-07 */
+  --c-app: 247 246 243;
   --c-surface: 255 255 255;
-  --c-surface-2: 242 242 247;
-  --c-line: 209 209 214;
-  --c-line-strong: 199 199 204;
-  --c-ink: 28 28 30;
-  --c-muted: 142 142 147;
-  --c-faint: 142 142 147;
-  --c-accent: 0 122 255;
-  --c-accent-soft: 0 122 255;
-  --c-accent-tint: 230 243 255;
-  --c-accent-ink: 0 90 190;
-  --c-success: 52 199 89;
-  --c-warning: 255 149 0;
-  --c-danger: 255 59 48;
-  --c-info: 0 122 255;
-  --c-shadow: 28 28 30;
+  --c-surface-2: 240 239 234;
+  --c-surface-3: 232 230 223;
+  --c-line: 230 227 220;
+  --c-line-strong: 216 212 203;
+  --c-ink: 33 30 27;
+  --c-ink-2: 74 70 64;
+  --c-muted: 138 133 124;
+  --c-faint: 138 133 124;
+  --c-accent: 79 70 229;      /* indigo #4F46E5 */
+  --c-accent-soft: 129 122 236;
+  --c-accent-tint: 236 235 252;
+  --c-accent-ink: 55 48 163;  /* indigo-800 */
+  --c-amber: 217 119 6;       /* série secundária de gráfico #D97706 */
+  --c-success: 22 163 74;
+  --c-success-tint: 231 248 236;
+  --c-warning: 217 119 6;
+  --c-danger: 225 29 72;      /* #E11D48 */
+  --c-info: 79 70 229;
+  --c-shadow: 33 30 27;
   color-scheme: light;
 }
 
 .dark {
-  --c-app: 28 28 30;
-  --c-surface: 44 44 46;
-  --c-surface-2: 58 58 60;
-  --c-line: 72 72 74;
-  --c-line-strong: 99 99 102;
-  --c-ink: 255 255 255;
-  --c-muted: 174 174 178;
-  --c-faint: 142 142 147;
-  --c-accent: 10 132 255;
-  --c-accent-soft: 100 210 255;
-  --c-accent-tint: 0 64 128;
-  --c-accent-ink: 255 255 255;
-  --c-success: 48 209 88;
-  --c-warning: 255 159 10;
-  --c-danger: 255 69 58;
-  --c-info: 10 132 255;
+  /* Grafite, nunca preto puro */
+  --c-app: 24 23 26;
+  --c-surface: 33 31 34;
+  --c-surface-2: 40 38 42;
+  --c-surface-3: 49 46 52;
+  --c-line: 58 55 62;
+  --c-line-strong: 76 72 80;
+  --c-ink: 243 242 240;
+  --c-ink-2: 190 186 180;
+  --c-muted: 143 139 133;
+  --c-faint: 143 139 133;
+  --c-accent: 139 140 240;    /* indigo claro #8B8CF0 */
+  --c-accent-soft: 165 166 244;
+  --c-accent-tint: 46 43 85;
+  --c-accent-ink: 226 226 252;
+  --c-amber: 245 158 11;
+  --c-success: 74 222 128;
+  --c-success-tint: 22 44 33;
+  --c-warning: 245 158 11;
+  --c-danger: 251 113 133;
+  --c-info: 139 140 240;
   --c-shadow: 0 0 0;
   color-scheme: dark;
 }
@@ -50,7 +60,7 @@
   body {
     background-color: rgb(var(--c-app));
     color: rgb(var(--c-ink));
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 }
@@ -70,8 +80,8 @@
   box-shadow: 0 0 0 1px rgb(var(--c-accent) / 0.2), 0 10px 30px -10px rgb(var(--c-accent) / 0.28);
 }
 
-.dark .font-theme {
-  font-family: 'DM Sans', system-ui, sans-serif;
+.font-theme {
+  font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
 }
 
 @keyframes socialhub-loader {

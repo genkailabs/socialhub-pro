@@ -43,18 +43,26 @@ function Pilares({ pillars }) {
     <div>
       <h3 className="text-base font-bold tracking-tight text-ink">Pilares que vao orientar o conteudo</h3>
       <p className="mt-0.5 text-[11px] text-muted">Cada conteudo deve reforcar pelo menos um deles.</p>
+      {/* Sistema uniforme: índice mono + barra de % do conteúdo (sem card escuro alternado) */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {pillars.map((p, i) => {
-          const dark = i % 3 === 2;
-          return (
-            <div key={i} className={`rounded-[22px] p-5 ${dark ? 'bg-[#1c1c1e]' : 'border border-line bg-surface'}`}>
-              <p className={`font-mono text-xs font-bold ${dark ? 'text-success' : 'text-accent'}`}>{String(i + 1).padStart(2, '0')}</p>
-              <p className={`mt-2 text-[15px] font-bold ${dark ? 'text-white' : 'text-ink'}`}>{p.name}</p>
-              <p className={`mt-2.5 text-xs leading-relaxed ${dark ? 'text-white/60' : 'text-muted'}`}>{p.description}</p>
-              <p className={`mt-4 text-[11px] font-semibold ${dark ? 'text-success' : 'text-accent'}`}>{p.share}% do conteudo</p>
-            </div>
-          );
-        })}
+        {pillars.map((p, i) => (
+          <div key={i} className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
+            <p className="font-mono text-xs font-bold text-accent">{String(i + 1).padStart(2, '0')}</p>
+            <p className="mt-2 text-[15px] font-bold text-ink">{p.name}</p>
+            <p className="mt-2.5 text-xs leading-relaxed text-muted">{p.description}</p>
+            {typeof p.share === 'number' && (
+              <div className="mt-4">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted">do conteúdo</span>
+                  <span className="font-mono text-[11px] font-semibold tabular-nums text-accent">{p.share}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                  <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${Math.min(100, p.share)}%` }} />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

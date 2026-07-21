@@ -1,5 +1,5 @@
 import { Check, RefreshCw, Lock, ArrowUpRight, AlertTriangle } from 'lucide-react';
-import { platformById, platformGradient, connectHref } from '@/data/platforms';
+import { platformById, connectHref } from '@/data/platforms';
 import { needsReconnect } from '@/lib/social-tokens';
 
 export function PlatformCard({ platformId, connected, activeBrandId }) {
@@ -8,7 +8,6 @@ export function PlatformCard({ platformId, connected, activeBrandId }) {
   const Icon = platform.icon;
   const soon = !platform.integrated;
   const canConnect = platform.integrated && activeBrandId;
-  const gradient = platformGradient(platform);
   const oauthHref = connectHref(platform, activeBrandId);
 
   // Um token vencido não é "ao vivo": a publicação vai falhar. Avisar antes é o
@@ -27,41 +26,34 @@ export function PlatformCard({ platformId, connected, activeBrandId }) {
           : 'border-line'
       }`}
     >
-      {/* faixa de marca */}
-      <div className="relative h-16 overflow-hidden">
-        <div
-          className={`absolute inset-0 transition-all duration-500 ease-emphasized ${
-            soon ? 'opacity-70 grayscale-[.7] group-hover:grayscale-0 group-hover:opacity-100' : ''
-          }`}
-          style={{ backgroundImage: gradient }}
-        />
-        {/* brilho diagonal no hover */}
-        <div className="pointer-events-none absolute -inset-x-8 -top-16 h-24 rotate-12 bg-white/20 opacity-0 blur-xl transition-opacity duration-500 group-hover:opacity-100" />
+      {/* Cabeçalho neutro — a marca aparece só no ícone (fio de cor no topo), consistente com o resto do sistema */}
+      <div className="relative h-14 overflow-hidden bg-surface-2">
+        <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: soon ? undefined : platform.color }} />
 
         <div className="absolute right-3 top-3">
           {alerta ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${quebrado ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
               <AlertTriangle className="h-3 w-3" aria-hidden="true" /> {quebrado ? 'reconecte' : 'expira em breve'}
             </span>
           ) : connected ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
-              <span className="live-dot h-1.5 w-1.5 rounded-full bg-white" /> ao vivo
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
+              <span className="live-dot h-1.5 w-1.5 rounded-full bg-success" /> ao vivo
             </span>
           ) : soon ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[10px] font-bold text-white/90 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-[10px] font-bold text-muted">
               <Lock className="h-3 w-3" /> Em breve
             </span>
           ) : (
-            <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+            <span className="rounded-full border border-line bg-surface px-2 py-0.5 text-[10px] font-bold text-muted">
               Disponível
             </span>
           )}
         </div>
 
-        {/* tile do ícone, atravessa a faixa */}
+        {/* tile do ícone, atravessa o cabeçalho */}
         <div className="absolute -bottom-5 left-4">
           <span
-            className="grid h-12 w-12 place-items-center rounded-xl border border-white/60 bg-white text-ink shadow-lift dark:border-white/10 dark:bg-surface-2"
+            className="grid h-12 w-12 place-items-center rounded-xl border border-line bg-surface text-ink shadow-soft"
             style={{ color: soon ? undefined : platform.color }}
           >
             <Icon className="h-6 w-6" />
@@ -120,8 +112,7 @@ export function PlatformCard({ platformId, connected, activeBrandId }) {
           ) : canConnect ? (
             <a
               href={oauthHref}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[11px] font-extrabold text-white shadow-soft transition-transform hover:scale-[1.02]"
-              style={{ backgroundImage: gradient }}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent py-2 text-[11px] font-extrabold text-white shadow-soft transition-colors hover:bg-accent-ink"
             >
               Conectar via OAuth <ArrowUpRight className="h-3.5 w-3.5" />
             </a>
