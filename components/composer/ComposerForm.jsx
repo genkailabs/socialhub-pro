@@ -40,14 +40,19 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
   const composedLen = composeCaption(caption, hashtags).length;
 
   function handleFormatChange(newFormat) {
-    if (format === 'stories' && newFormat !== 'stories') {
-      if (media.some(m => m.isVideo)) {
-        setMedia([]);
+    if (newFormat === 'image') {
+      if (media.some(m => m.isVideo) || media.length > 1) {
+        setMedia(cur => cur.filter(m => !m.isVideo).slice(0, 1));
         setSlide(0);
       }
-    } else if (newFormat === 'stories' && format !== 'stories') {
+    } else if (newFormat === 'carousel') {
+      if (media.some(m => m.isVideo)) {
+        setMedia(cur => cur.filter(m => !m.isVideo));
+        setSlide(0);
+      }
+    } else if (newFormat === 'stories' || newFormat === 'reel') {
       if (media.length > 1) {
-        setMedia(media.slice(0, 1));
+        setMedia([media[0]]);
         setSlide(0);
       }
     }
@@ -168,7 +173,7 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
             {format !== 'stories' && <span className="font-normal text-faint"> · 1 imagem ou carrossel (2–{IG_CAROUSEL_MAX})</span>}
           </label>
           {format === 'stories' ? (
-            <StoryComposer media={media} onAddFiles={addFiles} onRemove={() => removeAt(0)} />
+            <StoryComposer media={media} onAddFiles={addFiles} onRemove={() => { setMedia([]); setSlide(0); }} />
           ) : (
             <>
               {media.length > 0 && (
