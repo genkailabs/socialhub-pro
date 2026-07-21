@@ -163,5 +163,62 @@ Deno.serve(async (request) => {
     }
   }
   await supabase.from('publication_job_logs').insert({ run_id: runId, status: 'summary', duration_ms: Date.now() - started, response: { processed: results.length, results } });
+
+  // Cleanup orphaned temp media (age > 24h)
+  try {
+    const { data: rootItems } = await supabase.storage.from('media').list('temp');
+    if (rootItems) {
+      const pathsToRemove: string[] = [];
+      const checkItem = async (folderPath: string, item: any) => {
+        if (!item.metadata || item.id === null) {
+          const subPath = folderPath ? `${folderPath}/${item.name}` : item.name;
+          const { data: subItems } = await supabase.storage.from('media').list(`temp/${subPath}`);
+          if (subItems) {
+            for (const subItem of subItems) await checkItem(subPath, subItem);
+          }
+          return;
+        }
+        
+        const fileDateStr = item.created_at || item.updated_at;
+        if (!fileDateStr) return;
+        
+        const fileDate = new Date(fileDateStr).getTime();
+        const ageHours = (Date.now() - fileDate) / (1000 * 60 * 60);
+        
+        if (ageHours >= 24) {
+          const filePath = folderPath ? `temp/${folderPath}/${item.name}` : `temp/${item.name}`;
+          const { data: activePosts } = await supabase
+            .from('posts')
+            .select('media_url, media_urls, cover_url')
+            .in('status', ['scheduled', 'publishing']);
+            
+          let isReferenced = false;
+          for (const post of activePosts || []) {
+            if (post.media_url?.includes(filePath)) isReferenced = true;
+            if (post.cover_url?.includes(filePath)) isReferenced = true;
+            if (post.media_urls && Array.isArray(post.media_urls)) {
+              for (const url of post.media_urls) {
+                if (typeof url === 'string' && url.includes(filePath)) isReferenced = true;
+              }
+            }
+          }
+          
+          if (!isReferenced) pathsToRemove.push(filePath);
+        }
+      };
+
+      for (const item of rootItems) await checkItem('', item);
+      
+      if (pathsToRemove.length > 0) {
+        const chunkSize = 50;
+        for (let i = 0; i < pathsToRemove.length; i += chunkSize) {
+          await supabase.storage.from('media').remove(pathsToRemove.slice(i, i + chunkSize));
+        }
+      }
+    }
+  } catch (cleanupErr) {
+    console.error('Failed to cleanup temp media:', cleanupErr);
+  }
+
   return json({ ok: true, runId, results });
 });
