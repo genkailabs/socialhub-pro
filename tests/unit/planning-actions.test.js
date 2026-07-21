@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -331,10 +331,17 @@ describe('replacePlanItem', () => {
 });
 
 describe('generateWeekPlan', () => {
+  // A janela comeca HOJE (§1) e dia sem horario viavel sai da lista. Sem fixar
+  // o relogio, o fixture de data viraria passado sozinho e o teste quebraria no
+  // dia seguinte sem ninguem ter mexido no codigo.
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-20T12:00:00.000Z')); // 09:00 em Sao Paulo
     vi.clearAllMocks();
     mocks.summarizeDnaSignals.mockResolvedValue(null);
   });
+
+  afterEach(() => vi.useRealTimers());
 
   function regenerationSupabase({ previousIdeas = [], newInsertError = null, updatePlanError = null }) {
     const deleteStatus = vi.fn().mockResolvedValue({ error: null });

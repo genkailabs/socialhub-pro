@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -107,7 +107,12 @@ function workflowSupabase() {
 }
 
 describe('fluxo semanal completo', () => {
+  // A janela de planejamento comeca HOJE (§1), entao o teste precisa fixar o
+  // relogio: com data fixa e relogio real, o fixture viraria passado sozinho no
+  // dia seguinte e o teste quebraria sem ninguem mexer no codigo.
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-20T12:00:00.000Z')); // 09:00 em Sao Paulo
     vi.clearAllMocks();
     mocks.summarizeDnaSignals.mockResolvedValue(null);
     mocks.resolvePalette.mockReturnValue({ accent: '#123456' });
@@ -123,6 +128,8 @@ describe('fluxo semanal completo', () => {
       return { data: { script: 'Roteiro', caption: 'Legenda' }, cost: 0.01 };
     });
   });
+
+  afterEach(() => vi.useRealTimers());
 
   it('gera uma ideia, permite editar, aprova e só então produz até ficar pronta', async () => {
     const { database, supabase } = workflowSupabase();
