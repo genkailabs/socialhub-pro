@@ -23,8 +23,8 @@ describe('guided-options', () => {
   });
 
   it('CLASSIFICATION_BADGES tem rótulos para CONFIRMED, INFERRED, NOT_FOUND', () => {
-    expect(CLASSIFICATION_BADGES.CONFIRMED.label).toBe('Confirmado');
-    expect(CLASSIFICATION_BADGES.INFERRED.label).toBe('Sugerido pela IA');
+    expect(CLASSIFICATION_BADGES.CONFIRMED.label).toBe('Confirmado via Instagram');
+    expect(CLASSIFICATION_BADGES.INFERRED.label).toBe('Inferido pela IA');
     expect(CLASSIFICATION_BADGES.NOT_FOUND.label).toBe('Não encontrado');
   });
 });

@@ -25,7 +25,7 @@ export const FREQUENCIES = [
 ];
 
 export const CLASSIFICATION_BADGES = {
-  CONFIRMED: { label: 'Confirmado', className: 'border-success/30 bg-success/10 text-success' },
-  INFERRED: { label: 'Sugerido pela IA', className: 'border-accent/30 bg-accent/10 text-accent' },
+  CONFIRMED: { label: 'Confirmado via Instagram', className: 'border-success/30 bg-success/10 text-success' },
+  INFERRED: { label: 'Inferido pela IA', className: 'border-accent/30 bg-accent/10 text-accent' },
   NOT_FOUND: { label: 'Não encontrado', className: 'border-warning/30 bg-warning/10 text-warning' }
 };
