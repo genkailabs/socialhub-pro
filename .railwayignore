@@ -1,3 +1,7 @@
+# Rotas temporárias de inspeção visual: /approve/* é público (middleware não
+# exige login), então nenhuma página de preview pode subir para produção.
+app/approve/preview-*/
+
 # Artefatos de design/handoff — não fazem parte do runtime do app
 Redesign do gerenciador de mídia/
 Redesign do gerenciador de mídia.zip
