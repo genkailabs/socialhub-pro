@@ -1,16 +1,19 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { BrandKitShell } from '@/components/brand-kit/BrandKitShell';
 import { resetOnboarding } from '@/lib/onboarding-actions';
 
+const pushMock = vi.fn();
+
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
 });
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: vi.fn(),
+    push: pushMock,
     refresh: vi.fn(),
   }),
 }));
@@ -44,8 +47,6 @@ describe('BrandKitShell advanced config', () => {
   });
 
   it('chama resetOnboarding e redireciona ao clicar no botão Refazer onboarding guiado', async () => {
-    const pushMock = vi.fn();
-    const { useRouter } = await import('next/navigation');
     vi.spyOn(window, 'confirm').mockImplementation(() => true);
 
     render(
@@ -63,5 +64,31 @@ describe('BrandKitShell advanced config', () => {
 
     expect(window.confirm).toHaveBeenCalled();
     expect(resetOnboarding).toHaveBeenCalledWith({ brandId: 'brd-1' });
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/onboarding');
+    });
+  });
+
+  it('restaura estado resetting mesmo se resetOnboarding lançar um erro', async () => {
+    vi.spyOn(window, 'confirm').mockImplementation(() => true);
+    resetOnboarding.mockRejectedValueOnce(new Error('Falha ao resetar'));
+
+    render(
+      <BrandKitShell
+        brandId="brd-1"
+        brandName="Acme"
+        brandColor="#007AFF"
+        kit={{ onboarding_status: 'completed' }}
+        versions={[]}
+      />
+    );
+
+    const button = screen.getByText(/Refazer onboarding guiado/i);
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(button.getAttribute('disabled')).toBeNull();
+      expect(screen.getByText(/Refazer onboarding guiado/i)).toBeDefined();
+    });
   });
 });

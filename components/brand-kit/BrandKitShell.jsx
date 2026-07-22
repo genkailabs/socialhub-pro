@@ -14,9 +14,14 @@ export function BrandKitShell({ brandId, brandName, brandColor, kit, versions = 
   async function handleResetOnboarding() {
     if (!confirm('Deseja refazer a jornada guiada de onboarding desde o início? Suas configurações manuais serão mantidas.')) return;
     setResetting(true);
-    await resetOnboarding({ brandId });
-    setResetting(false);
-    router.push('/onboarding');
+    try {
+      await resetOnboarding({ brandId });
+      router.push('/onboarding');
+    } catch (err) {
+      console.error('Erro ao resetar onboarding:', err);
+    } finally {
+      setResetting(false);
+    }
   }
 
   return (
