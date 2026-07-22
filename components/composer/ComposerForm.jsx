@@ -1,19 +1,30 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ImagePlus, Send, Clock, CheckCircle2, AlertCircle, X, Hash, Smile,
-  FileText, Link2, Copy, Check, ChevronLeft, ChevronRight, Heart, MessageCircle, Bookmark
+  FileText, Link2, Copy, Check, ChevronRight, MessageCircle
 } from 'lucide-react';
 import { ComposerTypeSelector } from './ComposerTypeSelector';
 import { StoryComposer } from './StoryComposer';
 import { ReelComposer } from './ReelComposer';
 import { DynamicPreview } from './DynamicPreview';
+import { Section, FieldLabel, InlineAlert, fieldClass, dropzoneClass } from './ComposerSection';
 import { createClient } from '@/lib/supabase/client';
 import { publishNow, schedulePost, saveDraft, submitForApproval } from '@/lib/posts-actions';
 import { composeCaption, normalizeHashtags, IG_CAROUSEL_MAX, IG_CAPTION_MAX, uploadTempMedia } from '@/lib/posts-media';
 import { Button } from '@/components/ui/Button';
 
 const EMOJIS = ['🔥', '🚀', '✨', '💡', '🎉', '❤️', '👏', '📈', '✅', '👀', '💬', '🙌'];
+
+const FORMAT_LABEL = { image: 'Post', carousel: 'Carrossel', stories: 'Story', reel: 'Reel' };
+// A dica muda com o formato: os avisos de limite deixam de ficar espalhados em
+// labels soltas e passam a viver no cabeçalho da própria seção.
+const MEDIA_HINT = {
+  image: `Uma imagem quadrada. Se enviar mais de uma, viramos carrossel automaticamente (até ${IG_CAROUSEL_MAX}).`,
+  carousel: `De 2 a ${IG_CAROUSEL_MAX} imagens. Clique numa miniatura para ver na prévia.`,
+  stories: 'Uma foto ou vídeo vertical. Sai do ar em 24h.',
+  reel: 'Um vídeo vertical, com capa opcional.'
+};
 
 async function uploadImage(brandId, file) {
   const supabase = createClient();
@@ -38,15 +49,36 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
   const [msg, setMsg] = useState(null);
   const [approvalLink, setApprovalLink] = useState('');
   const [copied, setCopied] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const emojiRef = useRef(null);
 
   const tags = normalizeHashtags(hashtags);
   const composedLen = composeCaption(caption, hashtags).length;
+  const overLimit = composedLen > IG_CAPTION_MAX;
+  const isVertical = format === 'stories' || format === 'reel';
+
+  useEffect(() => {
+    if (!emojiOpen) return undefined;
+    function onDocClick(event) {
+      if (emojiRef.current && !emojiRef.current.contains(event.target)) setEmojiOpen(false);
+    }
+    function onKey(event) {
+      if (event.key === 'Escape') setEmojiOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [emojiOpen]);
 
   function handleFormatChange(newFormat) {
     if (newFormat !== 'reel') {
       setCover(null);
     }
-    
+
     if (newFormat === 'image') {
       if (media.some(m => m.isVideo) || media.length > 1) {
         setMedia(cur => cur.filter(m => !m.isVideo).slice(0, 1));
@@ -78,9 +110,9 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
       const isStories = format === 'stories';
       const room = isStories ? 1 - cur.length : IG_CAROUSEL_MAX - cur.length;
       if (room <= 0 && !isStories) return cur;
-      
-      const next = incoming.slice(0, Math.max(0, isStories ? 1 : room)).map((file) => ({ 
-        file, 
+
+      const next = incoming.slice(0, Math.max(0, isStories ? 1 : room)).map((file) => ({
+        file,
         url: URL.createObjectURL(file),
         isVideo: file.type.startsWith('video/')
       }));
@@ -95,7 +127,14 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
     setMedia((cur) => cur.filter((_, idx) => idx !== i));
     setSlide(0);
   }
-  function insertEmoji(e) { setCaption((c) => c + e); }
+  function insertEmoji(e) { setCaption((c) => c + e); setEmojiOpen(false); }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    setDragging(false);
+    const files = Array.from(event.dataTransfer?.files || []).filter((f) => f.type.startsWith('image/'));
+    if (files.length) addFiles(files);
+  }
 
   async function run(action) {
     if (media.length === 0 && action !== 'draft') { setMsg({ type: 'err', text: 'Envie ao menos uma imagem.' }); return; }
@@ -122,7 +161,7 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
         coverUrl = res.publicUrl;
       }
 
-      const payload = { brandId, caption, hashtags, imageUrls, ...(coverUrl && { coverUrl }) };
+      const payload = { brandId, caption, hashtags, imageUrls, format, ...(coverUrl && { coverUrl }) };
       let res;
       if (action === 'now') res = await publishNow({ ...payload, firstComment });
       else if (action === 'schedule') res = await schedulePost({ ...payload, scheduledAt: new Date(when).toISOString() });
@@ -152,149 +191,237 @@ export function ComposerForm({ brandId, brandName = 'sua_marca' }) {
     setCopied(true); setTimeout(() => setCopied(false), 1500);
   }
 
-  const field = 'w-full rounded-xl glass px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent';
-  const tab = (active) => `flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all ${active ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'}`;
-  const view = media[slide] || media[0];
+  // Segmento compacto de horário: largura própria (não ocupa a linha inteira),
+  // para não ser lido como a barra de ações principal.
+  const timeTab = (active) =>
+    `flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors duration-200 ${
+      active ? 'bg-surface text-accent shadow-soft' : 'text-muted hover:text-ink'
+    }`;
 
+  // Largura travada: no shell de 1500px os campos esticavam para ~1100px e a
+  // legenda virava uma linha longa demais para ler (65–75 caracteres é o alvo).
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid max-w-[1120px] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       {/* editor */}
-      <div className="space-y-4">
-        {/* formato */}
-        <div>
-          <label className="mb-1.5 block text-xs font-bold text-ink">Formato</label>
+      <div className="min-w-0 space-y-4">
+        <Section step="1" title="Formato e mídia" hint={MEDIA_HINT[format]}>
           <ComposerTypeSelector value={format} onChange={handleFormatChange} />
-        </div>
 
-        {/* legenda */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <label className="text-xs font-bold text-ink">Legenda</label>
-            <span className={`text-[11px] ${composedLen > IG_CAPTION_MAX ? 'text-danger' : 'text-faint'}`}>{composedLen}/{IG_CAPTION_MAX}</span>
+          <div className="mt-5">
+            {format === 'stories' ? (
+              <StoryComposer media={media} onAddFiles={addFiles} onRemove={() => { setMedia([]); setSlide(0); }} />
+            ) : format === 'reel' ? (
+              <ReelComposer
+                media={media}
+                cover={cover}
+                onAddMedia={addFiles}
+                onRemoveMedia={() => { setMedia([]); setSlide(0); setCover(null); }}
+                onAddCover={(file) => setCover({ file, url: URL.createObjectURL(file) })}
+                onRemoveCover={() => setCover(null)}
+              />
+            ) : (
+              <>
+                {media.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {media.map((m, i) => (
+                      <div key={i} className="group relative">
+                        <img src={m.url} alt={`Imagem ${i + 1}`} onClick={() => setSlide(i)}
+                          className={`h-16 w-16 cursor-pointer rounded-lg border-2 object-cover transition-colors duration-200 ${i === slide ? 'border-accent' : 'border-line hover:border-line-strong'}`} />
+                        <button type="button" onClick={() => removeAt(i)} aria-label={`Remover imagem ${i + 1}`}
+                          className="absolute -right-1.5 -top-1.5 grid h-5 w-5 cursor-pointer place-items-center rounded-full bg-ink text-app opacity-0 transition-opacity duration-200 focus-visible:opacity-100 group-hover:opacity-100"><X className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {media.length < IG_CAROUSEL_MAX && (
+                  <label
+                    onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={handleDrop}
+                    className={`${dropzoneClass} ${dragging ? 'border-accent bg-accent-tint/50' : ''}`}
+                  >
+                    <ImagePlus className="h-5 w-5 text-muted" aria-hidden="true" />
+                    <span className="text-xs font-bold text-ink">
+                      Arraste aqui ou clique para enviar {media.length > 0 ? 'mais imagens' : 'imagens'}
+                    </span>
+                    <span className="font-mono text-[11px] tabular-nums text-faint">PNG ou JPG · {media.length}/{IG_CAROUSEL_MAX}</span>
+                    <input type="file" accept="image/*" multiple onChange={(e) => addFiles(e.target.files)} className="hidden" />
+                  </label>
+                )}
+              </>
+            )}
           </div>
-          <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={4}
-            placeholder="Escreva a legenda do post…" className={field} />
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {EMOJIS.map((e) => (
-              <button key={e} type="button" onClick={() => insertEmoji(e)}
-                className="grid h-7 w-7 place-items-center rounded-md text-sm transition-colors hover:bg-surface-2" title={`Inserir ${e}`}>{e}</button>
-            ))}
-          </div>
-        </div>
+        </Section>
 
-        {/* hashtags */}
-        <div>
-          <label className="mb-1.5 flex items-center gap-1 text-xs font-bold text-ink"><Hash className="h-3.5 w-3.5" /> Hashtags</label>
-          <input value={hashtags} onChange={(e) => setHashtags(e.target.value)} placeholder="marketing, social, dicas" className={field} />
-          {tags.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {tags.map((t) => <span key={t} className="rounded-md bg-accent-tint px-1.5 py-0.5 text-[11px] font-semibold text-accent">{t}</span>)}
+        <Section
+          step="2"
+          title="Texto do post"
+          hint="Legenda, hashtags e o comentário automático."
+          aside={
+            <span className={`shrink-0 font-mono text-[11px] tabular-nums ${overLimit ? 'font-bold text-danger' : 'text-faint'}`}>
+              {composedLen}/{IG_CAPTION_MAX}
+            </span>
+          }
+        >
+          <FieldLabel htmlFor="composer-caption">Legenda</FieldLabel>
+          <textarea
+            id="composer-caption"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            rows={5}
+            placeholder="Escreva a legenda do post…"
+            className={`${fieldClass} resize-y leading-relaxed ${overLimit ? 'border-danger focus:border-danger focus:ring-danger/20' : ''}`}
+          />
+
+          {/* Os 12 emojis viviam soltos numa fileira sob o textarea; agora abrem
+              em popover para não competir com os campos. */}
+          <div className="relative mt-2 inline-block" ref={emojiRef}>
+            <button
+              type="button"
+              onClick={() => setEmojiOpen((v) => !v)}
+              aria-expanded={emojiOpen}
+              aria-label="Inserir emoji na legenda"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-bold text-muted transition-colors duration-200 hover:border-line-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              <Smile className="h-3.5 w-3.5" aria-hidden="true" /> Emoji
+            </button>
+            {emojiOpen && (
+              <div className="absolute left-0 top-full z-20 mt-1.5 grid w-max grid-cols-6 gap-0.5 rounded-xl border border-line bg-surface p-2 shadow-lift">
+                {EMOJIS.map((e) => (
+                  <button key={e} type="button" onClick={() => insertEmoji(e)} aria-label={`Inserir ${e}`}
+                    className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-base transition-colors duration-200 hover:bg-surface-2">{e}</button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-5">
+            <FieldLabel htmlFor="composer-hashtags">
+              <Hash className="h-3.5 w-3.5" aria-hidden="true" /> Hashtags
+            </FieldLabel>
+            <input
+              id="composer-hashtags"
+              value={hashtags}
+              onChange={(e) => setHashtags(e.target.value)}
+              placeholder="marketing, social, dicas"
+              className={fieldClass}
+            />
+            {tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {tags.map((t) => (
+                  <span key={t} className="rounded-md bg-accent-tint px-1.5 py-0.5 text-[11px] font-semibold text-accent-ink">{t}</span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <details className="group mt-5 rounded-xl border border-line bg-surface-2/50 px-3.5 py-3">
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-bold text-ink">
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted transition-transform duration-200 group-open:rotate-90" aria-hidden="true" />
+              <MessageCircle className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
+              Primeiro comentário
+              <span className="font-normal text-faint">opcional</span>
+            </summary>
+            <div className="mt-3">
+              <input
+                id="composer-first-comment"
+                value={firstComment}
+                onChange={(e) => setFirstComment(e.target.value)}
+                placeholder="Comentário automático logo após publicar…"
+                className={fieldClass}
+              />
+              <p className="mt-2 text-[11px] text-faint">Bom lugar para as hashtags. Só vale ao publicar agora.</p>
+            </div>
+          </details>
+        </Section>
+
+        <Section
+          step="3"
+          title="Publicação"
+          hint="Escolha quando sai e confirme a ação."
+          aside={
+            <div role="group" aria-label="Quando publicar" className="inline-flex shrink-0 gap-0.5 rounded-lg bg-surface-2 p-0.5">
+              <button type="button" aria-pressed={mode === 'now'} onClick={() => setMode('now')} className={timeTab(mode === 'now')}>
+                <Send className="h-3.5 w-3.5" aria-hidden="true" /> Agora
+              </button>
+              <button type="button" aria-pressed={mode === 'schedule'} onClick={() => setMode('schedule')} className={timeTab(mode === 'schedule')}>
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" /> Agendar
+              </button>
+            </div>
+          }
+        >
+          {mode === 'schedule' && (
+            <div className="mb-4">
+              <FieldLabel htmlFor="composer-when">Data e hora</FieldLabel>
+              <input id="composer-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)}
+                className={`${fieldClass} font-mono tabular-nums sm:max-w-xs`} />
             </div>
           )}
-        </div>
 
-        {/* imagens */}
-        <div>
-          <label className="mb-1.5 block text-xs font-bold text-ink">
-            {format === 'stories' ? 'Mídia do Story' : format === 'reel' ? 'Mídia do Reel' : 'Imagens'}
-            {format !== 'stories' && format !== 'reel' && <span className="font-normal text-faint"> · 1 imagem ou carrossel (2–{IG_CAROUSEL_MAX})</span>}
-          </label>
-          {format === 'stories' ? (
-            <StoryComposer media={media} onAddFiles={addFiles} onRemove={() => { setMedia([]); setSlide(0); }} />
-          ) : format === 'reel' ? (
-            <ReelComposer 
-              media={media} 
-              cover={cover} 
-              onAddMedia={addFiles} 
-              onRemoveMedia={() => { setMedia([]); setSlide(0); setCover(null); }} 
-              onAddCover={(file) => setCover({ file, url: URL.createObjectURL(file) })} 
-              onRemoveCover={() => setCover(null)} 
-            />
-          ) : (
-            <>
-              {media.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-2">
-                  {media.map((m, i) => (
-                    <div key={i} className="group relative">
-                      <img src={m.url} alt="" onClick={() => setSlide(i)}
-                        className={`h-16 w-16 cursor-pointer rounded-lg border-2 object-cover transition-all ${i === slide ? 'border-accent' : 'border-line'}`} />
-                      <button type="button" onClick={() => removeAt(i)}
-                        className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-app opacity-0 transition-opacity group-hover:opacity-100"><X className="h-3 w-3" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {media.length < IG_CAROUSEL_MAX && (
-                <label className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-line-strong bg-surface-2 px-4 py-5 text-center transition-colors hover:border-accent/50 hover:bg-accent-tint/40">
-                  <ImagePlus className="h-5 w-5 text-muted" />
-                  <span className="text-xs font-semibold text-ink">Clique para enviar {media.length > 0 ? 'mais imagens' : 'imagens'}</span>
-                  <span className="text-[11px] text-faint">PNG, JPG · enviadas ao Storage do Supabase</span>
-                  <input type="file" accept="image/*" multiple onChange={(e) => addFiles(e.target.files)} className="hidden" />
-                </label>
-              )}
-            </>
+          {msg && (
+            <div className="mb-4">
+              <InlineAlert type={msg.type}>
+                {msg.type === 'ok' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+                <span className="min-w-0">{msg.text}</span>
+              </InlineAlert>
+            </div>
           )}
-        </div>
+          {approvalLink && (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-line bg-surface-2 p-2">
+              <Link2 className="ml-1 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+              <input readOnly value={approvalLink} aria-label="Link de aprovação" className="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-muted outline-none" />
+              <button onClick={copyLink} aria-label="Copiar link de aprovação"
+                className="shrink-0 cursor-pointer rounded-lg bg-accent px-2.5 py-1.5 text-white transition-colors duration-200 hover:bg-accent/90">
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          )}
 
-        {/* primeiro comentário */}
-        <div>
-          <label className="mb-1.5 flex items-center gap-1 text-xs font-bold text-ink"><MessageCircle className="h-3.5 w-3.5" /> Primeiro comentário <span className="font-normal text-faint">· ótimo p/ hashtags (só ao publicar agora)</span></label>
-          <input value={firstComment} onChange={(e) => setFirstComment(e.target.value)} placeholder="Comentário automático logo após publicar…" className={field} />
-        </div>
+          <Button onClick={() => run(mode)} disabled={!!busy} className="w-full">
+            {busy === mode
+              ? 'Processando…'
+              : mode === 'now'
+                ? <><Send className="h-4 w-4" aria-hidden="true" /> Publicar agora no Instagram</>
+                : <><Clock className="h-4 w-4" aria-hidden="true" /> Agendar publicação</>}
+          </Button>
 
-        {/* timing */}
-        <div className="inline-flex w-full gap-1 rounded-xl bg-surface-2 p-1">
-          <button type="button" onClick={() => setMode('now')} className={tab(mode === 'now')}><Send className="h-3.5 w-3.5" /> Publicar agora</button>
-          <button type="button" onClick={() => setMode('schedule')} className={tab(mode === 'schedule')}><Clock className="h-3.5 w-3.5" /> Agendar</button>
-        </div>
-        {mode === 'schedule' && (
-          <div className="animate-rise">
-            <label className="mb-1.5 block text-xs font-bold text-ink">Data e hora</label>
-            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={field} />
+          {/* Ações secundárias em outro peso e tamanho: antes as três tinham a
+              mesma presença e o usuário não sabia qual era a principal. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">Ou</span>
+            <Button size="sm" variant="outline" onClick={() => run('approval')} disabled={!!busy}>
+              <Link2 className="h-3.5 w-3.5" aria-hidden="true" /> {busy === 'approval' ? 'Enviando…' : 'Enviar p/ aprovação'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => run('draft')} disabled={!!busy}>
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" /> {busy === 'draft' ? 'Salvando…' : 'Salvar rascunho'}
+            </Button>
           </div>
-        )}
-
-        {/* mensagem + link de aprovação */}
-        {msg && (
-          <p className={`flex items-center gap-1.5 text-xs font-semibold ${msg.type === 'ok' ? 'text-success' : msg.type === 'warn' ? 'text-warning' : 'text-danger'}`}>
-            {msg.type === 'ok' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}{msg.text}
-          </p>
-        )}
-        {approvalLink && (
-          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 p-2">
-            <Link2 className="ml-1 h-4 w-4 shrink-0 text-accent" />
-            <input readOnly value={approvalLink} className="min-w-0 flex-1 bg-transparent text-[11px] text-muted outline-none" />
-            <button onClick={copyLink} className="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 text-white">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button>
-          </div>
-        )}
-
-        {/* ações */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
-          <Button onClick={() => run(mode)} disabled={!!busy}>
-            {busy === mode ? 'Processando…' : mode === 'now' ? 'Publicar agora no Instagram' : 'Agendar publicação'}
-          </Button>
-          <Button variant="outline" onClick={() => run('approval')} disabled={!!busy}>
-            <Link2 className="h-4 w-4" /> {busy === 'approval' ? 'Enviando…' : 'Enviar p/ aprovação'}
-          </Button>
-          <Button variant="ghost" onClick={() => run('draft')} disabled={!!busy}>
-            <FileText className="h-4 w-4" /> {busy === 'draft' ? 'Salvando…' : 'Rascunho'}
-          </Button>
-        </div>
+        </Section>
       </div>
 
       {/* prévia estilo Instagram */}
-      <div className="lg:sticky lg:top-4">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted">Prévia interativa</p>
-        <DynamicPreview
-          format={format}
-          media={media}
-          slide={slide}
-          onSlideChange={setSlide}
-          caption={caption}
-          brandName={brandName}
-          cover={cover}
-        />
-      </div>
+      <aside className="lg:sticky lg:top-6">
+        <div className="mb-2.5 flex items-center justify-between gap-2">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Prévia</p>
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">{FORMAT_LABEL[format]}</span>
+        </div>
+        {/* 9:16 em coluna de 340px vira um paredão preto: limitamos a largura
+            para o mock ficar do tamanho de um celular. */}
+        <div className={isVertical ? 'mx-auto max-w-[240px]' : ''}>
+          <DynamicPreview
+            format={format}
+            media={media}
+            slide={slide}
+            onSlideChange={setSlide}
+            caption={caption}
+            brandName={brandName}
+            cover={cover}
+          />
+        </div>
+        <p className="mt-2.5 text-center text-[11px] leading-relaxed text-faint">
+          Simulação aproximada. O corte final é do Instagram.
+        </p>
+      </aside>
     </div>
   );
 }

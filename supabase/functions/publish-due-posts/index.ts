@@ -118,8 +118,8 @@ Deno.serve(async (request) => {
         if (!token) throw new Error(`Token ativo ausente para ${platform}.`);
         // O formato decide COMO publicar: Story vertical postado como foto de
         // feed seria entregar coisa diferente da que foi aprovada.
-        const isReel = post.format === 'reel';
-        const isStory = post.format === 'stories';
+        const isReel = post.format === 'reel' || post.format === 'reels' || String(post.format || '').toLowerCase().includes('reel');
+        const isStory = post.format === 'stories' || post.format === 'story' || String(post.format || '').toLowerCase().includes('stor');
         if (isStory && platform !== 'instagram') throw new Error('Story so publica no Instagram.');
         if (isReel && platform !== 'instagram') throw new Error('Reel so publica no Instagram.');
         const id = platform === 'instagram'

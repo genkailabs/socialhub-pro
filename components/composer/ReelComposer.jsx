@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { UploadCloud, X, ImagePlus, AlertCircle, Video } from 'lucide-react';
+import { Note, InlineAlert, dropzoneClass } from './ComposerSection';
 
 export function ReelComposer({ media, cover, onAddMedia, onRemoveMedia, onAddCover, onRemoveCover }) {
   const [error, setError] = useState('');
@@ -12,7 +13,7 @@ export function ReelComposer({ media, cover, onAddMedia, onRemoveMedia, onAddCov
       setError('Reel requer um arquivo de vídeo MP4 ou MOV.');
       return;
     }
-    
+
     setError('');
     onAddMedia([file]);
   }
@@ -25,7 +26,7 @@ export function ReelComposer({ media, cover, onAddMedia, onRemoveMedia, onAddCov
       setError('A capa deve ser uma imagem (JPG/PNG).');
       return;
     }
-    
+
     setError('');
     onAddCover(file);
   }
@@ -34,65 +35,63 @@ export function ReelComposer({ media, cover, onAddMedia, onRemoveMedia, onAddCov
   const videoFile = hasVideo ? media[0] : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {error && (
-        <div className="flex items-center gap-2 rounded-xl bg-danger/10 px-3 py-2 text-xs font-semibold text-danger">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </div>
+        <InlineAlert type="err">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="min-w-0">{error}</span>
+        </InlineAlert>
       )}
 
       {!hasVideo ? (
-        <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line-strong bg-surface-2 p-8 text-center transition-colors hover:border-accent hover:bg-accent-tint/30">
-          <UploadCloud className="h-8 w-8 text-muted" />
-          <div>
-            <span className="block text-sm font-bold text-ink">Selecionar Vídeo para Reel</span>
-            <span className="mt-1 block text-[11px] text-faint">MP4 ou MOV (9:16) • Até 100MB</span>
-          </div>
+        <label className={dropzoneClass}>
+          <UploadCloud className="h-5 w-5 text-muted" aria-hidden="true" />
+          <span className="text-xs font-bold text-ink">Clique para enviar o vídeo do Reel</span>
+          <span className="text-[11px] text-faint">MP4 ou MOV (9:16) · até 100MB</span>
           <input type="file" accept="video/mp4,video/quicktime" onChange={handleVideoUpload} className="hidden" />
         </label>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="space-y-3">
           <div className="relative flex items-center gap-3 rounded-xl border border-line bg-surface-2 p-3 pr-10">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface text-muted">
-              <Video className="h-6 w-6" />
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-surface text-muted">
+              <Video className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-bold text-ink">{videoFile.file.name}</p>
-              <p className="text-[11px] text-faint">{(videoFile.file.size / 1024 / 1024).toFixed(2)} MB</p>
+              <p className="font-mono text-[11px] tabular-nums text-faint">{(videoFile.file.size / 1024 / 1024).toFixed(1)} MB</p>
             </div>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={onRemoveMedia}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted hover:bg-surface hover:text-danger transition-colors"
+              aria-label="Remover vídeo do Reel"
+              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer rounded-full p-1 text-muted transition-colors duration-200 hover:bg-surface hover:text-danger"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="rounded-xl border border-line bg-surface p-4">
-            <h4 className="mb-3 text-xs font-bold text-ink">Capa do Reel</h4>
-            
+          <div className="rounded-xl border border-line bg-surface-2/50 p-3.5">
+            <p className="mb-2.5 text-xs font-bold text-ink">
+              Capa do Reel <span className="font-normal text-faint">opcional</span>
+            </p>
+
             {cover ? (
               <div className="group relative w-max">
-                <img 
-                  src={cover.url} 
-                  alt="Capa" 
-                  className="h-32 w-20 rounded-lg border border-line object-cover"
-                />
-                <button 
-                  type="button" 
+                <img src={cover.url} alt="Capa do Reel" className="h-32 w-20 rounded-lg border border-line object-cover" />
+                <button
+                  type="button"
                   onClick={onRemoveCover}
-                  className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-ink text-app opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+                  aria-label="Remover capa do Reel"
+                  className="absolute -right-2 -top-2 grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-ink text-app opacity-0 shadow-soft transition-opacity duration-200 focus-visible:opacity-100 group-hover:opacity-100"
                 >
                   <X className="h-3 w-3" />
                 </button>
               </div>
             ) : (
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-strong bg-surface-2 px-3 py-4 text-center transition-colors hover:border-accent hover:bg-accent-tint/30">
-                <ImagePlus className="h-5 w-5 text-muted" />
-                <span className="text-[11px] font-semibold text-ink">+ Adicionar Capa personalizada (Opcional)</span>
-                <span className="text-[10px] text-faint">Se não enviada, o Instagram usará o 1º frame</span>
+              <label className={`${dropzoneClass} py-5`}>
+                <ImagePlus className="h-5 w-5 text-muted" aria-hidden="true" />
+                <span className="text-[11px] font-bold text-ink">Adicionar capa personalizada</span>
+                <span className="text-[10px] text-faint">Sem capa, o Instagram usa o 1º frame</span>
                 <input type="file" accept="image/jpeg,image/png" onChange={handleCoverUpload} className="hidden" />
               </label>
             )}
@@ -100,12 +99,7 @@ export function ReelComposer({ media, cover, onAddMedia, onRemoveMedia, onAddCov
         </div>
       )}
 
-      <div className="flex items-start gap-2 rounded-xl bg-surface-2/60 px-3 py-2.5 text-[11px] font-medium text-muted backdrop-blur-sm">
-        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <p>
-          Aviso: Reels são publicados no feed do Instagram e na aba Reels. O vídeo é excluído do servidor temporário após a postagem.
-        </p>
-      </div>
+      <Note>Reels aparecem no feed e na aba Reels. O vídeo é apagado do servidor temporário após a postagem.</Note>
     </div>
   );
 }

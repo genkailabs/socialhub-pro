@@ -27,6 +27,7 @@ import {
   getBrandPreferenceSuggestions
 } from '@/lib/ai-actions';
 import { publishNow, saveDraft, schedulePost, submitForApproval } from '@/lib/posts-actions';
+import { assistantFormat } from '@/lib/assistant-content';
 import { Button } from '@/components/ui/Button';
 import { FreeInput } from '@/components/ai/FreeInput';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
@@ -453,11 +454,13 @@ export function AIStudioPanel({
     setMsg(null);
     setApprovalLink('');
     try {
+      const resolvedFormat = assistantFormat(format);
       const payload = {
         brandId,
         caption: publishCaption,
         hashtags,
-        imageUrls: [imageUrl]
+        imageUrls: [imageUrl],
+        format: resolvedFormat === 'post' ? 'image' : resolvedFormat
       };
       let res;
       if (action === 'now') res = await publishNow(payload);

@@ -129,6 +129,24 @@ describe('publishNow', () => {
     });
   });
 
+  it('normaliza formatos como "story" ou "STORIES" para "stories" ao publicar', async () => {
+    const { supabase, insert } = makeSupabase({ data: { id: 'post-story-2' }, error: null });
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.publishInstagramStory.mockResolvedValue('ig-story-2');
+
+    const res = await publishNow({
+      ...payload,
+      format: 'STORIES',
+      imageUrls: ['https://img/story.jpg']
+    });
+
+    expect(res).toEqual({ ok: true, id: 'ig-story-2' });
+    expect(mocks.publishInstagramStory).toHaveBeenCalled();
+    expect(insert.mock.calls[0][0]).toMatchObject({
+      format: 'stories'
+    });
+  });
+
   it('publica reel com cover_url e limpa ambos arquivos temporarios', async () => {
     const { supabase, insert } = makeSupabase({ data: { id: 'post-reel' }, error: null });
     mocks.createClient.mockResolvedValue(supabase);
