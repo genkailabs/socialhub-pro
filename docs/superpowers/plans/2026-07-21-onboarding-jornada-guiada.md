@@ -38,7 +38,7 @@
   - `derivePalettePriority(feedColors, avatarColor, segmentColor)`: retorna `{ accent, bg, surface, ink }` seguindo prioridade PRD §16
   - `classifyInstagramData(profile, media, kitDraft)`: retorna `{ name, segment, audience, tone, frequency, themes, style, classification: { [key]: 'CONFIRMED' | 'INFERRED' | 'NOT_FOUND' } }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/unit/onboarding-helpers.test.js
@@ -83,12 +83,12 @@ describe('onboarding-helpers', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/onboarding-helpers.test.js`  
 Expected: FAIL with "Cannot find module '@/lib/onboarding-helpers'"
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```javascript
 // lib/onboarding-helpers.js
@@ -177,12 +177,12 @@ export function classifyInstagramData(profile = {}, media = [], kitDraft = {}) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/onboarding-helpers.test.js`  
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/onboarding-helpers.js tests/unit/onboarding-helpers.test.js
@@ -204,7 +204,7 @@ git commit -m "feat(onboarding): add core helpers and classification logic (§9,
   - `completeOnboarding({ brandId })`: marca status como `completed`
   - `resetOnboarding({ brandId })`: reinicia o onboarding p/ `not_started` e step 0
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/unit/onboarding-actions.test.js
@@ -240,12 +240,12 @@ describe('onboarding-actions', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/onboarding-actions.test.js`  
 Expected: FAIL on `resetOnboarding is not exported`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```javascript
 // lib/onboarding-actions.js (substituir arquivo completo ou adicionar resetOnboarding)
@@ -307,12 +307,12 @@ export async function resetOnboarding({ brandId }) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/onboarding-actions.test.js`  
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/onboarding-actions.js tests/unit/onboarding-actions.test.js
@@ -334,7 +334,7 @@ git commit -m "feat(onboarding): enhance server actions with resetOnboarding (§
   - `FREQUENCIES`: array com `{ value: string, label: string, hint: string }`
   - `CLASSIFICATION_BADGES`: map de estilos para `CONFIRMED`, `INFERRED`, `NOT_FOUND`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/unit/guided-options.test.js
@@ -369,12 +369,12 @@ describe('guided-options', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/guided-options.test.js`  
 Expected: FAIL with "Cannot find module '@/components/onboarding/guided/guided-options'"
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```javascript
 // components/onboarding/guided/guided-options.js
@@ -410,12 +410,12 @@ export const CLASSIFICATION_BADGES = {
 };
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/guided-options.test.js`  
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/onboarding/guided/guided-options.js tests/unit/guided-options.test.js
@@ -439,7 +439,7 @@ git commit -m "feat(onboarding): define options and badges for guided flow (§5-
   - `GUIDED_STEPS`, `OBJECTIVES`, `FREQUENCIES`, `CLASSIFICATION_BADGES` from `./guided-options`
 - Produces: React Component `<GuidedOnboardingWizard brandId={string} brandName={string} kit={object} connectedPlatforms={object} />`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/unit/guided-onboarding-wizard.test.js
@@ -478,12 +478,12 @@ describe('GuidedOnboardingWizard', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/guided-onboarding-wizard.test.js`  
 Expected: FAIL with "Cannot find module '@/components/onboarding/guided/GuidedOnboardingWizard'"
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```jsx
 // components/onboarding/guided/GuidedOnboardingWizard.jsx
@@ -986,12 +986,12 @@ export function GuidedOnboardingWizard({ brandId, brandName, kit = {}, connected
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/guided-onboarding-wizard.test.js`  
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/onboarding/guided/GuidedOnboardingWizard.jsx tests/unit/guided-onboarding-wizard.test.js
@@ -1013,7 +1013,7 @@ git commit -m "feat(onboarding): create GuidedOnboardingWizard component (§6-§
   - `GuidedOnboardingWizard` from `@/components/onboarding/guided/GuidedOnboardingWizard`
 - Produces: verificação no `AppShell` que renderiza o assistente em tela cheia se `!isOnboardingComplete(activeBrandKit)`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/unit/app-shell-onboarding.test.js
@@ -1045,12 +1045,12 @@ describe('AppShell onboarding interceptor', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/app-shell-onboarding.test.js`  
 Expected: FAIL on `activeKit is ignored and sidebar is rendered`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```jsx
 // app/(app)/onboarding/page.jsx
@@ -1142,12 +1142,12 @@ export function AppShell({ children, brands = [], activeId, activeKit = null, co
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/app-shell-onboarding.test.js`  
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/\(app\)/onboarding/page.jsx components/layout/AppShell.jsx tests/unit/app-shell-onboarding.test.js
@@ -1166,7 +1166,7 @@ git commit -m "feat(onboarding): add dedicated route /onboarding and layout inte
 - Consumes: `resetOnboarding` from `@/lib/onboarding-actions`, `BrandKitTabs` from `./BrandKitTabs`, `DnaVersions` from `./DnaVersions`
 - Produces: Brand Kit limpo focando na aba avançada ("Melhorar precisão da IA" - §3.2 e §25) sem o wizard antigo de 6 etapas
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/unit/brand-kit-shell-advanced.test.js
@@ -1188,12 +1188,12 @@ describe('BrandKitShell advanced config', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/brand-kit-shell-advanced.test.js`  
 Expected: FAIL on text mismatch or old wizard trigger
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```jsx
 // components/brand-kit/BrandKitShell.jsx
@@ -1239,12 +1239,12 @@ export function BrandKitShell({ brandId, brandName, brandColor, kit, versions = 
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/brand-kit-shell-advanced.test.js`  
 Expected: PASS (1 test)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/brand-kit/BrandKitShell.jsx tests/unit/brand-kit-shell-advanced.test.js
@@ -1258,12 +1258,12 @@ git commit -m "feat(brand-kit): re-structure shell for advanced config and reset
 **Files:**
 - Test: todos os testes de unidade criados anteriormente
 
-- [ ] **Step 1: Executar suite completa de testes unitários relacionados**
+- [x] **Step 1: Executar suite completa de testes unitários relacionados**
 
 Run: `npx vitest run tests/unit/onboarding-helpers.test.js tests/unit/onboarding-actions.test.js tests/unit/guided-options.test.js tests/unit/guided-onboarding-wizard.test.js tests/unit/app-shell-onboarding.test.js tests/unit/brand-kit-shell-advanced.test.js`  
 Expected: PASS (todos os testes unitários passando)
 
-- [ ] **Step 2: Commit final de verificação e consolidação do branch**
+- [x] **Step 2: Commit final de verificação e consolidação do branch**
 
 ```bash
 git status
