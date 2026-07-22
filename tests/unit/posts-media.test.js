@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   cleanUrls, mediaKind, validateInstagramMedia, normalizeHashtags, composeCaption,
-  IG_CAROUSEL_MAX, IG_CAPTION_MAX, isTempMediaPath, uploadTempMedia
+  IG_CAROUSEL_MAX, IG_CAPTION_MAX, isTempMediaPath, uploadTempMedia, calculateDeleteAfter
 } from '@/lib/posts-media';
 
 describe('cleanUrls', () => {
@@ -106,3 +106,40 @@ describe('uploadTempMedia', () => {
     await expect(uploadTempMedia(mockSupabase, 'brand1', { name: 't.jpg' })).rejects.toThrow('Falha no upload temporário: storage error');
   });
 });
+
+describe('calculateDeleteAfter', () => {
+  it('retorna +30 dias de updatedAt para rascunhos e aprovações', () => {
+    const base = new Date('2026-07-01T12:00:00Z').getTime();
+    const expected = new Date(base + 30 * 24 * 3600 * 1000).toISOString();
+    expect(calculateDeleteAfter('draft', null, '2026-07-01T12:00:00Z')).toBe(expected);
+    expect(calculateDeleteAfter('awaiting_approval', null, '2026-07-01T12:00:00Z')).toBe(expected);
+    expect(calculateDeleteAfter('waiting_approval', null, '2026-07-01T12:00:00Z')).toBe(expected);
+    expect(calculateDeleteAfter('ready_to_post', null, '2026-07-01T12:00:00Z')).toBe(expected);
+  });
+
+  it('retorna null para agendados ou status desconhecido', () => {
+    expect(calculateDeleteAfter('scheduled')).toBeNull();
+    expect(calculateDeleteAfter('unknown_status')).toBeNull();
+  });
+
+  it('retorna +24h de publishedAt para publicados ou posted_manually', () => {
+    const base = new Date('2026-07-10T15:00:00Z').getTime();
+    const expected = new Date(base + 24 * 3600 * 1000).toISOString();
+    expect(calculateDeleteAfter('published', '2026-07-10T15:00:00Z', null)).toBe(expected);
+    expect(calculateDeleteAfter('posted_manually', '2026-07-10T15:00:00Z', null)).toBe(expected);
+  });
+
+  it('retorna +7 dias de updatedAt para failed e error', () => {
+    const base = new Date('2026-07-15T10:00:00Z').getTime();
+    const expected = new Date(base + 7 * 24 * 3600 * 1000).toISOString();
+    expect(calculateDeleteAfter('failed', null, '2026-07-15T10:00:00Z')).toBe(expected);
+    expect(calculateDeleteAfter('error', null, '2026-07-15T10:00:00Z')).toBe(expected);
+  });
+
+  it('retorna +1 hora para cancelled', () => {
+    const base = new Date('2026-07-20T08:00:00Z').getTime();
+    const expected = new Date(base + 3600 * 1000).toISOString();
+    expect(calculateDeleteAfter('cancelled', null, '2026-07-20T08:00:00Z')).toBe(expected);
+  });
+});
+

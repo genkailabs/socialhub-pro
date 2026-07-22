@@ -38,7 +38,13 @@ export function PostDetail({ post, onClose }) {
         </div>
 
         <div className="p-5">
-          {post.media_url && <img src={post.media_url} alt="" className="mb-3 max-h-56 w-full rounded-xl border border-line object-cover" />}
+          {post.deleted_at ? (
+            <div className="mb-3 rounded-xl border border-dashed border-line bg-surface-2 p-4 text-center text-xs text-muted">
+              Mídia removida do armazenamento temporário. A publicação continua disponível no Instagram.
+            </div>
+          ) : post.media_url ? (
+            <img src={post.media_url} alt="" className="mb-3 max-h-56 w-full rounded-xl border border-line object-cover" />
+          ) : null}
           <p className="whitespace-pre-wrap text-sm text-ink">{post.content || '(sem legenda)'}</p>
 
           <div className="mt-5 rounded-xl border border-line bg-surface-2 p-3.5">

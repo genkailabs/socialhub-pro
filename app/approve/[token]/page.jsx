@@ -42,7 +42,13 @@ export default async function ApprovePage({ params }) {
               <p className="text-[11px] text-muted">Revise e responda abaixo</p>
             </div>
           </div>
-          {post.media_url && <img src={post.media_url} alt="" className="max-h-80 w-full object-cover" />}
+          {post.deleted_at ? (
+            <div className="border-b border-line bg-surface-2 p-4 text-center text-xs text-muted">
+              Mídia removida do armazenamento temporário. A publicação continua disponível no Instagram.
+            </div>
+          ) : post.media_url ? (
+            <img src={post.media_url} alt="" className="max-h-80 w-full object-cover" />
+          ) : null}
           <div className="p-4">
             <p className="whitespace-pre-wrap text-sm text-ink">{post.content || '(sem legenda)'}</p>
             <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3 text-xs">

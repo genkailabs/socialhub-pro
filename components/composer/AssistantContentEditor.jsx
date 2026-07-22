@@ -53,6 +53,8 @@ export function AssistantContentEditor({ brandId, brandName, recommendation, onB
   const [titlePosition, setTitlePosition] = useState('bottom');
   const [titleAppliedByAi, setTitleAppliedByAi] = useState(false);
   const [media, setMedia] = useState([]);
+  const [coverUrl, setCoverUrl] = useState('');
+  const [shareToFeed, setShareToFeed] = useState(true);
   // Mesma lógica do Composer manual: o horário é um modo, não mais um quarto
   // botão com o mesmo peso dos outros três.
   const [mode, setMode] = useState('publish'); // 'publish' | 'schedule'
@@ -70,9 +72,9 @@ export function AssistantContentEditor({ brandId, brandName, recommendation, onB
       const result = await generatePost({ brandId, brandName, brief, composerContext: { recommendation }, recommendationId: recommendation?.id, generateImages: true });
       if (result?.error) throw new Error(result.error);
       setGenerated(result.spec);
-      setCaption(result.spec.caption || '');
+      setCaption(format === 'stories' ? '' : (result.spec.caption || ''));
       setCta(result.spec.cta || '');
-      setHashtags((result.spec.hashtags || []).join(' '));
+      setHashtags(format === 'stories' ? '' : (result.spec.hashtags || []).join(' '));
       setTitle(result.spec.imageTitle || result.spec.headline || '');
       setTitlePosition(result.spec.imageTextPosition || 'bottom');
       setTitleAppliedByAi(Boolean(result.spec.imageText && result.imageProvider === 'pollinations'));
@@ -105,7 +107,21 @@ export function AssistantContentEditor({ brandId, brandName, recommendation, onB
     if (kind === 'schedule' && (!scheduleDate || !scheduleTime)) return setMessage({ type: 'err', text: 'Escolha uma data e um horário.' });
     setBusy(kind); setMessage(null);
     try {
-      const payload = { brandId, caption: [caption, cta].filter(Boolean).join('\n\n'), hashtags, imageUrls: media, format: format === 'post' ? 'image' : format, recommendationId: recommendation?.id, recommendation, approvalNotes };
+      const currentDetails = generated ? formatDetails(generated, format) : null;
+      const payload = {
+        brandId,
+        caption: format === 'stories' ? '' : [caption, cta].filter(Boolean).join('\n\n'),
+        hashtags: format === 'stories' ? '' : hashtags,
+        imageUrls: media,
+        format: format === 'post' ? 'image' : format,
+        recommendationId: recommendation?.id,
+        recommendation,
+        approvalNotes,
+        coverUrl: format === 'reel' ? (coverUrl || null) : null,
+        share_to_feed: format === 'reel' ? shareToFeed : true,
+        story_overlay_text: format === 'stories' ? (currentDetails?.overlayText || title || null) : null,
+        story_overlay_position: format === 'stories' ? titlePosition : null
+      };
       const result = kind === 'draft' ? await saveDraft(payload)
         : kind === 'approval' ? await submitForApproval(payload)
           : kind === 'schedule' ? await schedulePost({ ...payload, scheduledAt: new Date(scheduledAt).toISOString() })
@@ -244,18 +260,44 @@ export function AssistantContentEditor({ brandId, brandName, recommendation, onB
           hint="Legenda, chamada para ação e hashtags."
           aside={<span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">{FORMAT_LABEL[format]}</span>}
         >
-          <FieldLabel htmlFor="assistant-caption">Legenda</FieldLabel>
-          <textarea id="assistant-caption" value={caption} onChange={(event) => setCaption(event.target.value)} rows={5} className={`${fieldClass} resize-y leading-relaxed`} />
+          {format === 'stories' ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-accent/20 bg-accent/5 p-3.5 text-xs leading-relaxed text-ink">
+                <strong>Nota sobre Stories:</strong> Stories não utilizam legenda no feed ou bloco de hashtags. O texto curto atua na sobreposição (overlay) visual da mídia, acompanhado de chamada interativa (enquete, caixa de perguntas ou link).
+              </div>
+              <div>
+                <FieldLabel htmlFor="assistant-overlay">Texto para sobreposição visual</FieldLabel>
+                <input id="assistant-overlay" value={title} onChange={(event) => setTitle(event.target.value)} className={fieldClass} placeholder="Ex: Enquete rápida ou dica direta" />
+              </div>
+            </div>
+          ) : (
+            <>
+              <FieldLabel htmlFor="assistant-caption">Legenda</FieldLabel>
+              <textarea id="assistant-caption" value={caption} onChange={(event) => setCaption(event.target.value)} rows={5} className={`${fieldClass} resize-y leading-relaxed`} />
 
-          <div className="mt-4">
-            <FieldLabel htmlFor="assistant-cta">Chamada para ação</FieldLabel>
-            <input id="assistant-cta" value={cta} onChange={(event) => setCta(event.target.value)} className={fieldClass} />
-          </div>
+              <div className="mt-4">
+                <FieldLabel htmlFor="assistant-cta">Chamada para ação</FieldLabel>
+                <input id="assistant-cta" value={cta} onChange={(event) => setCta(event.target.value)} className={fieldClass} />
+              </div>
 
-          <div className="mt-4">
-            <FieldLabel htmlFor="assistant-hashtags">Hashtags</FieldLabel>
-            <input id="assistant-hashtags" value={hashtags} onChange={(event) => setHashtags(event.target.value)} className={fieldClass} />
-          </div>
+              <div className="mt-4">
+                <FieldLabel htmlFor="assistant-hashtags">Hashtags</FieldLabel>
+                <input id="assistant-hashtags" value={hashtags} onChange={(event) => setHashtags(event.target.value)} className={fieldClass} />
+              </div>
+            </>
+          )}
+          {format === 'reel' && (
+            <div className="mt-4 space-y-3 rounded-xl border border-line bg-surface-2/40 p-3.5">
+              <div>
+                <FieldLabel htmlFor="assistant-cover">Sugestão / URL de Capa do Reel</FieldLabel>
+                <input id="assistant-cover" value={coverUrl} onChange={(event) => setCoverUrl(event.target.value)} placeholder="https://... (URL ou deixe em branco para o primeiro frame)" className={fieldClass} />
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-ink">
+                <input type="checkbox" checked={shareToFeed} onChange={(event) => setShareToFeed(event.target.checked)} className="rounded border-line text-accent focus:ring-accent" />
+                Compartilhar também no Feed principal
+              </label>
+            </div>
+          )}
 
           {/* O roteiro ocupava a coluna inteira antes de o usuário precisar
               dele. Fica recolhido, a um clique. */}
@@ -371,37 +413,57 @@ export function AssistantContentEditor({ brandId, brandName, recommendation, onB
 
 function FormatDetails({ details }) {
   if (details.kind === 'post') {
-    return <p className="text-xs leading-relaxed text-ink"><strong className="text-muted">Direção visual:</strong> {details.artDirection}</p>;
+    return (
+      <div className="space-y-2 text-xs leading-relaxed text-ink">
+        <p><strong className="text-muted">Ideia / Ângulo:</strong> {details.idea}</p>
+        <p><strong className="text-muted">Direção visual:</strong> {details.artDirection}</p>
+      </div>
+    );
   }
   if (details.kind === 'carousel') {
     return (
-      <ol className="space-y-2.5">
-        {details.pages.map((page, index) => (
-          <li key={index} className="flex gap-2.5 text-xs leading-relaxed text-ink">
-            <span className="mt-px grid h-5 w-5 shrink-0 place-items-center rounded-md bg-surface font-mono text-[10px] font-bold tabular-nums text-muted">{index + 1}</span>
-            <span><strong>{page.title}</strong> — {page.text}</span>
-          </li>
-        ))}
-      </ol>
+      <div className="space-y-3">
+        <ol className="space-y-2.5">
+          {details.pages.map((page, index) => (
+            <li key={index} className="flex gap-2.5 text-xs leading-relaxed text-ink">
+              <span className="mt-px grid h-5 w-5 shrink-0 place-items-center rounded-md bg-surface font-mono text-[10px] font-bold tabular-nums text-muted">{index + 1}</span>
+              <span>
+                <strong>{page.title}</strong> — {page.text}
+                {page.visualDirection ? <em className="block text-muted not-italic">Orientação Visual: {page.visualDirection}</em> : null}
+                {page.cta ? <strong className="mt-1 block text-accent">CTA (Último slide): {page.cta}</strong> : null}
+              </span>
+            </li>
+          ))}
+        </ol>
+        {details.globalCaption ? <p className="border-t border-line/60 pt-2 text-xs text-muted"><strong>Legenda Global do Feed:</strong> {details.globalCaption}</p> : null}
+      </div>
     );
   }
   if (details.kind === 'reel') {
     return (
-      <div className="space-y-2 text-xs leading-relaxed text-ink">
-        <p><strong className="text-muted">Gancho:</strong> {details.hook}</p>
-        <pre className="whitespace-pre-wrap font-sans">{details.script}</pre>
+      <div className="space-y-2.5 text-xs leading-relaxed text-ink">
+        <p><strong className="text-muted">Tema/Ideia:</strong> {details.topic}</p>
+        <p><strong className="text-muted">Gancho (3s):</strong> {details.hook}</p>
+        <div><strong className="text-muted">Roteiro em Cenas:</strong><pre className="mt-1 whitespace-pre-wrap font-sans text-muted">{details.script}</pre></div>
+        {details.spokenText && <p><strong className="text-muted">Texto Falado/Narrado:</strong> {details.spokenText}</p>}
+        {details.onScreenText && <p><strong className="text-muted">Texto na Tela:</strong> {details.onScreenText}</p>}
+        {details.coverSuggestion && <p><strong className="text-muted">Sugestão de Capa:</strong> {details.coverSuggestion}</p>}
       </div>
     );
   }
   return (
-    <ol className="space-y-2">
-      {details.stories.map((story, index) => (
-        <li key={index} className="flex gap-2.5 text-xs leading-relaxed text-ink">
-          <span className="mt-px grid h-5 w-5 shrink-0 place-items-center rounded-md bg-surface font-mono text-[10px] font-bold tabular-nums text-muted">{index + 1}</span>
-          <span>{story.text}</span>
-        </li>
-      ))}
-    </ol>
+    <div className="space-y-2.5 text-xs leading-relaxed text-ink">
+      <p><strong className="text-muted">Overlay Visual (Sobreposição):</strong> {details.overlayText || 'Sem sobreposição'}</p>
+      <p><strong className="text-muted">CTA Visual / Interação na Tela:</strong> {details.ctaVisual}</p>
+      <p className="italic text-muted">Aviso: Stories não geram legenda no feed principal do Instagram.</p>
+      <ol className="mt-2 space-y-1.5">
+        {details.stories.map((story, index) => (
+          <li key={index} className="flex gap-2 text-xs text-muted">
+            <span className="font-mono font-bold text-ink">{index + 1}.</span> {story.text}
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 

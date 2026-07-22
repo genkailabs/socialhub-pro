@@ -58,7 +58,7 @@ async function publishInstagramStories(token: Record<string, string>, urls: stri
   return ids[0];
 }
 
-async function publishInstagramReels(token: Record<string, string>, caption: string, url: string, coverUrl?: string | null) {
+async function publishInstagramReels(token: Record<string, string>, caption: string, url: string, coverUrl?: string | null, shareToFeed?: boolean | null) {
   const params = new URLSearchParams({
     video_url: url,
     media_type: 'REELS',
@@ -66,6 +66,11 @@ async function publishInstagramReels(token: Record<string, string>, caption: str
   });
   if (caption) params.set('caption', caption);
   if (coverUrl) params.set('cover_url', coverUrl);
+  if (shareToFeed !== undefined && shareToFeed !== null) {
+    params.set('share_to_feed', shareToFeed ? 'true' : 'false');
+  } else {
+    params.set('share_to_feed', 'true');
+  }
 
   const container = await graphPost(`${token.platform_user_id}/media`, params);
   await waitContainerReady(container.id, token.access_token, 20, 3000);
@@ -124,7 +129,7 @@ Deno.serve(async (request) => {
         if (isReel && platform !== 'instagram') throw new Error('Reel so publica no Instagram.');
         const id = platform === 'instagram'
           ? isReel
-            ? await publishInstagramReels(token, post.content as string || '', urls[0], post.cover_url as string | null)
+            ? await publishInstagramReels(token, post.content as string || '', urls[0], post.cover_url as string | null, post.share_to_feed as boolean | null | undefined)
             : isStory
               ? await publishInstagramStories(token, urls)
               : await publishInstagram(token, post.content as string || '', urls)
@@ -134,23 +139,22 @@ Deno.serve(async (request) => {
         posted.push({ platform, id });
       }
       const externalPostId = posted[0]?.id || null;
-      await supabase.from('posts').update({ status: 'published', published_at: new Date().toISOString(), publishing_started_at: null, external_post_id: externalPostId, publication_attempt: { source: 'supabase_edge_function', posted } }).eq('id', post.id).eq('status', 'publishing');
+      const publishedAt = new Date().toISOString();
+      const deleteAfter = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+
+      await supabase.from('posts').update({
+        status: 'published',
+        published_at: publishedAt,
+        publishing_started_at: null,
+        external_post_id: externalPostId,
+        delete_after: deleteAfter,
+        publication_attempt: { source: 'supabase_edge_function', posted }
+      }).eq('id', post.id).eq('status', 'publishing');
       
       try {
-        const toRemove = [...urls];
-        if (post.cover_url && typeof post.cover_url === 'string') {
-          toRemove.push(post.cover_url);
-        }
-        const tempPaths = toRemove
-          .filter(u => u.includes('/storage/v1/object/public/media/temp/'))
-          .map(u => u.split('/storage/v1/object/public/media/')[1]);
-        
-        if (tempPaths.length > 0) {
-          const { error: removeErr } = await supabase.storage.from('media').remove(tempPaths);
-          if (removeErr) {
-            console.error('Error removing media from post publishing:', removeErr);
-          }
-        }
+        await supabase.from('posts_media').update({
+          delete_after: deleteAfter
+        }).eq('post_id', post.id);
       } catch (err) {
         // ignore errors on cleanup
       }

@@ -26,11 +26,11 @@ import { publishNow } from '@/lib/posts-actions';
 // Monta um supabase falso onde o insert em posts resolve com o que o teste pedir.
 function makeSupabase(insertResult) {
   const insert = vi.fn(() => ({
-    select: () => ({ maybeSingle: vi.fn().mockResolvedValue(insertResult) })
+    select: () => ({ maybeSingle: vi.fn().mockResolvedValue(insertResult), single: vi.fn().mockResolvedValue(insertResult) })
   }));
-    const removeMock = vi.fn().mockResolvedValue({ data: {}, error: null });
-    const storageFromMock = vi.fn().mockReturnValue({ remove: removeMock });
-    const supabase = {
+  const removeMock = vi.fn().mockResolvedValue({ data: {}, error: null });
+  const storageFromMock = vi.fn().mockReturnValue({ remove: removeMock });
+  const supabase = {
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
     storage: {
       from: storageFromMock
@@ -52,10 +52,13 @@ function makeSupabase(insertResult) {
         };
       }
       if (table === 'posts') return { insert };
+      if (table === 'posts_media') return { insert: vi.fn().mockResolvedValue({ data: [], error: null }) };
+      if (table === 'publication_learning') return { upsert: vi.fn().mockResolvedValue({ data: [], error: null }) };
+      if (table === 'marketing_recommendations') return { update: () => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }) };
       throw new Error(`Tabela inesperada: ${table}`);
     })
   };
-  return { supabase, insert };
+  return { supabase, insert, removeMock };
 }
 
 const payload = { brandId: 'brand-1', caption: 'Oi', hashtags: '#a', imageUrls: ['https://img/1.png'] };
@@ -80,6 +83,7 @@ describe('publishNow', () => {
       media_urls: ['https://img/1.png'],
       status: 'published'
     });
+    expect(insert.mock.calls[0][0].delete_after).toBeTypeOf('string');
   });
 
   // Regressão: a coluna posts.media_urls não existia no banco, o insert falhava
@@ -102,8 +106,8 @@ describe('publishNow', () => {
     expect(res.warning).toContain('column posts.media_urls does not exist');
   });
 
-  it('publica stories (vídeo) e remove do bucket temporário', async () => {
-    const { supabase, insert } = makeSupabase({ data: { id: 'post-story' }, error: null });
+  it('publica stories (vídeo) e calcula delete_after sem apagar direto no storage', async () => {
+    const { supabase, insert, removeMock } = makeSupabase({ data: { id: 'post-story' }, error: null });
     mocks.createClient.mockResolvedValue(supabase);
     mocks.publishInstagramStory.mockResolvedValue('ig-story-1');
 
@@ -119,14 +123,14 @@ describe('publishNow', () => {
       imageUrl: 'temp/brand-1/123.mp4'
     }));
     
-    expect(supabase.storage.from).toHaveBeenCalledWith('media');
-    const storageMock = supabase.storage.from('media');
-    expect(storageMock.remove).toHaveBeenCalledWith(['temp/brand-1/123.mp4']);
+    // Garantir que remove NÃO foi chamado no publishNow (agora é via delete_after)
+    expect(removeMock).not.toHaveBeenCalled();
     
     expect(insert.mock.calls[0][0]).toMatchObject({
       format: 'stories',
       media_url: 'temp/brand-1/123.mp4'
     });
+    expect(insert.mock.calls[0][0].delete_after).toBeDefined();
   });
 
   it('normaliza formatos como "story" ou "STORIES" para "stories" ao publicar', async () => {
@@ -147,8 +151,8 @@ describe('publishNow', () => {
     });
   });
 
-  it('publica reel com cover_url e limpa ambos arquivos temporarios', async () => {
-    const { supabase, insert } = makeSupabase({ data: { id: 'post-reel' }, error: null });
+  it('publica reel com cover_url, share_to_feed e calcula delete_after sem apagar direto no storage', async () => {
+    const { supabase, insert, removeMock } = makeSupabase({ data: { id: 'post-reel' }, error: null });
     mocks.createClient.mockResolvedValue(supabase);
     mocks.publishInstagramReel.mockResolvedValue('ig-reel-1');
 
@@ -156,24 +160,25 @@ describe('publishNow', () => {
       ...payload,
       format: 'reel',
       imageUrls: ['temp/brand-1/video.mp4'],
-      coverUrl: 'temp/brand-1/cover.jpg'
+      coverUrl: 'temp/brand-1/cover.jpg',
+      share_to_feed: true
     });
 
     expect(res).toEqual({ ok: true, id: 'ig-reel-1' });
     expect(mocks.publishInstagramReel).toHaveBeenCalledWith(expect.objectContaining({
       videoUrl: 'temp/brand-1/video.mp4',
-      coverUrl: 'temp/brand-1/cover.jpg'
+      coverUrl: 'temp/brand-1/cover.jpg',
+      shareToFeed: true
     }));
     
-    expect(supabase.storage.from).toHaveBeenCalledWith('media');
-    const storageMock = supabase.storage.from('media');
-    expect(storageMock.remove).toHaveBeenCalledWith(['temp/brand-1/video.mp4']);
-    expect(storageMock.remove).toHaveBeenCalledWith(['temp/brand-1/cover.jpg']);
+    expect(removeMock).not.toHaveBeenCalled();
     
     expect(insert.mock.calls[0][0]).toMatchObject({
       format: 'reel',
       media_url: 'temp/brand-1/video.mp4',
-      cover_url: 'temp/brand-1/cover.jpg'
+      cover_url: 'temp/brand-1/cover.jpg',
+      share_to_feed: true
     });
+    expect(insert.mock.calls[0][0].delete_after).toBeDefined();
   });
 });

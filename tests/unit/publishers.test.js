@@ -108,11 +108,19 @@ describe('publishPostTo', () => {
     expect(id).toBe('story-u1.mp4');
   });
 
-  it('publica reel corretamente', async () => {
+  it('publica reel corretamente com defaults', async () => {
     const graph = fakeGraph();
     const id = await publishPostTo({ platform: 'instagram', token: igToken, caption: 'my reel', urls: ['video.mp4'], format: 'reel', graph, retryOptions });
     expect(id).toBe('reel-1');
-    expect(graph.publishInstagramReel).toHaveBeenCalledWith({ igId: 'ig1', token: 'tok', videoUrl: 'video.mp4', caption: 'my reel' });
+    expect(graph.publishInstagramReel).toHaveBeenCalledWith({ igId: 'ig1', token: 'tok', videoUrl: 'video.mp4', caption: 'my reel', coverUrl: undefined, shareToFeed: true });
+  });
+
+  it('publica reel repassando cover_url e share_to_feed do post', async () => {
+    const graph = fakeGraph();
+    const post = { cover_url: 'https://img/cover.jpg', share_to_feed: false };
+    const id = await publishPostTo({ platform: 'instagram', token: igToken, caption: 'reel custom', urls: ['video.mp4'], format: 'reel', graph, retryOptions, post });
+    expect(id).toBe('reel-1');
+    expect(graph.publishInstagramReel).toHaveBeenCalledWith({ igId: 'ig1', token: 'tok', videoUrl: 'video.mp4', caption: 'reel custom', coverUrl: 'https://img/cover.jpg', shareToFeed: false });
   });
 
   // Mandar a sequência como carrossel colocaria o Story no feed.

@@ -30,9 +30,11 @@ export function ApprovalsList({ posts }) {
       {posts.map((p) => (
         <div key={p.id} className="rounded-2xl glass p-4 shadow-soft transition-shadow hover:shadow-lift">
           <div className="flex gap-4">
-            {p.media_url && (
+            {p.deleted_at ? (
+              <div className="grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-dashed border-line bg-surface-2 p-1 text-[9px] text-muted">Mídia removida</div>
+            ) : p.media_url ? (
               <img src={p.media_url} alt="" className="h-16 w-16 shrink-0 rounded-xl border border-line object-cover" />
-            )}
+            ) : null}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-warning/12 px-2 py-0.5 text-[10px] font-extrabold text-warning">

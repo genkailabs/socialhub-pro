@@ -60,14 +60,58 @@ function makeSupabase(insertResult = { data: { id: 'post-1' }, error: null }, cu
       if (table === 'posts') {
         if (customOverrides.postsSelect) {
           return {
-            select: () => ({
-              in: vi.fn().mockResolvedValue({ data: customOverrides.postsSelect, error: null })
+            select: vi.fn().mockReturnValue({
+              in: vi.fn().mockResolvedValue({ data: customOverrides.postsSelect, error: null }),
+              lte: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: customOverrides.postsSelect, error: null }),
+                is: vi.fn().mockResolvedValue({ data: customOverrides.postsSelect, error: null })
+              })
             }),
             insert
           };
         }
-        return { insert };
+        return {
+          select: vi.fn().mockReturnValue({
+            lte: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+              is: vi.fn().mockResolvedValue({ data: [], error: null })
+            })
+          }),
+          insert
+        };
       }
+      if (table === 'posts_media') {
+        if (customOverrides.postsMediaSelect) {
+          return {
+            select: vi.fn().mockReturnValue({
+              lt: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: customOverrides.postsMediaSelect, error: null })
+              }),
+              lte: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: customOverrides.postsMediaSelect, error: null })
+              })
+            }),
+            delete: () => ({
+              in: vi.fn().mockResolvedValue({ data: [], error: null })
+            }),
+            insert: vi.fn().mockResolvedValue({ data: [], error: null })
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            lt: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: [], error: null })
+            }),
+            lte: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: [], error: null })
+            })
+          }),
+          insert: vi.fn().mockResolvedValue({ data: [], error: null }),
+          update: () => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) })
+        };
+      }
+      if (table === 'publication_learning') return { upsert: vi.fn().mockResolvedValue({ data: [], error: null }) };
+      if (table === 'marketing_recommendations') return { update: () => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }) };
       throw new Error(`Tabela inesperada: ${table}`);
     })
   };
@@ -145,10 +189,10 @@ describe('Composer Unificado — Ponta a Ponta & Regressão (§Task 10)', () => 
         imageUrl: 'temp/brand-1/story-123.jpg',
         isVideo: false
       });
-      expect(removeMock).toHaveBeenCalledWith(['temp/brand-1/story-123.jpg']);
+      expect(removeMock).not.toHaveBeenCalled();
     });
 
-    it('4. Formato reel: publica via publishInstagramReel com coverUrl e limpa ambos arquivos temp/', async () => {
+    it('4. Formato reel: publica via publishInstagramReel com coverUrl e agenda limpeza via delete_after sem remover imediato', async () => {
       const { supabase, removeMock } = makeSupabase();
       mocks.createClient.mockResolvedValue(supabase);
 
@@ -167,11 +211,10 @@ describe('Composer Unificado — Ponta a Ponta & Regressão (§Task 10)', () => 
         token: 'tok',
         caption: 'Meu Reel',
         videoUrl: 'temp/brand-1/video-456.mp4',
-        coverUrl: 'temp/brand-1/cover-456.jpg'
+        coverUrl: 'temp/brand-1/cover-456.jpg',
+        shareToFeed: true
       });
-      expect(removeMock).toHaveBeenCalledTimes(2);
-      expect(removeMock).toHaveBeenNthCalledWith(1, ['temp/brand-1/video-456.mp4']);
-      expect(removeMock).toHaveBeenNthCalledWith(2, ['temp/brand-1/cover-456.jpg']);
+      expect(removeMock).not.toHaveBeenCalled();
     });
   });
 
