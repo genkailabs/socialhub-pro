@@ -1,50 +1,41 @@
 'use client';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Sparkles } from 'lucide-react';
 import { BrandKitTabs } from './BrandKitTabs';
-import { BrandWizard } from './wizard/BrandWizard';
-import { DnaDashboard } from './wizard/DnaDashboard';
 import { DnaVersions } from './DnaVersions';
 import { Button } from '@/components/ui/Button';
+import { resetOnboarding } from '@/lib/onboarding-actions';
 
 export function BrandKitShell({ brandId, brandName, brandColor, kit, versions = [] }) {
   const router = useRouter();
-  // Concluir a entrevista e aprovar o DNA são coisas diferentes: com o DNA
-  // versionado, dna_generated_at só existe depois da aprovação. Sem olhar o
-  // onboarding_status, quem recarregasse a página antes de aprovar cairia no
-  // wizard de novo e regeraria o DNA — pagando outra vez pela mesma coisa.
-  const onboarded = kit?.onboarding_status === 'completed' || Boolean(kit?.dna_generated_at);
-  const [mode, setMode] = useState(onboarded ? 'tabs' : 'wizard');
-  const [summary, setSummary] = useState(null);
+  const [resetting, setResetting] = useState(false);
 
-  if (mode === 'wizard') {
-    return (
-      <BrandWizard
-        brandId={brandId} brandName={brandName} brandColor={brandColor} kit={kit}
-        onComplete={(s) => { setSummary(s); setMode('dashboard'); router.refresh(); }}
-      />
-    );
-  }
-
-  if (mode === 'dashboard' && summary) {
-    return (
-      <div className="space-y-4">
-        <DnaVersions brandId={brandId} versions={versions} />
-        <DnaDashboard summary={summary} onEditKit={() => setMode('tabs')} />
-      </div>
-    );
+  async function handleResetOnboarding() {
+    if (!confirm('Deseja refazer a jornada guiada de onboarding desde o início? Suas configurações manuais serão mantidas.')) return;
+    setResetting(true);
+    await resetOnboarding({ brandId });
+    setResetting(false);
+    router.push('/onboarding');
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button variant="ghost" size="sm" onClick={() => setMode('wizard')}>
-          <RotateCcw className="h-3.5 w-3.5" />Refazer onboarding
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface-2 p-4">
+        <div>
+          <h2 className="text-sm font-bold text-ink flex items-center gap-1.5">
+            <Sparkles className="h-4 w-4 text-accent" /> Configuração Avançada do Brand DNA
+          </h2>
+          <p className="text-xs text-muted">Ajuste logo, website, manual e regras de marca para melhorar a precisão da IA (§3.2 / §25).</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleResetOnboarding} disabled={resetting} className="gap-1.5">
+          <RotateCcw className="h-3.5 w-3.5" /> {resetting ? 'Reiniciando...' : 'Refazer onboarding guiado'}
         </Button>
       </div>
+
       <DnaVersions brandId={brandId} versions={versions} />
       <BrandKitTabs brandId={brandId} brandName={brandName} brandColor={brandColor} kit={kit} />
     </div>
   );
 }
+
