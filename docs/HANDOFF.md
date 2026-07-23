@@ -1,6 +1,6 @@
 # Handoff — Social Hub / Jornada Instagram
 
-Estado em 2026-07-17. Branch `feat/jornada-instagram` (LOCAL — confirmar push antes de deploy; Render roda a aplicação publicada).
+Estado em 2026-07-17. Branch `feat/jornada-instagram` (LOCAL — confirmar push antes de deploy; Railway roda a aplicação publicada).
 
 ## O que está pronto (Fases 0-5)
 
@@ -43,6 +43,6 @@ Implementado em 2026-07-17 (branch local, não pushado):
 ## Regras aprendidas (importantes)
 
 - **Migrations locais NÃO são fonte de verdade** do banco. Sondar via PostgREST antes de DDL. Ver memória `schema-supabase-diverge-das-migrations`.
-- Render hospeda, Neon/Supabase são banco/Auth conforme ambiente configurado. Não confundir hospedagem com banco.
+- Railway hospeda; Supabase fornece banco/Auth/Storage e Edge Functions. Não confundir hospedagem com banco.
 - Sonda read-only: `GET {url}/rest/v1/{tabela}?select={col}&limit=0`. Scripts em scratchpad. Classificador de segurança às vezes bloqueia node lendo .env.local — repetir.
 - Plano completo: `C:\Users\Damien\.claude\plans\tingly-jumping-hoare.md`.

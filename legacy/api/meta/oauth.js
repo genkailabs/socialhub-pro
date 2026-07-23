@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   const { brand_id, redirect_uri } = req.query;
   
   const appId = process.env.META_APP_ID || '1398041688806808';
-  const baseUrl = process.env.VITE_APP_URL || 'https://socialhub-pro-1.onrender.com';
+  const baseUrl = process.env.VITE_APP_URL || 'https://socialhub-mvp-production.up.railway.app';
   const callbackUrl = `${baseUrl}/api/meta/callback`;
   
   // O state armazena de forma segura o ID da marca e o timestamp para evitar CSRF

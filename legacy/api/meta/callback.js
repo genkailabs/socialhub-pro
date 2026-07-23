@@ -8,7 +8,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
   const { code, state, error, error_description } = req.query;
-  const baseUrl = process.env.VITE_APP_URL || 'https://socialhub-pro-1.onrender.com';
+  const baseUrl = process.env.VITE_APP_URL || 'https://socialhub-mvp-production.up.railway.app';
 
   async function logAudit(brandId, status, msg) {
     try {

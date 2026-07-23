@@ -22,7 +22,7 @@ Reduzir a complexidade percebida e real do produto sem remover capacidade nenhum
 
 - Qualquer rede social além de Instagram.
 - Reescrever o Planejador Editorial, as skills de IA ou o modelo de dados.
-- Trocar hospedagem ou infraestrutura (Render/Supabase) como parte deste PRD — é uma decisão separada, tratada em documento à parte.
+- Trocar hospedagem ou infraestrutura (Railway/Supabase) como parte deste PRD — é uma decisão separada.
 - Redesenho visual completo. Este PRD corrige desvios pontuais do `DESIGN.md` existente, não cria um novo design system.
 
 ---
@@ -158,7 +158,7 @@ Reduzir a complexidade percebida e real do produto sem remover capacidade nenhum
 6. RF-16 é refatoração pura: o resultado visual deve ser idêntico ao atual. Validar com captura de tela antes/depois de cada arquivo migrado.
 7. RF-20 é a única fase que pode exigir decisões de layout não cobertas aqui (breakpoints exatos, comportamento do menu-gaveta); nesse caso, parar e pedir decisão antes de prosseguir, como já orienta o PRD original em sua seção de instruções.
 8. Atualizar `README.md` ao final de cada fase relevante, como já é prática do projeto.
-9. Não tocar em `supabase/functions`, `render.yaml` ou infraestrutura de hospedagem — fora de escopo deste PRD.
+9. Não tocar em `supabase/functions`, `railway.json` ou infraestrutura de hospedagem — fora de escopo deste PRD.
 
 ## 7. Critérios de aceitação do conjunto
 

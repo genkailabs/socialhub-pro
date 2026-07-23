@@ -7,11 +7,11 @@
 
 | Camada | Onde roda HOJE | Observação |
 |---|---|---|
-| **App (Next.js)** | **Railway** — `https://socialhub-mvp-production.up.railway.app` | Confirmado pelo dono. Código/docs (README, `.env`, `render.yaml`, `config.toml`) ainda citavam Render/Vercel — **estavam desatualizados**, corrigidos nesta revisão. |
+| **App (Next.js)** | **Railway** — `https://socialhub-mvp-production.up.railway.app` | Confirmado pelo dono e configurado por `railway.json`. |
 | **Banco / Auth / Storage** | **Supabase** (projeto `geoqbbrlyepmhwgdbjmz`) | Independente de onde o Next.js roda. |
 | **Cron / Edge Functions** | **Supabase** (`publish-due-posts`, `youtube-sync`) | Migrados do Railway p/ Supabase em 19/07. |
 
-⚠️ **Havia 3 domínios espalhados no projeto** (Render, Vercel, Railway) sem um bater com a realidade. Causa raiz do bug "URL bloqueada" no Meta OAuth em 2026-07-20. Se isso acontecer de novo, é sinal de doc desatualizada — confirmar direto no painel que o dono usa, não em arquivo.
+⚠️ Se aparecer outro domínio no fluxo OAuth, confirme o domínio ativo diretamente no painel do Railway e mantenha `APP_URL`, Meta e Supabase Auth sincronizados.
 
 ## Domínio de produção (o que os callbacks usam)
 
@@ -29,7 +29,7 @@ Usado em:
 3. `site_url`/`additional_redirect_urls` em `supabase/config.toml` (repo).
 4. `APP_URL` nas env vars do **Railway** (painel Railway).
 
-**Estado em 2026-07-20:** allowlist do Meta tinha `socialhub-pro-1.onrender.com` E `socialhub-pro-steel.vercel.app`, nenhum dos dois o domínio real. Adicionado `socialhub-mvp-production.up.railway.app/api/meta/callback`. **Falta confirmar:** `APP_URL` está setado certo nas env vars do Railway? (painel, não visível daqui).
+**Estado esperado:** `socialhub-mvp-production.up.railway.app/api/meta/callback` deve estar permitido no Meta. Confirmar também `APP_URL` nas env vars do Railway.
 
 ## App
 
@@ -38,13 +38,6 @@ Usado em:
 - Build: `npm ci && npm run build` · Start: `npm start`
 - Healthcheck: `/login` (`railway.json`)
 - Config Railway versionada: `railway.json` na raiz
-
-## Arquivos desatualizados a vigiar (citam host errado)
-
-- `README.md` — cita onrender como "URL de produção"
-- `.env` local — `VITE_APP_URL=...onrender.com` (parece resquício da era Vite/legacy, `VITE_*` não é lido pelo Next.js)
-- `render.yaml` — ainda na raiz, referência do host antigo (Render), não removido
-- `PRD_Infraestrutura_Producao_Railway.md` — tratava Railway como migração futura; na prática já é o host vivo
 
 ## Chaves de ambiente (servidor, Railway)
 

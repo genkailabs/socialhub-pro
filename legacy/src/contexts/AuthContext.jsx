@@ -81,7 +81,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin || 'https://socialhub-pro-1.onrender.com'
+        redirectTo: window.location.origin || 'https://socialhub-mvp-production.up.railway.app'
       }
     });
     if (error) {

@@ -18,7 +18,7 @@ Gerenciador de redes sociais multi-marca (SaaS) para agências: workspaces por m
 | UI | React 18, Tailwind CSS 3, Radix UI, lucide-react, recharts |
 | Auth / DB | Supabase (Postgres + Auth + RLS) via `@supabase/ssr` |
 | Testes | Vitest (unit) + Playwright (e2e) |
-| Deploy | Render |
+| Deploy | Railway |
 | Integração real | Meta Graph API v21.0 (Instagram/Facebook) |
 
 ---
@@ -73,13 +73,13 @@ Migrações em `supabase/migrations/`. Modelo (resumo):
 
 ---
 
-## Deploy (Render)
+## Deploy (Railway)
 
-URL de produção: https://socialhub-pro-1.onrender.com
+URL de produção: https://socialhub-mvp-production.up.railway.app
 
-1. O serviço Render usa `render.yaml`.
-2. Configurar env vars (as `NEXT_PUBLIC_*` e as de servidor) no painel do Render.
-3. No Supabase Auth, adicionar `https://socialhub-pro-1.onrender.com/auth/callback` em **Redirect URLs**.
+1. O serviço Railway usa `railway.json`.
+2. Configurar env vars (as `NEXT_PUBLIC_*` e as de servidor) no painel do Railway.
+3. No Supabase Auth, adicionar `https://socialhub-mvp-production.up.railway.app/auth/callback` em **Redirect URLs**.
 
 Headers de segurança são definidos em `next.config.js`.
 
@@ -109,7 +109,7 @@ docs/superpowers/  # specs e plans
 
 ## Infraestrutura de produção (Railway + Sentry)
 
-- **Hospedagem no Railway.** `railway.json` versiona build/start/healthcheck (espelha o antigo `render.yaml`). As variáveis de ambiente estão listadas em `.env.example` — cadastrar todas no painel do Railway. `APP_URL` precisa ser o domínio final (usado no callback do Meta OAuth e no middleware); se o domínio mudar, atualizar a Redirect URI no app do Facebook Developer.
+- **Hospedagem no Railway.** `railway.json` versiona build/start/healthcheck. As variáveis de ambiente estão listadas em `.env.example` — cadastrar todas no painel do Railway. `APP_URL` precisa ser o domínio final (usado no callback do Meta OAuth e no middleware); se o domínio mudar, atualizar a Redirect URI no app do Facebook Developer.
 - **Sentry (monitoramento de erro).** `@sentry/nextjs` com configs server/client/edge que só inicializam quando há `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` — sem DSN é no-op, nada quebra. O runner de IA (`lib/ai/skills/run.js`) já reporta falhas via `captureError` (`lib/observability.js`). **Para novas Server Actions**, chamar `captureError(e, { ... })` no `catch` antes de devolver `{ error }` — hoje esses erros só voltavam para a UI sem registro. Gerar o DSN no painel do Sentry e colá-lo no Railway.
 
 ## Notas de simplificação (2026-07-20)

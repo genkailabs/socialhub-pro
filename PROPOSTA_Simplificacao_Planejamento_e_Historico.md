@@ -92,7 +92,7 @@ O item de menu **"Estratégia e Piloto"** (`/autopilot`) na verdade mistura duas
 1. **Estratégia** (`StrategyPanel`) — isso é legítimo, alimenta o Planejamento, deveria continuar.
 2. **Piloto Automático** (`AutopilotForm` + `lib/autopilot.js` + tabela `content_plans`) — um sistema **antigo e paralelo** que promete na tela *"sua agência operando 24/7... gera post diário"*. Ele tem seu próprio botão liga/desliga, sua própria cadência (`posts_per_day`), e gera conteúdo completo (texto + imagem, custo real) **sem passar pelo Planejamento novo**.
 
-Investigando quem realmente chama essa geração diária (`runDailyAutopilot`), não encontrei nenhum cron, rota ou agendamento que a dispare hoje — nem no Next.js, nem no `render.yaml`, nem nas Supabase Edge Functions que vocês acabaram de migrar (`supabase/functions/publish-due-posts`, `youtube-sync`, ambas de 19/07). Ou seja: **o botão "Piloto Automático" existe na tela, promete rodar sozinho todo dia, mas está desconectado — não roda.** Isso não é uma feature discreta, é uma tela inteira contando uma história que o sistema não cumpre, e que compete visualmente com o Planejamento (que é o fluxo real e correto, conforme o PRD).
+Investigando quem realmente chama essa geração diária (`runDailyAutopilot`), não encontrei nenhum cron, rota ou agendamento que a dispare hoje — nem no Next.js, nem no `railway.json`, nem nas Supabase Edge Functions (`supabase/functions/publish-due-posts`, `youtube-sync`). Ou seja: **o botão "Piloto Automático" existe na tela, promete rodar sozinho todo dia, mas está desconectado — não roda.** Isso não é uma feature discreta, é uma tela inteira contando uma história que o sistema não cumpre, e que compete visualmente com o Planejamento (que é o fluxo real e correto, conforme o PRD).
 
 Isso muda a prioridade da simplificação: antes de mexer em botões do Planejamento, vale **decidir o destino dessa tela** — porque enquanto ela existir do jeito que está, qualquer usuário (inclusive você) pode ligar "Piloto Automático" achando que está economizando trabalho, sem saber que (a) hoje não faz nada, ou (b) se um dia for religado, vai gerar conteúdo por fora do Planejamento, com seu próprio consumo de créditos.
 
@@ -129,17 +129,11 @@ Outros pontos que confirmei no código, comparando com o `DESIGN.md` de vocês:
 
 Nenhum desses pontos é urgente isoladamente, mas juntos formam uma lista curta e barata de "arrumação" que deixaria o app mais consistente com o próprio padrão que vocês escreveram — e a extração de `Card`/`Badge` compartilhados é a que mais reduz código de verdade.
 
-### 6.4 Sobre a hospedagem (Render) — você perguntou se está bom ou se deveriam trocar
+### 6.4 Sobre a hospedagem
 
-Direto ao ponto: para o estágio de MVP, **dá para continuar no Render**, mas vale saber a troca que está sendo feita hoje. O plano free do Render "dorme" o serviço depois de ~15 minutos sem uso e leva de 30 a 60 segundos para acordar no próximo acesso — isso é ruim justamente na hora de validar o produto com uma cliente de verdade ou uma agência (o piloto de 2–4 semanas que o PRD propõe em §19), porque a primeira impressão vira uma tela travada.
+O aplicativo está hospedado no **Railway**. A publicação agendada e a sincronização do YouTube permanecem no Supabase Edge Functions/`pg_cron`, independentes do host do Next.js.
 
-Como vocês já moveram a publicação agendada e a sincronização do YouTube para Supabase Edge Functions/`pg_cron` (migração de ontem, 19/07), o Render agora só precisa hospedar o Next.js em si — não depende mais dele para cron. Isso simplifica a decisão:
-
-- **Ficar no Render, mas sair do free tier** (~US$7/mês no plano Starter) elimina o "dormir" e é a mudança mais barata e menos arriscada agora.
-- **Vercel** tem o melhor suporte nativo a Next.js (ISR, edge, otimização de imagem) e um free tier generoso, mas o plano gratuito (Hobby) é para uso não-comercial — se o Social Hub for cobrar de clientes, precisaria do plano Pro.
-- **Railway** fica no meio: sem cold start, modelo por contêiner mais previsível, ~US$8–15/mês em uso moderado — foi inclusive onde os crons rodavam antes da migração para Supabase.
-
-Não é uma decisão urgente nem que trava o produto. Minha recomendação para agora: manter Render e só tirar do free tier quando o piloto com usuárias reais começar, para não perder a primeira impressão por causa do cold start.
+Para evitar regressões de OAuth, o domínio público do Railway deve permanecer sincronizado em `APP_URL`, Supabase Auth e nas Redirect URIs do Meta.
 
 ---
 
@@ -150,6 +144,6 @@ Não é uma decisão urgente nem que trava o produto. Minha recomendação para 
 3. Textos/selo de custo + contador de créditos no Planejamento (seção 3).
 4. Ajustes de rótulo de navegação e os dois itens de design (seção 6.2/6.3) — baratos, sem risco.
 5. Histórico detalhado em `/ai-costs` (seção 4).
-6. Sair do free tier do Render quando o piloto com usuárias reais começar (seção 6.4) — não é código, é uma configuração no painel do Render.
+6. Confirmar `APP_URL` e callbacks do domínio Railway antes do piloto com usuárias reais (seção 6.4).
 
 Nenhum desses itens exige reescrever telas existentes — todos são ajustes ou remoções pontuais, na linha do que o próprio PRD pede ("não reconstruir do zero").
