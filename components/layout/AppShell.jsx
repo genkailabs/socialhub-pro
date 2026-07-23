@@ -4,9 +4,12 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { isOnboardingComplete } from '@/lib/onboarding-helpers';
 import { GuidedOnboardingWizard } from '@/components/onboarding/guided/GuidedOnboardingWizard';
+import { usePathname } from 'next/navigation';
 
 export function AppShell({ children, brands = [], activeId, activeKit = null, connectedPlatforms = {}, canAccessAICosts = false, accountEmail = '' }) {
   const [collapsed, setCollapsed] = useState(false);
+  const pathname = usePathname();
+  const isComposer = pathname === '/composer';
 
   // Preferência de sidebar recolhida persiste como o tema (localStorage) — RF-20.
   useEffect(() => {
@@ -49,8 +52,8 @@ export function AppShell({ children, brands = [], activeId, activeKit = null, co
           onToggleSidebar={toggleSidebar}
           collapsed={collapsed}
         />
-        <main className="min-h-0 flex-1 overflow-auto bg-app">
-          <div className="mx-auto w-full max-w-[1500px] space-y-7 p-4 sm:p-6 lg:p-8">{children}</div>
+        <main className={`min-h-0 flex-1 bg-app ${isComposer ? 'overflow-hidden' : 'overflow-auto'}`}>
+          <div className={isComposer ? 'h-full w-full' : 'mx-auto w-full max-w-[1500px] space-y-7 p-4 sm:p-6 lg:p-8'}>{children}</div>
         </main>
       </div>
     </div>
