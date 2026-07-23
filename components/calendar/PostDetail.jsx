@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { X, Copy, Check, Link2 } from 'lucide-react';
+import { X, Copy, Check, Link2, Pencil } from 'lucide-react';
 import { requestApproval } from '@/lib/approval-actions';
 import { statusMeta } from '@/lib/calendar';
 import { Button } from '@/components/ui/Button';
@@ -46,6 +46,12 @@ export function PostDetail({ post, onClose }) {
             <img src={post.media_url} alt="" className="mb-3 max-h-56 w-full rounded-xl border border-line object-cover" />
           ) : null}
           <p className="whitespace-pre-wrap text-sm text-ink">{post.content || '(sem legenda)'}</p>
+
+          {status === 'scheduled' && post.production?.source === 'visual-composer' && (
+            <a href={`/composer?post=${post.id}`} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs font-bold text-ink transition-colors hover:border-accent/40 hover:text-accent">
+              <Pencil className="h-3.5 w-3.5" /> Editar no Composer
+            </a>
+          )}
 
           <div className="mt-5 rounded-xl border border-line bg-surface-2 p-3.5">
             <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-ink"><Link2 className="h-3.5 w-3.5 text-accent" /> Aprovação do cliente</p>

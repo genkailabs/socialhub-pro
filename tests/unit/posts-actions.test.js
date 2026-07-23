@@ -51,8 +51,14 @@ function makeSupabase(insertResult) {
           })
         };
       }
-      if (table === 'posts') return { insert };
-      if (table === 'posts_media') return { insert: vi.fn().mockResolvedValue({ data: [], error: null }) };
+      if (table === 'posts') return {
+        insert,
+        update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }))
+      };
+      if (table === 'posts_media') return {
+        insert: vi.fn().mockResolvedValue({ data: [], error: null }),
+        update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }))
+      };
       if (table === 'publication_learning') return { upsert: vi.fn().mockResolvedValue({ data: [], error: null }) };
       if (table === 'marketing_recommendations') return { update: () => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }) };
       throw new Error(`Tabela inesperada: ${table}`);
@@ -106,7 +112,7 @@ describe('publishNow', () => {
     expect(res.warning).toContain('column posts.media_urls does not exist');
   });
 
-  it('publica stories (vídeo) e calcula delete_after sem apagar direto no storage', async () => {
+  it('publica stories (vídeo) e apaga a mídia temporária imediatamente', async () => {
     const { supabase, insert, removeMock } = makeSupabase({ data: { id: 'post-story' }, error: null });
     mocks.createClient.mockResolvedValue(supabase);
     mocks.publishInstagramStory.mockResolvedValue('ig-story-1');
@@ -123,8 +129,7 @@ describe('publishNow', () => {
       imageUrl: 'temp/brand-1/123.mp4'
     }));
     
-    // Garantir que remove NÃO foi chamado no publishNow (agora é via delete_after)
-    expect(removeMock).not.toHaveBeenCalled();
+    expect(removeMock).toHaveBeenCalledWith(['temp/brand-1/123.mp4']);
     
     expect(insert.mock.calls[0][0]).toMatchObject({
       format: 'stories',
@@ -151,7 +156,7 @@ describe('publishNow', () => {
     });
   });
 
-  it('publica reel com cover_url, share_to_feed e calcula delete_after sem apagar direto no storage', async () => {
+  it('publica reel com cover_url, share_to_feed e apaga vídeo/capa temporários', async () => {
     const { supabase, insert, removeMock } = makeSupabase({ data: { id: 'post-reel' }, error: null });
     mocks.createClient.mockResolvedValue(supabase);
     mocks.publishInstagramReel.mockResolvedValue('ig-reel-1');
@@ -171,7 +176,10 @@ describe('publishNow', () => {
       shareToFeed: true
     }));
     
-    expect(removeMock).not.toHaveBeenCalled();
+    expect(removeMock).toHaveBeenCalledWith([
+      'temp/brand-1/video.mp4',
+      'temp/brand-1/cover.jpg'
+    ]);
     
     expect(insert.mock.calls[0][0]).toMatchObject({
       format: 'reel',

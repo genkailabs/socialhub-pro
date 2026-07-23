@@ -4,16 +4,21 @@ import { VisualComposer } from '@/components/composer/VisualComposer';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listConnectedPlatforms } from '@/lib/social-tokens-data';
-import { getLatestComposerDraft } from '@/lib/posts-data';
+import { getComposerPost, getLatestComposerDraft } from '@/lib/posts-data';
 
-export default async function ComposerPage() {
+export default async function ComposerPage({ searchParams }) {
   const [brands, activeBrandId] = await Promise.all([
     listBrands(),
     getActiveBrandId()
   ]);
   const active = resolveActive(brands, activeBrandId);
   const connected = active ? await listConnectedPlatforms(active.id) : {};
-  const initialDraft = active ? await getLatestComposerDraft(active.id) : null;
+  const requestedPostId = typeof searchParams?.post === 'string' ? searchParams.post : null;
+  const initialDraft = active
+    ? requestedPostId
+      ? await getComposerPost(active.id, requestedPostId)
+      : await getLatestComposerDraft(active.id)
+    : null;
 
   return (
     <div>

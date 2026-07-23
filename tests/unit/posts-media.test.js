@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   cleanUrls, mediaKind, validateInstagramMedia, normalizeHashtags, composeCaption,
-  IG_CAROUSEL_MAX, IG_CAPTION_MAX, isTempMediaPath, uploadTempMedia, calculateDeleteAfter
+  IG_CAROUSEL_MAX, IG_CAPTION_MAX, isTempMediaPath, uploadTempMedia, calculateDeleteAfter,
+  extractTempMediaPath, removeTempMedia
 } from '@/lib/posts-media';
 
 describe('cleanUrls', () => {
@@ -107,6 +108,29 @@ describe('uploadTempMedia', () => {
   });
 });
 
+describe('temporary media removal', () => {
+  it('extracts only paths from the temporary media namespace', () => {
+    expect(extractTempMediaPath('temp/brand/arquivo.jpg')).toBe('temp/brand/arquivo.jpg');
+    expect(extractTempMediaPath('https://supa.test/storage/v1/object/public/media/temp/brand/video.mp4?x=1'))
+      .toBe('temp/brand/video.mp4');
+    expect(extractTempMediaPath('brand/permanente.jpg')).toBeNull();
+  });
+
+  it('deduplicates and removes temporary files from storage', async () => {
+    const remove = vi.fn().mockResolvedValue({ data: [{ name: 'arquivo.jpg' }], error: null });
+    const supabase = { storage: { from: () => ({ remove }) } };
+
+    const result = await removeTempMedia(supabase, [
+      'temp/brand/arquivo.jpg',
+      'https://supa.test/storage/v1/object/public/media/temp/brand/arquivo.jpg',
+      'https://cdn.test/permanente.jpg'
+    ]);
+
+    expect(remove).toHaveBeenCalledWith(['temp/brand/arquivo.jpg']);
+    expect(result).toEqual({ ok: true, paths: ['temp/brand/arquivo.jpg'] });
+  });
+});
+
 describe('calculateDeleteAfter', () => {
   it('retorna +30 dias de updatedAt para rascunhos e aprovações', () => {
     const base = new Date('2026-07-01T12:00:00Z').getTime();
@@ -122,9 +146,9 @@ describe('calculateDeleteAfter', () => {
     expect(calculateDeleteAfter('unknown_status')).toBeNull();
   });
 
-  it('retorna +24h de publishedAt para publicados ou posted_manually', () => {
+  it('torna mídias publicadas elegíveis para exclusão imediata', () => {
     const base = new Date('2026-07-10T15:00:00Z').getTime();
-    const expected = new Date(base + 24 * 3600 * 1000).toISOString();
+    const expected = new Date(base).toISOString();
     expect(calculateDeleteAfter('published', '2026-07-10T15:00:00Z', null)).toBe(expected);
     expect(calculateDeleteAfter('posted_manually', '2026-07-10T15:00:00Z', null)).toBe(expected);
   });

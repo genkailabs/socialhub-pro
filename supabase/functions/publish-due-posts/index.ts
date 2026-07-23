@@ -14,6 +14,17 @@ function urlsOf(post: Record<string, unknown>) {
   return many.length ? many : post.media_url ? [post.media_url] : [];
 }
 
+function temporaryPath(value: unknown) {
+  if (typeof value !== 'string' || !value) return null;
+  const clean = value.split('?')[0];
+  if (clean.startsWith('temp/')) return clean;
+  const marker = '/storage/v1/object/public/media/';
+  const index = clean.indexOf(marker);
+  if (index === -1) return null;
+  const path = clean.slice(index + marker.length).replace(/^\/+/, '');
+  return path.startsWith('temp/') ? path : null;
+}
+
 async function graphPost(path: string, params: URLSearchParams) {
   const response = await fetch(`${GRAPH}/${path}?${params}`, { method: 'POST' });
   const data = await response.json();
@@ -140,27 +151,56 @@ Deno.serve(async (request) => {
       }
       const externalPostId = posted[0]?.id || null;
       const publishedAt = new Date().toISOString();
-      const deleteAfter = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+      const temporaryPaths = [...new Set(
+        [...urls, post.cover_url].map(temporaryPath).filter((value): value is string => Boolean(value))
+      )];
+      let cleanupPending = false;
+      if (temporaryPaths.length > 0) {
+        const { error: cleanupError } = await supabase.storage.from('media').remove(temporaryPaths);
+        cleanupPending = Boolean(cleanupError);
+        if (cleanupError) console.error('Published media cleanup pending:', cleanupError);
+      }
+      const mediaLifecyclePatch = cleanupPending
+        ? {
+            media_url: post.media_url,
+            media_urls: post.media_urls,
+            cover_url: post.cover_url,
+            cover_storage_path: post.cover_storage_path,
+            internal_reference_url: post.internal_reference_url,
+            production: post.production,
+            delete_after: publishedAt
+          }
+        : {
+            media_url: null,
+            media_urls: [],
+            cover_url: null,
+            cover_storage_path: null,
+            internal_reference_url: null,
+            production: null,
+            delete_after: null
+          };
 
       await supabase.from('posts').update({
         status: 'published',
         published_at: publishedAt,
         publishing_started_at: null,
         external_post_id: externalPostId,
-        delete_after: deleteAfter,
+        ...mediaLifecyclePatch,
         publication_attempt: { source: 'supabase_edge_function', posted }
       }).eq('id', post.id).eq('status', 'publishing');
       
       try {
         await supabase.from('posts_media').update({
-          delete_after: deleteAfter
+          delete_after: cleanupPending ? publishedAt : null,
+          deleted_at: cleanupPending ? null : publishedAt,
+          last_deletion_error: cleanupPending ? 'Storage cleanup pending after publish' : null
         }).eq('post_id', post.id);
       } catch (err) {
         // ignore errors on cleanup
       }
 
       await supabase.from('publication_job_logs').insert({ run_id: runId, post_id: post.id, status: 'success', duration_ms: Date.now() - itemStarted, response: { posted } });
-      results.push({ id: post.id, status: 'published' });
+      results.push({ id: post.id, status: 'published', cleanupPending });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro desconhecido ao publicar.';
       const status = Number(post.publish_attempts) >= MAX_ATTEMPTS ? 'failed' : 'scheduled';

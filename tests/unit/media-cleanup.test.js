@@ -229,7 +229,7 @@ describe('cleanOrphanedTempMedia', () => {
       expect.arrayContaining(['brand-1/img.jpg', 'brand-1/post-2.jpg'])
     );
 
-    // Verifica que atualizou deleted_at no banco
+    // Registra a mídia removida, mas preserva o post e limpa apenas referências de arquivo.
     expect(updatedTables).toContainEqual({
       table: 'posts_media',
       ids: ['m-1'],
@@ -238,11 +238,21 @@ describe('cleanOrphanedTempMedia', () => {
     expect(updatedTables).toContainEqual({
       table: 'posts',
       ids: ['p-2'],
-      data: expect.objectContaining({ deleted_at: expect.any(String) })
+      data: expect.objectContaining({
+        media_url: null,
+        media_urls: [],
+        cover_url: null,
+        cover_storage_path: null,
+        internal_reference_url: null,
+        delete_after: null
+      })
     });
+    expect(updatedTables.find((entry) => entry.table === 'posts' && entry.ids.includes('p-2')).data.deleted_at)
+      .toBeUndefined();
   });
 
   it('deve excluir no storage em lotes de 50 e registrar erros em last_deletion_error / deletion_attempts em caso de falha', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     supabase.storage.from('media').list.mockResolvedValueOnce({ data: [], error: null });
 
     // Gera 60 itens para testar lotes de 50
@@ -313,5 +323,6 @@ describe('cleanOrphanedTempMedia', () => {
     expect(updatedMediaSuccess.length).toBe(1);
     expect(updatedMediaSuccess[0].ids.length).toBe(10);
     expect(updatedMediaSuccess[0].data).toHaveProperty('deleted_at');
+    consoleError.mockRestore();
   });
 });

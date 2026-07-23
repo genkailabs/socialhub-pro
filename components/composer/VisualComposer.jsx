@@ -9,20 +9,14 @@ import {
   Smartphone, Smile, Trash2, Type, Undo2, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { uploadTempMedia } from '@/lib/posts-media';
-import { publishNow, saveDraft, schedulePost } from '@/lib/posts-actions';
+import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
+import { deleteComposerDraft, publishNow, saveDraft, schedulePost } from '@/lib/posts-actions';
 import {
   COMPOSER_FORMATS, addLayer, canvasSize, cloneEditorState, getSurface,
   makeComposerDocument, serializeComposer, snapPosition, toApiFormat, validateComposer
 } from '@/lib/composer-editor';
 import styles from './VisualComposer.module.css';
 
-const LIBRARY = [
-  { url: '/composer/post.png', label: 'Post' },
-  { url: '/composer/carrosel.png', label: 'Carrossel' },
-  { url: '/composer/story.png', label: 'Story' },
-  { url: '/composer/reels.png', label: 'Reel' }
-];
 const FORMAT_META = {
   post: ['Post', 'Imagem única'],
   carrossel: ['Carrossel', '2 a 10 slides'],
@@ -37,14 +31,22 @@ const TOOLS = [
 const EMOJIS = ['✨', '🔥', '💡', '❤️', '🚀', '🎯', '👏', '😍', '📌', '✅'];
 const COLORS = ['#FFFFFF', '#1D1D1F', '#007AFF', '#FF9500', '#FF375F'];
 
+function formatFileSize(bytes) {
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size <= 0) return 'Arquivo temporário';
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+}
+
 function baseState(initialDraft) {
   const restored = initialDraft?.editor_state;
+  const lifecycleStatus = initialDraft?.status === 'scheduled' ? 'Agendado' : initialDraft ? 'Rascunho salvo' : 'Rascunho';
   return {
     theme: 'light', format: 'post', ratio: '1:1', doc: makeComposerDocument(),
     caption: '', hashtags: '', firstComment: '', altText: '', location: '', tags: '',
-    hideLikes: false, showFeed: true, status: initialDraft ? 'Rascunho salvo' : 'Rascunho',
+    hideLikes: false, showFeed: true,
     schedDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10), schedTime: '20:00',
-    ...restored, undoStack: [], redoStack: [], sel: null, editing: null
+    ...restored, status: lifecycleStatus, undoStack: [], redoStack: [], sel: null, editing: null
   };
 }
 
@@ -67,6 +69,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   const [reelTime, setReelTime] = useState(0);
   const [busy, setBusy] = useState('');
   const [draftId, setDraftId] = useState(initialDraft?.id || null);
+  const [contentStatus, setContentStatus] = useState(initialDraft?.status || (initialDraft?.id ? 'draft' : null));
   const regionRef = useRef(null);
   const gestureRef = useRef(null);
   const stateRef = useRef(state);
@@ -185,9 +188,16 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     setState((current) => ({ ...current, [key]: value }));
   }
 
-  async function pickMedia(url, kind = 'image') {
+  async function pickMedia(url, kind = 'image', metadata = {}) {
     mutateDoc((doc, current) => {
-      getSurface(doc, current.format).media = { url, kind, name: url.split('/').pop() };
+      getSurface(doc, current.format).media = {
+        url,
+        kind,
+        name: metadata.name || url.split('/').pop()?.split('?')[0] || 'Mídia',
+        path: metadata.path || null,
+        size: metadata.size || null,
+        type: metadata.type || null
+      };
       getSurface(doc, current.format).bg = { x: 0, y: 0, scale: 1, rot: 0 };
     });
     setMediaError('');
@@ -197,9 +207,15 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   async function uploadFiles(files) {
     const file = files?.[0];
     if (!file) return;
-    const valid = state.format === 'reel' ? file.type.startsWith('video/') : file.type.startsWith('image/') || state.format === 'story';
+    const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+    const isVideo = ['video/mp4', 'video/quicktime'].includes(file.type);
+    const valid = state.format === 'reel'
+      ? isVideo
+      : state.format === 'story'
+        ? isImage || isVideo
+        : isImage;
     if (!valid || /\.avi$/i.test(file.name)) {
-      setMediaError(`Formato não suportado para ${FORMAT_META[state.format][0]}. Use JPG, PNG, WEBP${state.format === 'reel' ? ', MP4 ou MOV' : ''}.`);
+      setMediaError(`Formato não suportado para ${FORMAT_META[state.format][0]}. Use ${state.format === 'reel' ? 'MP4 ou MOV' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}.`);
       return;
     }
     setUploading(10);
@@ -207,14 +223,40 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     try {
       const supabase = createClient();
       const uploaded = await uploadTempMedia(supabase, brandId, file);
-      await pickMedia(uploaded.publicUrl, file.type.startsWith('video/') ? 'video' : 'image');
+      const previous = surface.media;
+      await pickMedia(uploaded.publicUrl, isVideo ? 'video' : 'image', {
+        path: uploaded.path,
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+      if (previous) await removeTempMedia(supabase, [previous.path || previous.url]);
       setUploading(100);
-    } catch {
-      await pickMedia(URL.createObjectURL(file), file.type.startsWith('video/') ? 'video' : 'image');
-      flash('Mídia mantida nesta sessão; o upload remoto falhou');
+    } catch (error) {
+      setMediaError(error.message || 'Não foi possível enviar o arquivo.');
     } finally {
       window.clearInterval(fake);
       window.setTimeout(() => setUploading(null), 350);
+    }
+  }
+
+  async function removeCurrentMedia() {
+    const currentMedia = surface.media;
+    if (!currentMedia) return;
+    setBusy('remove-media');
+    setMediaError('');
+    try {
+      const result = await removeTempMedia(createClient(), [currentMedia.path || currentMedia.url]);
+      if (!result.ok) throw new Error(result.error);
+      mutateDoc((doc, current) => {
+        getSurface(doc, current.format).media = null;
+      });
+      setState((current) => ({ ...current, sel: null }));
+      flash('Arquivo temporário removido');
+    } catch (error) {
+      setMediaError(error.message || 'Não foi possível remover o arquivo.');
+    } finally {
+      setBusy('');
     }
   }
 
@@ -346,6 +388,10 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     : [surface.media?.url].filter(Boolean), [state.doc, state.format, surface.media]);
 
   async function persistDraft() {
+    if (contentStatus === 'scheduled') {
+      setModal('schedule');
+      return;
+    }
     setBusy('draft');
     try {
       const result = await saveDraft({
@@ -355,7 +401,10 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         share_to_feed: state.showFeed
       });
       if (result?.error) throw new Error(result.error);
-      if (result?.id) setDraftId(result.id);
+      if (result?.id) {
+        setDraftId(result.id);
+        setContentStatus('draft');
+      }
       updateField('status', 'Rascunho salvo');
       flash('Rascunho salvo');
     } catch (error) { flash(error.message); }
@@ -367,7 +416,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     setBusy(kind);
     try {
       const payload = {
-        brandId, caption: state.caption, hashtags: state.hashtags, firstComment: state.firstComment,
+        brandId, draftId, caption: state.caption, hashtags: state.hashtags, firstComment: state.firstComment,
         altText: state.altText, imageUrls: mediaUrls, format: toApiFormat(state.format),
         editorState: serializeComposer(state), location: state.location, taggedPeople: state.tags,
         share_to_feed: state.showFeed,
@@ -377,13 +426,39 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         ? await schedulePost({ ...payload, scheduledAt: new Date(`${state.schedDate}T${state.schedTime}`).toISOString() })
         : await publishNow(payload);
       if (result?.error) throw new Error(result.error);
-      updateField('status', kind === 'schedule'
-        ? `Agendado · ${state.schedDate.split('-').reverse().join('/')} ${state.schedTime}`
-        : 'Publicado ✓');
+      if (kind === 'schedule') {
+        if (result?.id) setDraftId(result.id);
+        setContentStatus('scheduled');
+        updateField('status', `Agendado · ${state.schedDate.split('-').reverse().join('/')} ${state.schedTime}`);
+      } else {
+        localStorage.removeItem(`composer:draft:${brandId}`);
+        setDraftId(null);
+        setContentStatus(null);
+        setState((current) => ({ ...baseState(null), theme: current.theme, status: 'Publicado ✓' }));
+      }
       setModal(null);
-      flash(kind === 'schedule' ? 'Publicação agendada' : 'Publicação enviada ao Instagram');
+      flash(result.warning || (kind === 'schedule' ? 'Publicação agendada' : 'Publicação enviada ao Instagram'));
     } catch (error) { flash(error.message); }
     finally { setBusy(''); }
+  }
+
+  async function confirmDraftDeletion() {
+    if (!draftId) return;
+    setBusy('delete-draft');
+    try {
+      const result = await deleteComposerDraft({ brandId, draftId });
+      if (result?.error) throw new Error(result.error);
+      localStorage.removeItem(`composer:draft:${brandId}`);
+      setDraftId(null);
+      setContentStatus(null);
+      setState((current) => ({ ...baseState(null), theme: current.theme }));
+      setModal(null);
+      flash('Rascunho e mídias temporárias excluídos');
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy('');
+    }
   }
 
   return (
@@ -399,7 +474,8 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
           <button className={state.theme === 'light' ? styles.selected : ''} onClick={() => { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); setState((v) => ({ ...v, theme: 'light' })); }}>Claro</button>
           <button className={state.theme === 'dark' ? styles.selected : ''} onClick={() => { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); setState((v) => ({ ...v, theme: 'dark' })); }}>Escuro</button>
         </div>
-        <button className={`${styles.button} ${styles.outline}`} onClick={persistDraft} disabled={!!busy}><Save size={14} /> <span>{busy === 'draft' ? 'Salvando…' : 'Salvar rascunho'}</span></button>
+        {draftId && contentStatus === 'draft' && <IconButton title="Excluir rascunho" onClick={() => setModal('delete-draft')}><Trash2 size={16} /></IconButton>}
+        <button className={`${styles.button} ${styles.outline}`} onClick={persistDraft} disabled={!!busy}><Save size={14} /> <span>{busy === 'draft' ? 'Salvando…' : contentStatus === 'scheduled' ? 'Atualizar agendamento' : 'Salvar rascunho'}</span></button>
         <button className={`${styles.button} ${styles.soft}`} onClick={() => setModal('schedule')}>Agendar</button>
         <button className={`${styles.button} ${styles.primary}`} onClick={() => setModal('publish')}>Publicar</button>
       </header>
@@ -423,11 +499,26 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
             {state.format === 'post' && <><div className={styles.sectionLabel}>PROPORÇÃO</div><div className={styles.segment}>{Object.keys(COMPOSER_FORMATS.post.ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => updateField('ratio', ratio)}>{ratio}</button>)}</div></>}
           </>}
           {tool === 'midia' && <>
-            <label className={styles.upload}><Upload size={22} /><strong> Enviar mídia</strong><small>{state.format === 'reel' ? 'MP4, MOV · 9:16' : 'JPG, PNG, WEBP'}</small><input type="file" accept={state.format === 'reel' ? 'video/mp4,video/quicktime,image/*' : 'image/*'} onChange={(event) => uploadFiles(event.target.files)} /></label>
+            {!surface.media ? (
+              <label className={styles.upload}><Upload size={22} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small><input type="file" accept={state.format === 'reel' ? 'video/mp4,video/quicktime' : state.format === 'story' ? 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime' : 'image/jpeg,image/png,image/webp'} onChange={(event) => uploadFiles(event.target.files)} /></label>
+            ) : (
+              <>
+                <div className={styles.sectionLabel}>ARQUIVO ATUAL</div>
+                <div className={styles.currentMedia}>
+                  <div className={styles.mediaPreview}>{surface.media.kind === 'video' ? <Film size={22} /> : <ImageIcon size={22} />}</div>
+                  <div className={styles.mediaInfo}><strong>{surface.media.name || 'Mídia sem nome'}</strong><span>{formatFileSize(surface.media.size)}</span><small>Temporário · disponível até o fim da publicação</small></div>
+                </div>
+                <div className={styles.mediaActions}>
+                  <label role="button" tabIndex={0} aria-label="Substituir arquivo" className={`${styles.button} ${styles.outline}`}>
+                    <Upload size={14} /> Substituir arquivo
+                    <input type="file" accept={state.format === 'reel' ? 'video/mp4,video/quicktime' : state.format === 'story' ? 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime' : 'image/jpeg,image/png,image/webp'} onChange={(event) => uploadFiles(event.target.files)} />
+                  </label>
+                  <button type="button" aria-label="Remover arquivo" className={`${styles.button} ${styles.removeMedia}`} disabled={busy === 'remove-media'} onClick={removeCurrentMedia}><Trash2 size={14} /> Remover arquivo</button>
+                </div>
+              </>
+            )}
             {uploading != null && <div className={styles.progress}><span style={{ width: `${uploading}%` }} /></div>}
             {mediaError && <div className={styles.error}>{mediaError}</div>}
-            <div className={styles.sectionLabel}>DA BIBLIOTECA</div><div className={styles.library}>{LIBRARY.map((item) => <button key={item.url} aria-label={`Usar ${item.label}`} className={styles.libraryItem} style={{ backgroundImage: `url("${item.url}")` }} onClick={() => pickMedia(item.url)} />)}</div>
-            <button className={styles.preset} style={{ marginTop: 10 }} onClick={() => setMediaError('Formato .avi não suportado. Use JPG, PNG, WEBP, MP4 ou MOV.')}>video-final.avi · 214MB</button>
           </>}
           {tool === 'texto' && <>
             <button className={styles.preset} style={{ fontSize: 19, fontWeight: 800 }} onClick={() => addPreset({ text: 'Adicionar título', fs: 32, weight: 800, h: 52 })}>Adicionar título</button>
@@ -504,7 +595,9 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         {layersOpen && <LayersPanel surface={surface} selected={state.sel} onSelect={(id) => setState((current) => ({ ...current, sel: id }))} onPatch={updateLayer} />}
       </div>
 
-      {modal && <PublicationModal kind={modal} state={state} validation={validation} busy={busy} onClose={() => setModal(null)} onConfirm={confirmPublication} onField={updateField} />}
+      {modal === 'delete-draft'
+        ? <DeleteDraftModal busy={busy} onClose={() => setModal(null)} onConfirm={confirmDraftDeletion} />
+        : modal && <PublicationModal kind={modal} state={state} validation={validation} busy={busy} onClose={() => setModal(null)} onConfirm={confirmPublication} onField={updateField} />}
       {toast && <div className={styles.toast} role="status">{toast}</div>}
     </div>
   );
@@ -585,4 +678,17 @@ function PublicationModal({ kind, state, validation, busy, onClose, onConfirm, o
     {kind === 'schedule' ? <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 16 }}><input className={styles.field} type="date" value={state.schedDate} onChange={(e) => onField('schedDate', e.target.value)} /><input className={styles.field} type="time" value={state.schedTime} onChange={(e) => onField('schedTime', e.target.value)} /></div> : (validation.ok ? ['Mídia adicionada', 'Formato validado', 'Textos dentro dos limites'] : validation.errors).map((item) => <div className={styles.check} key={item}><Check size={14} color={validation.ok ? 'var(--vc-success)' : 'var(--vc-warn)'} />{item}</div>)}
     <div className={styles.modalActions}><button className={`${styles.button} ${styles.outline}`} onClick={onClose}>Cancelar</button><button className={`${styles.button} ${styles.primary}`} disabled={!!busy || !validation.ok} style={!validation.ok ? { opacity: .45 } : {}} onClick={() => onConfirm(kind)}>{busy ? 'Processando…' : kind === 'schedule' ? 'Agendar' : 'Publicar'}</button></div>
   </div></div>;
+}
+
+function DeleteDraftModal({ busy, onClose, onConfirm }) {
+  return <div className={styles.modalScrim} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="delete-draft-title">
+      <h2 id="delete-draft-title">Excluir rascunho?</h2>
+      <p>Esta ação remove imediatamente as mídias temporárias e não pode ser desfeita.</p>
+      <div className={styles.modalActions}>
+        <button className={`${styles.button} ${styles.outline}`} onClick={onClose}>Cancelar</button>
+        <button aria-label="Confirmar exclusão" className={`${styles.button} ${styles.removeMedia}`} disabled={busy === 'delete-draft'} onClick={onConfirm}>{busy === 'delete-draft' ? 'Excluindo…' : 'Excluir rascunho'}</button>
+      </div>
+    </div>
+  </div>;
 }
