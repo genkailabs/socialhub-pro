@@ -5,15 +5,17 @@ import {
   AlignCenter, AlignLeft, AlignRight, Bold, CalendarClock, Check, ChevronLeft,
   ChevronRight, Circle, Copy, Eye, EyeOff, Film, Image as ImageIcon, Italic,
   Layers3, Lock, MapPin, Maximize2, MessageSquareText, Minus, MoreHorizontal,
-  Palette, Pause, Play, Plus, Redo2, RotateCw, Save, Send, Settings2, Shapes,
+  Palette, Pause, Play, Plus, Redo2, Save, Send, Settings2, Shapes,
   Smartphone, Smile, Trash2, Type, Undo2, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, publishNow, saveDraft, schedulePost } from '@/lib/posts-actions';
 import {
-  COMPOSER_FORMATS, addLayer, canvasSize, cloneEditorState, getSurface,
-  makeComposerDocument, serializeComposer, snapPosition, toApiFormat, validateComposer
+  COMPOSER_FORMATS, addLayer, canvasSize, cloneEditorState, fitMediaToCanvas,
+  getSurface, makeComposerDocument, mediaTransformStyle, normalizeMediaTransform,
+  resizeMediaFromCorner, serializeComposer, snapPosition, toApiFormat,
+  validateComposer, zoomMediaAtPoint
 } from '@/lib/composer-editor';
 import styles from './VisualComposer.module.css';
 
@@ -31,11 +33,73 @@ const TOOLS = [
 const EMOJIS = ['✨', '🔥', '💡', '❤️', '🚀', '🎯', '👏', '😍', '📌', '✅'];
 const COLORS = ['#FFFFFF', '#1D1D1F', '#007AFF', '#FF9500', '#FF375F'];
 
+function mediaAccept(format) {
+  if (format === 'reel') return 'video/mp4,video/quicktime';
+  if (format === 'story') return 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime';
+  return 'image/jpeg,image/png,image/webp';
+}
+
+async function readFileDimensions(file, kind) {
+  if (kind === 'image' && typeof createImageBitmap === 'function') {
+    const bitmap = await createImageBitmap(file);
+    const dimensions = { width: bitmap.width, height: bitmap.height };
+    bitmap.close?.();
+    return dimensions;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    return await new Promise((resolve, reject) => {
+      const element = kind === 'video' ? document.createElement('video') : new Image();
+      const cleanup = () => {
+        element.onloadedmetadata = null;
+        element.onload = null;
+        element.onerror = null;
+      };
+      element.onerror = () => {
+        cleanup();
+        reject(new Error('Não foi possível ler as dimensões da mídia.'));
+      };
+      const done = () => {
+        const width = element.videoWidth || element.naturalWidth;
+        const height = element.videoHeight || element.naturalHeight;
+        cleanup();
+        if (!width || !height) reject(new Error('Dimensões de mídia inválidas.'));
+        else resolve({ width, height });
+      };
+      if (kind === 'video') element.onloadedmetadata = done;
+      else element.onload = done;
+      element.src = objectUrl;
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function formatFileSize(bytes) {
   const size = Number(bytes);
   if (!Number.isFinite(size) || size <= 0) return 'Arquivo temporário';
   if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
   return `${(size / (1024 * 1024)).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+}
+
+function surfaceForTarget(doc, target) {
+  return target.format === 'carrossel'
+    ? doc.carrossel.slides[target.slide]
+    : doc[target.format];
+}
+
+function activeTarget(state) {
+  return {
+    format: state.format,
+    ratio: state.ratio,
+    slide: state.format === 'carrossel' ? state.doc.carrossel.active : null
+  };
+}
+
+function targetIsActive(state, target) {
+  return state.format === target.format
+    && (target.format !== 'carrossel' || state.doc.carrossel.active === target.slide);
 }
 
 function baseState(initialDraft) {
@@ -71,11 +135,17 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   const [draftId, setDraftId] = useState(initialDraft?.id || null);
   const [contentStatus, setContentStatus] = useState(initialDraft?.status || (initialDraft?.id ? 'draft' : null));
   const regionRef = useRef(null);
+  const canvasRef = useRef(null);
   const gestureRef = useRef(null);
+  const wheelHistoryRef = useRef(0);
+  const uploadSequenceRef = useRef(new Map());
   const stateRef = useRef(state);
   stateRef.current = state;
   const [cw, ch] = canvasSize(state.format, state.ratio);
   const surface = getSurface(state.doc, state.format);
+  const mediaTransform = surface.media
+    ? normalizeMediaTransform(surface.bg, surface.media, [cw, ch])
+    : null;
   const selected = state.sel === 'bg' ? null : surface.layers.find((item) => item.id === state.sel);
   const validation = validateComposer(state);
 
@@ -188,18 +258,42 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     setState((current) => ({ ...current, [key]: value }));
   }
 
-  async function pickMedia(url, kind = 'image', metadata = {}) {
+  function setRatio(ratio) {
     mutateDoc((doc, current) => {
-      getSurface(doc, current.format).media = {
+      const targetSurface = getSurface(doc, current.format);
+      if (targetSurface.media) {
+        targetSurface.bg = fitMediaToCanvas(
+          { width: targetSurface.media.width, height: targetSurface.media.height },
+          canvasSize(current.format, ratio)
+        );
+      }
+    });
+    setState((current) => ({ ...current, ratio, sel: current.sel === 'bg' ? 'bg' : null }));
+  }
+
+  async function pickMedia(url, kind = 'image', metadata = {}, target = activeTarget(stateRef.current)) {
+    mutateDoc((doc, current) => {
+      const targetSurface = surfaceForTarget(doc, target);
+      if (!targetSurface) return;
+      const effectiveRatio = current.format === target.format ? current.ratio : target.ratio;
+      targetSurface.media = {
         url,
         kind,
         name: metadata.name || url.split('/').pop()?.split('?')[0] || 'Mídia',
         path: metadata.path || null,
         size: metadata.size || null,
-        type: metadata.type || null
+        type: metadata.type || null,
+        width: metadata.width || null,
+        height: metadata.height || null
       };
-      getSurface(doc, current.format).bg = { x: 0, y: 0, scale: 1, rot: 0 };
+      targetSurface.bg = fitMediaToCanvas(
+        { width: metadata.width, height: metadata.height },
+        canvasSize(target.format, effectiveRatio)
+      );
     });
+    setState((current) => targetIsActive(current, target)
+      ? { ...current, sel: 'bg', editing: null }
+      : current);
     setMediaError('');
     flash('Mídia adicionada — edição não destrutiva ativada');
   }
@@ -207,6 +301,10 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   async function uploadFiles(files) {
     const file = files?.[0];
     if (!file) return;
+    const target = activeTarget(stateRef.current);
+    const targetKey = `${target.format}:${target.slide ?? 'single'}`;
+    const requestId = `${Date.now()}:${Math.random()}`;
+    uploadSequenceRef.current.set(targetKey, requestId);
     const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
     const isVideo = ['video/mp4', 'video/quicktime'].includes(file.type);
     const valid = state.format === 'reel'
@@ -221,23 +319,44 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     setUploading(10);
     const fake = window.setInterval(() => setUploading((value) => Math.min(90, (value || 0) + 20)), 180);
     try {
+      const dimensions = await readFileDimensions(file, isVideo ? 'video' : 'image');
       const supabase = createClient();
       const uploaded = await uploadTempMedia(supabase, brandId, file);
-      const previous = surface.media;
+      if (uploadSequenceRef.current.get(targetKey) !== requestId) {
+        await removeTempMedia(supabase, [uploaded.path || uploaded.publicUrl]);
+        return;
+      }
+      const previous = surfaceForTarget(stateRef.current.doc, target)?.media;
       await pickMedia(uploaded.publicUrl, isVideo ? 'video' : 'image', {
         path: uploaded.path,
         name: file.name,
         size: file.size,
-        type: file.type
-      });
+        type: file.type,
+        ...dimensions
+      }, target);
       if (previous) await removeTempMedia(supabase, [previous.path || previous.url]);
+      uploadSequenceRef.current.delete(targetKey);
       setUploading(100);
     } catch (error) {
       setMediaError(error.message || 'Não foi possível enviar o arquivo.');
     } finally {
+      if (uploadSequenceRef.current.get(targetKey) === requestId) {
+        uploadSequenceRef.current.delete(targetKey);
+      }
       window.clearInterval(fake);
       window.setTimeout(() => setUploading(null), 350);
     }
+  }
+
+  function syncMediaDimensions(width, height) {
+    if (!width || !height || (surface.media?.width && surface.media?.height && surface.bg?.w && surface.bg?.h)) return;
+    mutateDoc((doc, current) => {
+      const targetSurface = getSurface(doc, current.format);
+      if (!targetSurface.media) return;
+      targetSurface.media.width = width;
+      targetSurface.media.height = height;
+      targetSurface.bg = fitMediaToCanvas({ width, height }, canvasSize(current.format, current.ratio));
+    }, false);
   }
 
   async function removeCurrentMedia() {
@@ -298,11 +417,52 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     event.stopPropagation();
     pushHistory();
     const point = { x: event.clientX / scale, y: event.clientY / scale };
+    const original = layer
+      ? cloneEditorState(layer)
+      : cloneEditorState(normalizeMediaTransform(surface.bg, surface.media, [cw, ch]));
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    const centerClient = kind === 'media-rotate' && canvasRect
+      ? {
+          x: canvasRect.left + (original.x + original.w * original.scale / 2) * scale,
+          y: canvasRect.top + (original.y + original.h * original.scale / 2) * scale
+        }
+      : null;
     gestureRef.current = {
       kind, id: layer?.id || 'bg', corner, start: point,
-      original: layer ? cloneEditorState(layer) : cloneEditorState(surface.bg)
+      original,
+      centerClient,
+      startAngle: centerClient ? Math.atan2(event.clientY - centerClient.y, event.clientX - centerClient.x) : 0
     };
     setState((current) => ({ ...current, sel: layer?.id || 'bg', editing: null }));
+  }
+
+  function handleMediaKey(event, action, corner) {
+    const arrows = {
+      ArrowLeft: { dx: -8, dy: 0 },
+      ArrowRight: { dx: 8, dy: 0 },
+      ArrowUp: { dx: 0, dy: -8 },
+      ArrowDown: { dx: 0, dy: 8 }
+    };
+    const delta = arrows[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    pushHistory();
+    mutateDoc((doc, current) => {
+      const targetSurface = getSurface(doc, current.format);
+      const transform = normalizeMediaTransform(
+        targetSurface.bg,
+        targetSurface.media,
+        canvasSize(current.format, current.ratio)
+      );
+      if (action === 'move') {
+        targetSurface.bg = { ...transform, x: transform.x + delta.dx, y: transform.y + delta.dy };
+      } else if (action === 'resize') {
+        targetSurface.bg = resizeMediaFromCorner(transform, corner, delta);
+      } else if (action === 'rotate') {
+        targetSurface.bg = { ...transform, rot: transform.rot + (delta.dx || delta.dy) / 2 };
+      }
+    });
   }
 
   useEffect(() => {
@@ -314,9 +474,19 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
       setState((current) => {
         const doc = cloneEditorState(current.doc);
         const targetSurface = getSurface(doc, current.format);
-        if (gesture.kind === 'bg') {
+        if (gesture.kind === 'media-move') {
           targetSurface.bg.x = gesture.original.x + dx;
           targetSurface.bg.y = gesture.original.y + dy;
+        } else if (gesture.kind === 'media-resize') {
+          targetSurface.bg = resizeMediaFromCorner(gesture.original, gesture.corner, { dx, dy });
+        } else if (gesture.kind === 'media-rotate') {
+          const currentAngle = Math.atan2(
+            event.clientY - gesture.centerClient.y,
+            event.clientX - gesture.centerClient.x
+          );
+          let angle = gesture.original.rot + (currentAngle - gesture.startAngle) * 180 / Math.PI;
+          for (const snap of [0, 90, -90, 180, -180]) if (Math.abs(angle - snap) < 5) angle = snap;
+          targetSurface.bg.rot = Math.round(angle);
         } else {
           const layer = targetSurface.layers.find((item) => item.id === gesture.id);
           if (!layer) return current;
@@ -351,8 +521,28 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); };
   }, [scale]);
 
-  function resetBackground() {
-    mutateDoc((doc, current) => { getSurface(doc, current.format).bg = { x: 0, y: 0, scale: 1, rot: 0 }; });
+  function handleMediaWheel(event) {
+    if (stateRef.current.sel !== 'bg' || !surface.media) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const point = {
+      x: (event.clientX - rect.left) / scale,
+      y: (event.clientY - rect.top) / scale
+    };
+    const now = Date.now();
+    const startsGesture = now - wheelHistoryRef.current > 300;
+    wheelHistoryRef.current = now;
+    const factor = Math.exp(-event.deltaY * .0015);
+    mutateDoc((doc, current) => {
+      const targetSurface = getSurface(doc, current.format);
+      targetSurface.bg = zoomMediaAtPoint(
+        normalizeMediaTransform(targetSurface.bg, targetSurface.media, canvasSize(current.format, current.ratio)),
+        point,
+        factor
+      );
+    }, startsGesture);
   }
 
   function carouselAction(action, index = state.doc.carrossel.active) {
@@ -496,11 +686,11 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
           <div className={styles.panelHead}><span>{TOOLS.find(([id]) => id === tool)?.[2]}</span><IconButton title="Fechar painel" onClick={() => setTool(null)}><X size={14} /></IconButton></div>
           {tool === 'formato' && <>
             {Object.entries(FORMAT_META).map(([id, meta]) => <button key={id} className={`${styles.formatCard} ${state.format === id ? styles.activeCard : ''}`} onClick={() => setFormat(id)}><strong>{meta[0]}</strong><span>{meta[1]}</span></button>)}
-            {state.format === 'post' && <><div className={styles.sectionLabel}>PROPORÇÃO</div><div className={styles.segment}>{Object.keys(COMPOSER_FORMATS.post.ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => updateField('ratio', ratio)}>{ratio}</button>)}</div></>}
+            {state.format === 'post' && <><div className={styles.sectionLabel}>PROPORÇÃO</div><div className={styles.segment}>{Object.keys(COMPOSER_FORMATS.post.ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => setRatio(ratio)}>{ratio}</button>)}</div></>}
           </>}
           {tool === 'midia' && <>
             {!surface.media ? (
-              <label className={styles.upload}><Upload size={22} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small><input type="file" accept={state.format === 'reel' ? 'video/mp4,video/quicktime' : state.format === 'story' ? 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime' : 'image/jpeg,image/png,image/webp'} onChange={(event) => uploadFiles(event.target.files)} /></label>
+              <label className={styles.upload}><Upload size={22} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small><input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} /></label>
             ) : (
               <>
                 <div className={styles.sectionLabel}>ARQUIVO ATUAL</div>
@@ -509,9 +699,14 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
                   <div className={styles.mediaInfo}><strong>{surface.media.name || 'Mídia sem nome'}</strong><span>{formatFileSize(surface.media.size)}</span><small>Temporário · disponível até o fim da publicação</small></div>
                 </div>
                 <div className={styles.mediaActions}>
-                  <label role="button" tabIndex={0} aria-label="Substituir arquivo" className={`${styles.button} ${styles.outline}`}>
+                  <label role="button" tabIndex={0} aria-label="Substituir arquivo" className={`${styles.button} ${styles.outline}`} onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      event.currentTarget.querySelector('input')?.click();
+                    }
+                  }}>
                     <Upload size={14} /> Substituir arquivo
-                    <input type="file" accept={state.format === 'reel' ? 'video/mp4,video/quicktime' : state.format === 'story' ? 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime' : 'image/jpeg,image/png,image/webp'} onChange={(event) => uploadFiles(event.target.files)} />
+                    <input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} />
                   </label>
                   <button type="button" aria-label="Remover arquivo" className={`${styles.button} ${styles.removeMedia}`} disabled={busy === 'remove-media'} onClick={removeCurrentMedia}><Trash2 size={14} /> Remover arquivo</button>
                 </div>
@@ -553,16 +748,32 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         <main className={styles.stage}>
           <div className={styles.formatBar}>
             <div className={styles.segment}>{Object.entries(FORMAT_META).map(([id, meta]) => <button key={id} className={state.format === id ? styles.selected : ''} onClick={() => setFormat(id)}>{meta[0]}</button>)}</div>
-            {state.format === 'post' && <div className={styles.segment}>{Object.keys(COMPOSER_FORMATS.post.ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => updateField('ratio', ratio)}>{ratio}</button>)}</div>}
+            {state.format === 'post' && <div className={styles.segment}>{Object.keys(COMPOSER_FORMATS.post.ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => setRatio(ratio)}>{ratio}</button>)}</div>}
             {state.format === 'carrossel' && <span className={styles.chip}>Slide {state.doc.carrossel.active + 1} de {state.doc.carrossel.slides.length}</span>}
           </div>
           <div className={styles.canvasRegion} ref={regionRef} onPointerDown={() => setState((current) => ({ ...current, sel: null, editing: null }))}>
             <div className={styles.scaleWrap} style={{ width: cw * scale, height: ch * scale }}>
-              <div className={styles.canvas} style={{ width: cw, height: ch, transform: `scale(${scale})` }} onPointerDown={(e) => { if (surface.media) beginGesture('bg', e); }}>
-                {surface.media ? (surface.media.kind === 'video'
-                  ? <video className={styles.media} src={surface.media.url} muted autoPlay loop style={{ transform: `translate(${surface.bg.x}px,${surface.bg.y}px) scale(${surface.bg.scale}) rotate(${surface.bg.rot}deg)` }} />
-                  : <img className={styles.media} alt="" src={surface.media.url} style={{ transform: `translate(${surface.bg.x}px,${surface.bg.y}px) scale(${surface.bg.scale}) rotate(${surface.bg.rot}deg)` }} />)
-                  : <div className={styles.empty}><div><Upload size={25} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : 'JPG, PNG ou WEBP'}</small></div></div>}
+              <div ref={canvasRef} className={styles.canvas} style={{ width: cw, height: ch, transform: `scale(${scale})` }} onWheel={handleMediaWheel}>
+                {surface.media
+                  ? <MediaBox
+                      media={surface.media}
+                      transform={mediaTransform}
+                      canvas={[cw, ch]}
+                      selected={state.sel === 'bg'}
+                      onPointerDown={(event) => beginGesture('media-move', event)}
+                      onResize={(event, corner) => beginGesture('media-resize', event, null, corner)}
+                      onRotate={(event) => beginGesture('media-rotate', event)}
+                      onMoveKey={(event) => handleMediaKey(event, 'move')}
+                      onResizeKey={(event, corner) => handleMediaKey(event, 'resize', corner)}
+                      onRotateKey={(event) => handleMediaKey(event, 'rotate')}
+                      onFocus={() => setState((current) => ({ ...current, sel: 'bg', editing: null }))}
+                      onDimensions={syncMediaDimensions}
+                      testId="canvas-media"
+                    />
+                  : <label className={styles.empty} aria-label="Importar midia pelo canvas">
+                      <div><Upload size={25} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small></div>
+                      <input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} />
+                    </label>}
                 {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={`${styles.layer} ${state.sel === layer.id ? styles.selectedLayer : ''}`} style={{ left: layer.x, top: layer.y, width: layer.w, height: layer.h, fontSize: layer.fs, fontWeight: layer.weight, fontStyle: layer.italic ? 'italic' : 'normal', textAlign: layer.align, fontFamily: layer.font, color: layer.color, background: layer.type === 'text' || layer.type === 'sticker' ? 'transparent' : layer.fill, borderRadius: layer.radius, opacity: layer.op, transform: `rotate(${layer.rot}deg)`, cursor: layer.locked ? 'default' : 'move' }} onPointerDown={(e) => beginGesture('move', e, layer)} onDoubleClick={(e) => { e.stopPropagation(); if (layer.type === 'text' || layer.type === 'button') setState((current) => ({ ...current, editing: layer.id, sel: layer.id })); }}>
                   {state.editing === layer.id ? <textarea autoFocus value={layer.text} onChange={(e) => updateLayer(layer.id, { text: e.target.value }, false)} onBlur={() => setState((current) => ({ ...current, editing: null }))} style={{ width: '100%', height: '100%', resize: 'none', background: 'rgba(0,0,0,.2)', color: 'inherit', border: 0, textAlign: layer.align, font: 'inherit' }} /> : layer.text}
                   {state.sel === layer.id && !layer.locked && <><span className={`${styles.handle} ${styles.nw}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'nw')} /><span className={`${styles.handle} ${styles.ne}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'ne')} /><span className={`${styles.handle} ${styles.sw}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'sw')} /><span className={`${styles.handle} ${styles.se}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'se')} /><span className={styles.rotate} onPointerDown={(e) => beginGesture('rotate', e, layer)} />
@@ -570,15 +781,6 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
                 </div>)}
                 {guide.v && <div className={styles.guideV} />}{guide.h && <div className={styles.guideH} />}
                 {state.format === 'story' && <><div className={styles.safeTop}>INTERFACE DO INSTAGRAM</div><div className={styles.safeBottom}>ÁREA SEGURA</div></>}
-                {state.sel === 'bg' && surface.media && <div className={styles.floating} style={{ top: 8 }}>
-                  <button onClick={(e) => { e.stopPropagation(); mutateDoc((doc, current) => { getSurface(doc, current.format).bg.scale = Math.max(.5, surface.bg.scale - .1); }); }}>−</button>
-                  <span style={{ fontSize: 10 }}>{Math.round(surface.bg.scale * 100)}%</span>
-                  <button onClick={(e) => { e.stopPropagation(); mutateDoc((doc, current) => { getSurface(doc, current.format).bg.scale = Math.min(3, surface.bg.scale + .1); }); }}>+</button>
-                  <button onClick={(e) => { e.stopPropagation(); mutateDoc((doc, current) => { getSurface(doc, current.format).bg.rot += 90; }); }}><RotateCw size={13} /></button>
-                  <button onClick={(e) => { e.stopPropagation(); resetBackground(); }}>Centralizar</button>
-                  <button onClick={(e) => { e.stopPropagation(); resetBackground(); }}>Resetar</button>
-                  <button style={{ color: 'var(--vc-danger)' }} onClick={(e) => { e.stopPropagation(); deleteSelected(); }}><Trash2 size={13} /></button>
-                </div>}
               </div>
             </div>
             {state.format === 'carrossel' && <CarouselStrip state={state} setState={setState} onAction={carouselAction} onReorder={reorderSlide} />}
@@ -634,29 +836,84 @@ function CarouselStrip({ state, setState, onAction, onReorder }) {
 function PreviewPanel({ state, surface, brandName }) {
   const [cw, ch] = canvasSize(state.format, state.ratio);
   const vertical = state.format === 'story' || state.format === 'reel';
-  const phoneW = 242;
-  const previewScale = vertical ? 242 / cw : 242 / cw;
-  const previewH = vertical ? 520 : Math.min(242, ch * previewScale);
+  const previewScale = 242 / cw;
+  const previewH = ch * previewScale;
   return <aside className={styles.rightPanel}>
     <div className={styles.rightTitle}>PRÉVIA NO INSTAGRAM</div>
-    <div className={`${styles.phone} ${state.format === 'story' ? styles.storyPhone : ''} ${state.format === 'reel' ? styles.reelPhone : ''}`}>
+    <div className={`${styles.phone} ${state.format === 'story' ? styles.storyPhone : ''} ${state.format === 'reel' ? styles.reelPhone : ''}`} style={vertical ? { height: previewH + 16 } : undefined}>
       <div className={styles.notch} />
       {!vertical && <div className={styles.phoneHead}><span className={styles.avatar} /><strong>{brandName.replace(/^@/, '')}</strong><span style={{ marginLeft: 'auto' }}><MoreHorizontal size={14} /></span></div>}
-      <div className={styles.phoneMedia} style={{ height: vertical ? 520 : previewH }}>
+      <div className={styles.phoneMedia} style={{ height: previewH }}>
         <PreviewSurface surface={surface} cw={cw} ch={ch} scale={previewScale} />
         {state.format === 'story' && <div className={styles.storyChrome}><div className={styles.storyProgress} /><strong>{brandName.replace(/^@/, '')}</strong> · 2 min <X size={15} style={{ float: 'right' }} /><div style={{ position: 'absolute', bottom: 17, left: 12, right: 12, border: '1px solid #fff', borderRadius: 99, padding: 8 }}>Enviar mensagem…</div></div>}
         {state.format === 'reel' && <div className={styles.storyChrome}><div style={{ position: 'absolute', right: 12, bottom: 76, display: 'grid', gap: 13, textAlign: 'center' }}>♡<span style={{ fontSize: 8 }}>1,2k</span>◯<span style={{ fontSize: 8 }}>86</span>⌁</div><div style={{ position: 'absolute', left: 11, bottom: 24 }}><strong>@{brandName.replace(/^@/, '')}</strong> · Seguir<br />{state.caption || 'Sua legenda aparece aqui'}<br />♫ Áudio original</div></div>}
       </div>
       {!vertical && <><div className={styles.phoneActions}>♡ <MessageSquareText size={16} /> <Send size={16} /><span style={{ marginLeft: 'auto' }}>⌑</span></div><div className={styles.phoneCaption}>{!state.hideLikes && <strong>1.284 curtidas<br /></strong>}<strong>{brandName.replace(/^@/, '')}</strong> {state.caption || 'Sua legenda aparece aqui'}<br /><span style={{ color: '#00376b' }}>{state.hashtags}</span><br /><small>HÁ 2 MINUTOS</small></div></>}
     </div>
-    <p style={{ textAlign: 'center', fontSize: 10.5, color: 'var(--vc-faint)', lineHeight: 1.45 }}>Simulação aproximada. O corte final é processado pelo Instagram.</p>
+    <p style={{ textAlign: 'center', fontSize: 10.5, color: 'var(--vc-faint)', lineHeight: 1.45 }}>Prévia fiel ao enquadramento. O Instagram pode aplicar compressão ao arquivo publicado.</p>
   </aside>;
 }
 
 function PreviewSurface({ surface, cw, ch, scale }) {
   return <div className={styles.phoneSurface} style={{ width: cw, height: ch, transform: `scale(${scale})` }}>
-    {surface.media && (surface.media.kind === 'video' ? <video className={styles.media} src={surface.media.url} muted autoPlay loop style={{ transform: `translate(${surface.bg.x}px,${surface.bg.y}px) scale(${surface.bg.scale}) rotate(${surface.bg.rot}deg)` }} /> : <img className={styles.media} src={surface.media.url} alt="" style={{ transform: `translate(${surface.bg.x}px,${surface.bg.y}px) scale(${surface.bg.scale}) rotate(${surface.bg.rot}deg)` }} />)}
+    {surface.media && <MediaBox media={surface.media} transform={surface.bg} canvas={[cw, ch]} testId="preview-media" />}
     {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={styles.layer} style={{ left: layer.x, top: layer.y, width: layer.w, height: layer.h, fontSize: layer.fs, fontWeight: layer.weight, fontStyle: layer.italic ? 'italic' : 'normal', textAlign: layer.align, fontFamily: layer.font, color: layer.color, background: layer.type === 'text' || layer.type === 'sticker' ? 'transparent' : layer.fill, borderRadius: layer.radius, opacity: layer.op, transform: `rotate(${layer.rot}deg)` }}>{layer.text}</div>)}
+  </div>;
+}
+
+function MediaBox({
+  media,
+  transform,
+  canvas,
+  selected = false,
+  onPointerDown,
+  onResize,
+  onRotate,
+  onMoveKey,
+  onResizeKey,
+  onRotateKey,
+  onFocus,
+  onDimensions,
+  testId
+}) {
+  const style = mediaTransformStyle(transform, media, canvas);
+  const dimensions = (event) => {
+    const element = event.currentTarget;
+    onDimensions?.(element.videoWidth || element.naturalWidth, element.videoHeight || element.naturalHeight);
+  };
+  return <div
+    data-testid={testId}
+    className={`${styles.mediaBox} ${selected ? styles.selectedMedia : ''}`}
+    style={style}
+    role={onMoveKey ? 'group' : undefined}
+    tabIndex={onMoveKey ? 0 : undefined}
+    aria-label={onMoveKey ? 'Mídia editável; use as setas para mover' : undefined}
+    onPointerDown={onPointerDown}
+    onKeyDown={onMoveKey}
+    onFocus={onFocus}
+  >
+    {media.kind === 'video'
+      ? <video className={styles.media} src={media.url} muted autoPlay loop playsInline onLoadedMetadata={dimensions} />
+      : <img className={styles.media} src={media.url} alt="" crossOrigin="anonymous" onLoad={dimensions} />}
+    {selected && <>
+      {['nw', 'ne', 'sw', 'se'].map((corner) => <span
+        key={corner}
+        role="button"
+        tabIndex={0}
+        aria-label={`Redimensionar midia ${corner}`}
+        className={`${styles.handle} ${styles[corner]}`}
+        onPointerDown={(event) => onResize(event, corner)}
+        onKeyDown={(event) => onResizeKey(event, corner)}
+      />)}
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label="Girar midia"
+        className={styles.rotate}
+        onPointerDown={onRotate}
+        onKeyDown={onRotateKey}
+      />
+    </>}
   </div>;
 }
 

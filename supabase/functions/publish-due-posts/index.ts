@@ -14,6 +14,15 @@ function urlsOf(post: Record<string, unknown>) {
   return many.length ? many : post.media_url ? [post.media_url] : [];
 }
 
+function composerSourceUrls(post: Record<string, unknown>) {
+  const production = post.production && typeof post.production === 'object'
+    ? post.production as Record<string, unknown>
+    : null;
+  return Array.isArray(production?.sourceMediaUrls)
+    ? production.sourceMediaUrls.filter((value): value is string => typeof value === 'string' && Boolean(value))
+    : [];
+}
+
 function temporaryPath(value: unknown) {
   if (typeof value !== 'string' || !value) return null;
   const clean = value.split('?')[0];
@@ -122,37 +131,77 @@ Deno.serve(async (request) => {
   const results = [];
   for (const post of posts || []) {
     const itemStarted = Date.now();
+    let externalPosted: Array<{ platform: string; id: string }> = [];
     await supabase.from('publication_job_logs').insert({ run_id: runId, post_id: post.id, status: 'started' });
     try {
       const urls = urlsOf(post);
       if (!urls.length) throw new Error('Post sem midia para publicar.');
-      const networks = Array.isArray(post.networks) && post.networks.length ? post.networks : ['instagram'];
-      const { data: tokens } = await supabase.from('social_tokens').select('platform, access_token, platform_user_id').eq('brand_id', post.brand_id).eq('is_active', true).in('platform', networks);
-      const posted: Array<{ platform: string; id: string }> = [];
-      for (const platform of networks) {
-        const token = tokens?.find((row) => row.platform === platform);
-        if (!token) throw new Error(`Token ativo ausente para ${platform}.`);
-        // O formato decide COMO publicar: Story vertical postado como foto de
-        // feed seria entregar coisa diferente da que foi aprovada.
-        const isReel = post.format === 'reel' || post.format === 'reels' || String(post.format || '').toLowerCase().includes('reel');
-        const isStory = post.format === 'stories' || post.format === 'story' || String(post.format || '').toLowerCase().includes('stor');
-        if (isStory && platform !== 'instagram') throw new Error('Story so publica no Instagram.');
-        if (isReel && platform !== 'instagram') throw new Error('Reel so publica no Instagram.');
-        const id = platform === 'instagram'
-          ? isReel
-            ? await publishInstagramReels(token, post.content as string || '', urls[0], post.cover_url as string | null, post.share_to_feed as boolean | null | undefined)
-            : isStory
-              ? await publishInstagramStories(token, urls)
-              : await publishInstagram(token, post.content as string || '', urls)
-          : platform === 'facebook'
-            ? await publishFacebook(token, post.content as string || '', urls[0])
-            : (() => { throw new Error(`Plataforma nao suportada: ${platform}`); })();
-        posted.push({ platform, id });
+      const { data: checkpoint, error: checkpointReadError } = await supabase
+        .from('publication_job_logs')
+        .select('response')
+        .eq('post_id', post.id)
+        .eq('status', 'success')
+        .contains('response', { phase: 'external_published' })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (checkpointReadError) throw new Error(`Não foi possível verificar a idempotência: ${checkpointReadError.message}`);
+
+      let posted: Array<{ platform: string; id: string }> = Array.isArray(checkpoint?.response?.posted)
+        ? checkpoint.response.posted
+        : [];
+      if (!posted.length) {
+        const networks = Array.isArray(post.networks) && post.networks.length ? post.networks : ['instagram'];
+        const { data: tokens } = await supabase.from('social_tokens').select('platform, access_token, platform_user_id').eq('brand_id', post.brand_id).eq('is_active', true).in('platform', networks);
+        posted = [];
+        for (const platform of networks) {
+          const token = tokens?.find((row) => row.platform === platform);
+          if (!token) throw new Error(`Token ativo ausente para ${platform}.`);
+          // O formato decide COMO publicar: Story vertical postado como foto de
+          // feed seria entregar coisa diferente da que foi aprovada.
+          const isReel = post.format === 'reel' || post.format === 'reels' || String(post.format || '').toLowerCase().includes('reel');
+          const isStory = post.format === 'stories' || post.format === 'story' || String(post.format || '').toLowerCase().includes('stor');
+          if (isStory && platform !== 'instagram') throw new Error('Story so publica no Instagram.');
+          if (isReel && platform !== 'instagram') throw new Error('Reel so publica no Instagram.');
+          const id = platform === 'instagram'
+            ? isReel
+              ? await publishInstagramReels(token, post.content as string || '', urls[0], post.cover_url as string | null, post.share_to_feed as boolean | null | undefined)
+              : isStory
+                ? await publishInstagramStories(token, urls)
+                : await publishInstagram(token, post.content as string || '', urls)
+            : platform === 'facebook'
+              ? await publishFacebook(token, post.content as string || '', urls[0])
+              : (() => { throw new Error(`Plataforma nao suportada: ${platform}`); })();
+          posted.push({ platform, id });
+        }
+        externalPosted = posted;
+        const { error: checkpointWriteError } = await supabase.from('publication_job_logs').insert({
+          run_id: runId,
+          post_id: post.id,
+          status: 'success',
+          response: { phase: 'external_published', posted }
+        });
+        if (checkpointWriteError) {
+          throw new Error(`Publicado externamente, mas o checkpoint idempotente falhou: ${checkpointWriteError.message}`);
+        }
       }
+      externalPosted = posted;
       const externalPostId = posted[0]?.id || null;
       const publishedAt = new Date().toISOString();
+      const { error: publishStateError } = await supabase.from('posts').update({
+        status: 'published',
+        published_at: publishedAt,
+        publishing_started_at: null,
+        external_post_id: externalPostId,
+        delete_after: publishedAt,
+        publication_attempt: { source: 'supabase_edge_function', posted }
+      }).eq('id', post.id).eq('status', 'publishing');
+      if (publishStateError) {
+        throw new Error(`Publicado externamente, mas o estado local não foi confirmado: ${publishStateError.message}`);
+      }
+
       const temporaryPaths = [...new Set(
-        [...urls, post.cover_url].map(temporaryPath).filter((value): value is string => Boolean(value))
+        [...urls, ...composerSourceUrls(post), post.cover_url].map(temporaryPath).filter((value): value is string => Boolean(value))
       )];
       let cleanupPending = false;
       if (temporaryPaths.length > 0) {
@@ -160,17 +209,9 @@ Deno.serve(async (request) => {
         cleanupPending = Boolean(cleanupError);
         if (cleanupError) console.error('Published media cleanup pending:', cleanupError);
       }
-      const mediaLifecyclePatch = cleanupPending
-        ? {
-            media_url: post.media_url,
-            media_urls: post.media_urls,
-            cover_url: post.cover_url,
-            cover_storage_path: post.cover_storage_path,
-            internal_reference_url: post.internal_reference_url,
-            production: post.production,
-            delete_after: publishedAt
-          }
-        : {
+
+      if (!cleanupPending) {
+        const { error: cleanupStateError } = await supabase.from('posts').update({
             media_url: null,
             media_urls: [],
             cover_url: null,
@@ -178,16 +219,12 @@ Deno.serve(async (request) => {
             internal_reference_url: null,
             production: null,
             delete_after: null
-          };
-
-      await supabase.from('posts').update({
-        status: 'published',
-        published_at: publishedAt,
-        publishing_started_at: null,
-        external_post_id: externalPostId,
-        ...mediaLifecyclePatch,
-        publication_attempt: { source: 'supabase_edge_function', posted }
-      }).eq('id', post.id).eq('status', 'publishing');
+        }).eq('id', post.id).eq('status', 'published');
+        if (cleanupStateError) {
+          cleanupPending = true;
+          console.error('Published state cleanup pending:', cleanupStateError);
+        }
+      }
       
       try {
         await supabase.from('posts_media').update({
@@ -203,8 +240,18 @@ Deno.serve(async (request) => {
       results.push({ id: post.id, status: 'published', cleanupPending });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro desconhecido ao publicar.';
-      const status = Number(post.publish_attempts) >= MAX_ATTEMPTS ? 'failed' : 'scheduled';
-      await supabase.from('posts').update({ status, publishing_started_at: null, last_publish_error: message.slice(0, 1000), publication_attempt: { source: 'supabase_edge_function', error: message } }).eq('id', post.id).eq('status', 'publishing');
+      const status = externalPosted.length || Number(post.publish_attempts) >= MAX_ATTEMPTS ? 'failed' : 'scheduled';
+      await supabase.from('posts').update({
+        status,
+        publishing_started_at: null,
+        last_publish_error: message.slice(0, 1000),
+        external_post_id: externalPosted[0]?.id || post.external_post_id || null,
+        publication_attempt: {
+          source: 'supabase_edge_function',
+          error: message,
+          ...(externalPosted.length ? { reconciliation_required: true, posted: externalPosted } : {})
+        }
+      }).eq('id', post.id).eq('status', 'publishing');
       await supabase.from('publication_job_logs').insert({ run_id: runId, post_id: post.id, status: 'error', duration_ms: Date.now() - itemStarted, error_message: message });
       results.push({ id: post.id, status, error: message });
     }
@@ -215,7 +262,7 @@ Deno.serve(async (request) => {
   try {
     const { data: activePosts, error: activeError } = await supabase
       .from('posts')
-      .select('media_url, media_urls, cover_url')
+      .select('media_url, media_urls, cover_url, production')
       .in('status', ['scheduled', 'publishing']);
 
     if (activeError) {
@@ -229,6 +276,7 @@ Deno.serve(async (request) => {
       if (post.media_urls && Array.isArray(post.media_urls)) {
         activeReferences.push(...(post.media_urls as string[]).filter(Boolean));
       }
+      activeReferences.push(...composerSourceUrls(post as Record<string, unknown>));
     }
 
     const { data: rootItems } = await supabase.storage.from('media').list('temp');

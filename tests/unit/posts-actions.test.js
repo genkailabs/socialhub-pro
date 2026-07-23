@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   publishInstagramComment: vi.fn(),
   publishInstagramStory: vi.fn(),
   publishInstagramReel: vi.fn(),
+  prepareComposerMedia: vi.fn(),
   recordDnaSignal: vi.fn()
 }));
 
@@ -19,6 +20,7 @@ vi.mock('@/lib/meta/graph', () => ({
   publishInstagramReel: mocks.publishInstagramReel
 }));
 vi.mock('@/lib/dna-signals', () => ({ recordDnaSignal: mocks.recordDnaSignal }));
+vi.mock('@/lib/composer-media-render', () => ({ prepareComposerMedia: mocks.prepareComposerMedia }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 import { publishNow } from '@/lib/posts-actions';
@@ -73,6 +75,11 @@ describe('publishNow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.publishInstagramImage.mockResolvedValue('ig-media-1');
+    mocks.prepareComposerMedia.mockImplementation(async ({ imageUrls }) => ({
+      urls: imageUrls,
+      sourceUrls: imageUrls,
+      rendered: false
+    }));
   });
 
   it('registra o post e confirma a publicação', async () => {
@@ -90,6 +97,45 @@ describe('publishNow', () => {
       status: 'published'
     });
     expect(insert.mock.calls[0][0].delete_after).toBeTypeOf('string');
+  });
+
+  it('publica o arquivo final que recebeu exatamente a transformacao do canvas', async () => {
+    const { supabase, insert, removeMock } = makeSupabase({ data: { id: 'post-transformado' }, error: null });
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.prepareComposerMedia.mockResolvedValue({
+      urls: ['temp/brand-1/final-composer.jpg'],
+      sourceUrls: ['temp/brand-1/original.jpg'],
+      rendered: true
+    });
+    const editorState = {
+      format: 'post',
+      ratio: '1:1',
+      doc: { post: { media: { kind: 'image' }, bg: { x: 10, y: 20, w: 300, h: 200, scale: 1.4, rot: 0 } } }
+    };
+
+    const res = await publishNow({
+      ...payload,
+      imageUrls: ['temp/brand-1/original.jpg'],
+      editorState
+    });
+
+    expect(res).toEqual({ ok: true, id: 'ig-media-1' });
+    expect(mocks.publishInstagramImage).toHaveBeenCalledWith(expect.objectContaining({
+      imageUrl: 'temp/brand-1/final-composer.jpg'
+    }));
+    expect(insert.mock.calls[0][0]).toMatchObject({
+      media_url: 'temp/brand-1/final-composer.jpg',
+      production: {
+        source: 'visual-composer',
+        version: 2,
+        editorState,
+        sourceMediaUrls: ['temp/brand-1/original.jpg']
+      }
+    });
+    expect(removeMock).toHaveBeenCalledWith([
+      'temp/brand-1/final-composer.jpg',
+      'temp/brand-1/original.jpg'
+    ]);
   });
 
   // Regressão: a coluna posts.media_urls não existia no banco, o insert falhava

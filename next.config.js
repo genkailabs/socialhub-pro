@@ -4,7 +4,12 @@ const { withSentryConfig } = require('@sentry/nextjs');
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  experimental: { instrumentationHook: true },
+  experimental: {
+    instrumentationHook: true,
+    outputFileTracingIncludes: {
+      '/*': ['./node_modules/ffmpeg-static/ffmpeg*']
+    }
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.supabase.co' },
