@@ -16,10 +16,10 @@ export default async function DiagnosticoPage() {
   const audit = active && igConnected ? await getLatestAudit(active.id) : null;
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Diagnóstico do Instagram</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.6px] text-ink">Diagnóstico do Instagram</h1>
+        <p className="mt-1 text-[13px] text-muted">
           {active
             ? <>Entendendo o perfil de <strong className="text-ink">{active.name}</strong>{igConnected && <> · @{connected.instagram.platform_username}</>} antes de propor uma estratégia.</>
             : 'Crie uma marca primeiro.'}

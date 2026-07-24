@@ -36,7 +36,7 @@ export function MobileNav({ canAccessAICosts = false, accountEmail = '' }) {
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="flex h-16 items-center justify-between px-5">
                 <div className="flex items-center gap-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-accent text-white shadow-[0_4px_12px_-2px_rgb(var(--c-accent)/0.5)]">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-accent text-white">
                     <Sparkles className="h-[18px] w-[18px]" strokeWidth={2.5} />
                   </span>
                   <span className="text-[17px] font-bold tracking-tight text-ink">SocialHub</span>

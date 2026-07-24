@@ -4,6 +4,7 @@ import {
   formatBreakdown,
   rankPosts,
   followerGrowth,
+  weeklyActivity,
   buildAuditSummary
 } from '@/lib/meta/audit';
 
@@ -104,6 +105,35 @@ describe('followerGrowth', () => {
 
   it('nao divide por zero quando comeca do zero', () => {
     expect(followerGrowth([{ followers: 0 }, { followers: 10 }])).toMatchObject({ delta: 10, pct: null });
+  });
+});
+
+// O grafico de 7 barras do diagnostico sai daqui: dia sem post fica em zero, sem
+// valor estimado, e a hora de pico e a do post que rendeu mais naquele dia.
+describe('weeklyActivity', () => {
+  it('conta posts e interacoes por dia da semana e guarda a hora de pico', () => {
+    const dias7 = weeklyActivity([
+      post({ id: 'a', timestamp: '2026-07-13T20:00:00.000Z', like_count: 5, comments_count: 1 }),
+      post({ id: 'b', timestamp: '2026-07-13T23:00:00.000Z', like_count: 30, comments_count: 0 }),
+      post({ id: 'c', timestamp: '2026-07-15T10:00:00.000Z', like_count: 0, comments_count: 0 })
+    ]);
+
+    expect(dias7).toHaveLength(7);
+
+    const segunda = dias7[new Date('2026-07-13T20:00:00.000Z').getDay()];
+    expect(segunda.posts).toBe(2);
+    expect(segunda.interactions).toBe(36);
+    expect(segunda.peakHour).toBe(new Date('2026-07-13T23:00:00.000Z').getHours());
+
+    const quarta = dias7[new Date('2026-07-15T10:00:00.000Z').getDay()];
+    expect(quarta.posts).toBe(1);
+    expect(quarta.interactions).toBe(0);
+    expect(quarta.peakHour).toBeNull();
+  });
+
+  it('devolve a semana zerada quando nao ha post com data', () => {
+    const dias7 = weeklyActivity([post({ timestamp: null })]);
+    expect(dias7.every((d) => d.posts === 0 && d.interactions === 0 && d.peakHour === null)).toBe(true);
   });
 });
 

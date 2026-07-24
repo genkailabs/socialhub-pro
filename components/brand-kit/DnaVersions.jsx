@@ -8,10 +8,18 @@ import { Button } from '@/components/ui/Button';
 
 const data = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
+// Handoff: a versão em uso ganha linha em accentTint e pill accent; a que
+// aguarda aprovação leva chip neutro; arquivadas ficam sem destaque.
 const TOM = {
-  approved: 'border-success/40 bg-success/5',
-  proposed: 'border-accent/40 bg-accent/5',
+  approved: 'border-transparent bg-accent-tint',
+  proposed: 'border-line bg-surface-2',
   archived: 'border-line bg-surface'
+};
+
+const PILL = {
+  approved: { label: 'Em uso', className: 'bg-accent text-white' },
+  proposed: { label: 'Aguardando', className: 'bg-surface-3 text-muted' },
+  archived: null
 };
 
 // Histórico do Brand DNA (PRD §8-E6 / RF-04): a IA propõe, o usuário aprova, e
@@ -66,29 +74,39 @@ export function DnaVersions({ brandId, versions = [], showProposal = true }) {
         </p>
       )}
 
-      <div className="rounded-2xl border border-line bg-surface p-4">
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink">
+      <div className="rounded-2xl border border-line bg-surface p-5">
+        <h3 className="mb-3.5 flex items-center gap-2 text-[15px] font-bold text-ink">
           <History className="h-4 w-4 text-muted" aria-hidden="true" />
-          Historico do Brand DNA
+          Histórico do Brand DNA
         </h3>
         <ul className="space-y-2">
-          {versions.map((v) => (
-            <li key={v.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 ${TOM[v.status] || TOM.archived}`}>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-ink">{versionLabel(v)}</p>
-                <p className="text-[11px] text-faint">
-                  Criada em {data(v.created_at)}
-                  {v.approved_at && ` · aprovada em ${data(v.approved_at)}`}
-                </p>
-              </div>
-              {v.status === 'archived' && canApprove(v) && (
-                <Button variant="ghost" size="sm" onClick={() => aprovar(v.id)} disabled={busy === v.id}>
-                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                  {busy === v.id ? 'Restaurando...' : 'Restaurar'}
-                </Button>
-              )}
-            </li>
-          ))}
+          {versions.map((v) => {
+            const pill = PILL[v.status];
+            return (
+              <li key={v.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 ${TOM[v.status] || TOM.archived}`}>
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 text-[12.5px] font-bold text-ink">
+                    {versionLabel(v)}
+                    {pill && (
+                      <span className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.08em] ${pill.className}`}>
+                        {pill.label}
+                      </span>
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-faint">
+                    Criada em {data(v.created_at)}
+                    {v.approved_at && ` · aprovada em ${data(v.approved_at)}`}
+                  </p>
+                </div>
+                {v.status === 'archived' && canApprove(v) && (
+                  <Button variant="ghost" size="sm" onClick={() => aprovar(v.id)} disabled={busy === v.id}>
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                    {busy === v.id ? 'Restaurando...' : 'Restaurar'}
+                  </Button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

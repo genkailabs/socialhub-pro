@@ -81,7 +81,7 @@ export default async function DashboardPage() {
             <span className={`h-2 w-2 rounded-full ${result?.ok ? 'bg-success' : 'bg-warning'}`} />
             <span>{result?.ok ? `@${result.metrics.username}` : 'IG pendente'}</span>
           </div>
-          <Link href="/composer" className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-[0_4px_12px_-2px_rgb(var(--c-accent)/0.5)] transition-colors hover:bg-accent-ink">
+          <Link href="/composer" className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-accent-ink">
             <Plus className="h-4 w-4" strokeWidth={2.5} /> Criar post
           </Link>
         </div>
