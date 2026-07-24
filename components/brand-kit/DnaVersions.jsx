@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Check, Clock, History, RotateCcw } from 'lucide-react';
 import { approveDnaVersion } from '@/lib/dna-actions';
@@ -16,7 +16,7 @@ const TOM = {
 
 // Histórico do Brand DNA (PRD §8-E6 / RF-04): a IA propõe, o usuário aprova, e
 // nada some — dá para voltar para uma versão anterior.
-export function DnaVersions({ brandId, versions = [] }) {
+export function DnaVersions({ brandId, versions = [], showProposal = true }) {
   const router = useRouter();
   const [busy, setBusy] = useState('');
   const [erro, setErro] = useState(null);
@@ -42,7 +42,7 @@ export function DnaVersions({ brandId, versions = [] }) {
   return (
     <div className="space-y-3">
       {/* A proposta pendente é a ação mais importante da tela. */}
-      {proposta && (
+      {showProposal && proposta && (
         <div className="rounded-2xl border border-accent/40 bg-accent/5 p-4">
           <p className="flex items-center gap-2 text-sm font-bold text-ink">
             <Clock className="h-4 w-4 text-accent" aria-hidden="true" />

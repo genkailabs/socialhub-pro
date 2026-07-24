@@ -1,18 +1,22 @@
 'use client';
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Sparkles, ArrowRight, ArrowLeft, Instagram, Check, AlertCircle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { saveOnboardingProgress, completeOnboarding } from '@/lib/onboarding-actions';
 import { analyzeBrandDNA, approveDnaVersion } from '@/lib/dna-actions';
 import { generateWeekPlan } from '@/lib/planning-actions';
 import { classifyInstagramData, derivePalettePriority } from '@/lib/onboarding-helpers';
+import { connectHref, platformById } from '@/data/platforms';
 import { GUIDED_STEPS, OBJECTIVES, FREQUENCIES, CLASSIFICATION_BADGES } from './guided-options';
 
 const fieldClass = 'w-full rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-accent focus:ring-4 focus:ring-accent/15';
 
 export function GuidedOnboardingWizard({ brandId, brandName, kit = {}, connectedPlatforms = {} }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const statusParam = searchParams?.get('status');
+  const usernameParam = searchParams?.get('username');
   const draft = kit.onboarding_answers || {};
   const resuming = kit.onboarding_status === 'in_progress' && Number(kit.onboarding_step) > 0;
 
@@ -43,6 +47,21 @@ export function GuidedOnboardingWizard({ brandId, brandName, kit = {}, connected
 
   const igConnected = Boolean(connectedPlatforms?.instagram?.is_active);
   const pct = Math.round(((step + 1) / 7) * 100);
+
+  useEffect(() => {
+    if (statusParam === 'success' && igConnected && step === 0) {
+      setStep(1);
+    }
+  }, [statusParam, igConnected, step]);
+
+  useEffect(() => {
+    if (statusParam === 'success' && igConnected && step === 1 && !busy) {
+      const timer = setTimeout(() => {
+        runStep3Analysis();
+      }, 1800);
+      return () => clearTimeout(timer);
+    }
+  }, [statusParam, igConnected, step, busy]);
 
   function getDraftAnswers() {
     return {
@@ -193,6 +212,13 @@ export function GuidedOnboardingWizard({ brandId, brandName, kit = {}, connected
 
         {step === 1 && (
           <div className="space-y-5">
+            {statusParam === 'success' && (
+              <div className="rounded-xl border border-success/30 bg-success/10 p-3.5 flex items-center justify-between text-xs text-success font-semibold">
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-4 w-4" /> Instagram @{usernameParam || connectedPlatforms?.instagram?.platform_username || 'conectado'} conectado com sucesso! Retomando passo a passo do Brand Kit...
+                </span>
+              </div>
+            )}
             {igConnected ? (
               <div className="rounded-2xl border border-success/30 bg-success/10 p-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -209,11 +235,18 @@ export function GuidedOnboardingWizard({ brandId, brandName, kit = {}, connected
                 <Button
                   type="button"
                   className="w-full justify-center gap-2 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-95"
-                  onClick={() => router.push(`/connections?return_to=/onboarding`)}
+                  onClick={() => { window.location.href = connectHref(platformById('instagram'), brandId, '/onboarding'); }}
                 >
                   <Instagram className="h-5 w-5" /> Conectar conta do Instagram
                 </Button>
                 <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/connections?return_to=/onboarding`)}
+                    className="text-xs text-muted hover:underline block mx-auto mb-2"
+                  >
+                    Ou gerenciar integrações via painel de Conexões
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsNewAccountFallback(!isNewAccountFallback)}

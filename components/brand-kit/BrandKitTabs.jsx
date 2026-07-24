@@ -1,31 +1,12 @@
 'use client';
-import * as Tabs from '@radix-ui/react-tabs';
-import { Sparkles, Pencil } from 'lucide-react';
-import { DnaAnalyzer } from './DnaAnalyzer';
+import React, { useState } from 'react';
+import { Pencil } from 'lucide-react';
+import { DnaReport } from './DnaReport';
+import { DnaVersions } from './DnaVersions';
 import { BrandKitForm } from './BrandKitForm';
+import { Button } from '@/components/ui/Button';
 
-const trigger =
-  'flex items-center gap-1.5 border-b-2 px-3 pb-2.5 text-sm font-bold text-muted transition-colors data-[state=active]:border-accent data-[state=active]:text-ink border-transparent hover:text-ink';
-
-export function BrandKitTabs({ brandId, brandName, brandColor, kit }) {
-  return (
-    <Tabs.Root defaultValue="analise" className="space-y-5">
-      <div className="flex items-center justify-between border-b border-line">
-        <Tabs.List className="flex gap-2">
-          <Tabs.Trigger value="analise" className={trigger}><Sparkles className="h-4 w-4" />Análise</Tabs.Trigger>
-          <Tabs.Trigger value="editor" className={trigger}><Pencil className="h-4 w-4" />Editor</Tabs.Trigger>
-        </Tabs.List>
-        <span className="mb-2 hidden rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-accent sm:inline">
-          DNA usado automaticamente na geração
-        </span>
-      </div>
-
-      <Tabs.Content value="analise" className="outline-none">
-        <DnaAnalyzer brandId={brandId} brandName={brandName} kit={kit} savedReport={kit?.dna_report} />
-      </Tabs.Content>
-      <Tabs.Content value="editor" className="outline-none">
-        <BrandKitForm brandId={brandId} brandColor={brandColor} kit={kit} />
-      </Tabs.Content>
-    </Tabs.Root>
-  );
+export function BrandKitTabs({ brandId, brandColor, kit, versions = [], connectedPlatforms = {} }) {
+  const [editing, setEditing] = useState(false);
+  return <div className="space-y-6"><DnaReport report={kit?.dna_report} /><DnaVersions brandId={brandId} versions={versions} showProposal={false} /><section aria-labelledby="brand-kit-editor-title" className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 id="brand-kit-editor-title" className="text-base font-bold text-ink">Editor do Brand Kit</h2><p className="mt-1 text-xs text-muted">Ajuste os detalhes da marca quando precisar.</p></div><Button variant="outline" size="sm" onClick={() => setEditing((value) => !value)}><Pencil className="h-4 w-4" /> {editing ? 'Fechar editor' : 'Editar Brand Kit'}</Button></div>{editing && <BrandKitForm brandId={brandId} brandColor={brandColor} kit={kit} connectedPlatforms={connectedPlatforms} />}</section></div>;
 }
