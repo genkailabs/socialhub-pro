@@ -24,7 +24,8 @@ vi.mock('@/lib/planning-actions', () => ({
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() })
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams()
 }));
 
 describe('GuidedOnboardingWizard', () => {

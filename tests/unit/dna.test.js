@@ -65,6 +65,11 @@ describe('normalizeDnaResult', () => {
     const out = normalizeDnaResult(raw, { hasIg: false });
     expect(out.report.categories[0].confidence).toBe('baixa');
   });
+  it('limpa blocos de código markdown antes do parse de JSON', () => {
+    const raw = '```json\n{"dna":{"tone":"alegre"},"report":{"overall":8,"categories":[]}}\n```';
+    const out = normalizeDnaResult(raw, { hasIg: false });
+    expect(out.dna.tone).toBe('alegre');
+  });
   it('JSON inválido lança', () => {
     expect(() => normalizeDnaResult('nope', {})).toThrow();
   });

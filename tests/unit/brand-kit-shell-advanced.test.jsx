@@ -1,94 +1,26 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { BrandKitShell } from '@/components/brand-kit/BrandKitShell';
-import { resetOnboarding } from '@/lib/onboarding-actions';
 
-const pushMock = vi.fn();
-
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
+afterEach(() => cleanup());
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: pushMock,
-    refresh: vi.fn(),
-  }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/components/brand-kit/BrandKitTabs', () => ({
-  BrandKitTabs: () => <div data-testid="kit-tabs">KitTabs</div>
+  BrandKitTabs: () => <div data-testid="simple-brand-kit-dashboard">Dashboard</div>,
 }));
 
-vi.mock('@/components/brand-kit/DnaVersions', () => ({
-  DnaVersions: () => <div data-testid="dna-versions">DnaVersions</div>
-}));
+describe('BrandKitShell — modo simples', () => {
+  it('exibe o resumo de saúde e não exibe ações técnicas do onboarding', () => {
+    render(<BrandKitShell brandId="brd-1" brandName="Acme" brandColor="#007AFF" kit={{ onboarding_status: 'completed', updated_at: '2026-07-18T12:00:00Z' }} />);
 
-vi.mock('@/lib/onboarding-actions', () => ({
-  resetOnboarding: vi.fn(async () => ({ ok: true }))
-}));
-
-describe('BrandKitShell advanced config', () => {
-  it('renderiza o botão Refazer onboarding guiado e as abas avançadas', () => {
-    render(
-      <BrandKitShell
-        brandId="brd-1"
-        brandName="Acme"
-        brandColor="#007AFF"
-        kit={{ onboarding_status: 'completed' }}
-        versions={[]}
-      />
-    );
-    expect(screen.getByText(/Refazer onboarding guiado/i)).toBeDefined();
-    expect(screen.getByTestId('kit-tabs')).toBeDefined();
-    expect(screen.getByTestId('dna-versions')).toBeDefined();
-  });
-
-  it('chama resetOnboarding e redireciona ao clicar no botão Refazer onboarding guiado', async () => {
-    vi.spyOn(window, 'confirm').mockImplementation(() => true);
-
-    render(
-      <BrandKitShell
-        brandId="brd-1"
-        brandName="Acme"
-        brandColor="#007AFF"
-        kit={{ onboarding_status: 'completed' }}
-        versions={[]}
-      />
-    );
-
-    const button = screen.getByText(/Refazer onboarding guiado/i);
-    fireEvent.click(button);
-
-    expect(window.confirm).toHaveBeenCalled();
-    expect(resetOnboarding).toHaveBeenCalledWith({ brandId: 'brd-1' });
-    await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith('/onboarding');
-    });
-  });
-
-  it('restaura estado resetting mesmo se resetOnboarding lançar um erro', async () => {
-    vi.spyOn(window, 'confirm').mockImplementation(() => true);
-    resetOnboarding.mockRejectedValueOnce(new Error('Falha ao resetar'));
-
-    render(
-      <BrandKitShell
-        brandId="brd-1"
-        brandName="Acme"
-        brandColor="#007AFF"
-        kit={{ onboarding_status: 'completed' }}
-        versions={[]}
-      />
-    );
-
-    const button = screen.getByText(/Refazer onboarding guiado/i);
-    fireEvent.click(button);
-
-    await waitFor(() => {
-      expect(button.getAttribute('disabled')).toBeNull();
-      expect(screen.getByText(/Refazer onboarding guiado/i)).toBeDefined();
-    });
+    expect(screen.getByText('Brand Kit atualizado')).toBeDefined();
+    expect(screen.getByText('18/07/2026')).toBeDefined();
+    expect(screen.queryByText(/Refazer onboarding guiado/i)).toBeNull();
+    expect(screen.queryByText(/Nova versão do seu Brand DNA pronta/i)).toBeNull();
+    expect(screen.getByTestId('simple-brand-kit-dashboard')).toBeDefined();
   });
 });

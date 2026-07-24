@@ -67,3 +67,31 @@ describe('camada de provedores de texto', () => {
     expect(listTextProviders()).toEqual(['deepseek']);
   });
 });
+
+describe('deepseekChat direto', () => {
+  it('mapeia deepseek-v4-flash para deepseek-chat no payload da API mas mantem modelo na resposta', async () => {
+    const originalEnv = process.env.DEEPSEEK_API_KEY;
+    process.env.DEEPSEEK_API_KEY = 'test-key';
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"ok":true}' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1 }
+      })
+    });
+    
+    // We import directly to test deepseekChat unmocked implementation
+    const { deepseekChat: actualDeepSeekChat } = await vi.importActual('@/lib/ai/deepseek');
+    const res = await actualDeepSeekChat({ system: 'sys', user: 'usr', model: 'deepseek-v4-flash' });
+    
+    expect(fetchSpy).toHaveBeenCalled();
+    const callArgs = fetchSpy.mock.calls[0];
+    const bodyObj = JSON.parse(callArgs[1].body);
+    expect(bodyObj.model).toBe('deepseek-chat');
+    expect(res.model).toBe('deepseek-v4-flash');
+    
+    fetchSpy.mockRestore();
+    if (originalEnv) process.env.DEEPSEEK_API_KEY = originalEnv;
+    else delete process.env.DEEPSEEK_API_KEY;
+  });
+});

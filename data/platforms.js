@@ -41,7 +41,8 @@ export function platformGradient(p) {
 }
 
 // URL do fluxo OAuth do provedor (Meta para IG/FB, Google para YouTube).
-export function connectHref(p, brandId) {
+export function connectHref(p, brandId, returnTo) {
   const base = p?.connectPath || '/api/meta/oauth';
-  return `${base}?brand_id=${brandId}`;
+  const url = `${base}?brand_id=${brandId}`;
+  return returnTo ? `${url}&return_to=${encodeURIComponent(returnTo)}` : url;
 }
