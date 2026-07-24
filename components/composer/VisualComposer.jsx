@@ -27,7 +27,10 @@ import {
   EMOJI_CATEGORIES, RECENT_EMOJIS_KEY, RECENT_EMOJIS_LIMIT, normalizeSearch, searchEmojis
 } from '@/data/emoji-catalog';
 import { GRAPHIC_TYPES, isTextLayer, layerBoxStyle, layerLineBgStyle } from '@/lib/composer-layer-style';
+import { clampTrim, getReelState } from '@/lib/composer-reel';
 import { ArrowGraphic, IconGraphic, LineGraphic, ShapeGraphic } from './ElementGraphics';
+import { ReelTimeline } from './ReelTimeline';
+import { ReelVideoPanel } from './ReelVideoPanel';
 import styles from './VisualComposer.module.css';
 import './composer-fonts.css';
 
@@ -147,13 +150,15 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   const [guide, setGuide] = useState({ v: false, h: false });
   const [scale, setScale] = useState(1);
   const [playing, setPlaying] = useState(false);
-  const [reelTime, setReelTime] = useState(0);
+  const [playhead, setPlayhead] = useState(0);
   const [busy, setBusy] = useState('');
   const [draftId, setDraftId] = useState(initialDraft?.id || null);
   const [contentStatus, setContentStatus] = useState(initialDraft?.status || (initialDraft?.id ? 'draft' : null));
   const regionRef = useRef(null);
   const canvasRef = useRef(null);
   const gestureRef = useRef(null);
+  const videoRef = useRef(null);
+  const audioRef = useRef(null);
   const wheelHistoryRef = useRef(0);
   const uploadSequenceRef = useRef(new Map());
   const stateRef = useRef(state);
@@ -165,6 +170,8 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     : null;
   const selected = state.sel === 'bg' ? null : surface.layers.find((item) => item.id === state.sel);
   const validation = validateComposer(state);
+  const reel = getReelState(state.doc);
+  const reelDuration = state.format === 'reel' ? Number(surface.media?.duration) || 0 : 0;
   // Busca (§4): por nome, categoria e palavras relacionadas, cruzando todas
   // as seções quando há termo digitado.
   const elementQuery = normalizeSearch(elementSearch);
@@ -237,11 +244,32 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     return () => observer.disconnect();
   }, [cw, ch, state.format, previewOpen, layersOpen, tool]);
 
+  // Relógio único do Reel: o <video> do canvas manda o tempo; timeline e
+  // prévia apenas leem, então nunca divergem (§3, §6).
   useEffect(() => {
-    if (!playing) return;
-    const timer = window.setInterval(() => setReelTime((value) => value >= 23 ? 0 : value + 1), 450);
-    return () => window.clearInterval(timer);
-  }, [playing]);
+    const element = videoRef.current;
+    if (!element || state.format !== 'reel') return;
+    function tick() {
+      const trim = clampTrim(reel.video, reelDuration);
+      if (reelDuration && element.currentTime >= trim.end) element.currentTime = trim.start;
+      setPlayhead(element.currentTime);
+      const track = audioRef.current;
+      if (track) {
+        const expected = (reel.audio?.start || 0) + (element.currentTime - trim.start);
+        if (Math.abs(track.currentTime - expected) > .25) track.currentTime = Math.max(0, expected);
+      }
+    }
+    element.addEventListener('timeupdate', tick);
+    return () => element.removeEventListener('timeupdate', tick);
+  }, [state.format, reel.video.start, reel.video.end, reel.audio?.start, reelDuration]);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    const track = audioRef.current;
+    if (!element) return;
+    if (playing) { element.play?.()?.catch?.(() => {}); track?.play?.()?.catch?.(() => {}); }
+    else { element.pause?.(); track?.pause?.(); }
+  }, [playing, reel.audio?.url]);
 
   const pushHistory = useCallback(() => {
     setState((current) => ({
@@ -410,11 +438,13 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     }
   }
 
-  function syncMediaDimensions(width, height) {
-    if (!width || !height || (surface.media?.width && surface.media?.height && surface.bg?.w && surface.bg?.h)) return;
+  function syncMediaDimensions(width, height, duration) {
+    if (!width || !height) return;
     mutateDoc((doc, current) => {
       const targetSurface = getSurface(doc, current.format);
       if (!targetSurface.media) return;
+      if (Number(duration) > 0) targetSurface.media.duration = Number(duration);
+      if (targetSurface.media.width && targetSurface.media.height && targetSurface.bg?.w && targetSurface.bg?.h) return;
       targetSurface.media.width = width;
       targetSurface.media.height = height;
       targetSurface.bg = fitMediaToCanvas({ width, height }, canvasSize(current.format, current.ratio));
@@ -485,6 +515,55 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
       const next = [emoji, ...current.filter((item) => item !== emoji)].slice(0, RECENT_EMOJIS_LIMIT);
       try { localStorage.setItem(RECENT_EMOJIS_KEY, JSON.stringify(next)); } catch {}
       return next;
+    });
+  }
+
+  // Estado do Reel (§1, §2, §5): vídeo, áudio próprio e capa.
+  function patchReel(patch) {
+    mutateDoc((doc) => { Object.assign(doc.reel, patch); });
+  }
+
+  function patchReelVideo(patch) {
+    mutateDoc((doc) => { doc.reel.video = { ...getReelState(doc).video, ...patch }; });
+  }
+
+  function patchReelAudio(patch) {
+    mutateDoc((doc) => {
+      const current = getReelState(doc).audio;
+      doc.reel.audio = patch === null
+        ? null
+        : { ...(current || { url: '', path: null, name: '', start: 0, volume: 1 }), ...patch };
+    });
+  }
+
+  function seekReel(seconds) {
+    if (videoRef.current) videoRef.current.currentTime = seconds;
+    setPlayhead(seconds);
+  }
+
+  async function uploadReelAsset(file, kind) {
+    if (!file) return;
+    setBusy(kind);
+    setMediaError('');
+    try {
+      const result = await uploadTempMedia(createClient(), brandId, file);
+      if (kind === 'audio') patchReelAudio({ url: result.publicUrl, path: result.path, name: file.name, start: 0, volume: 1 });
+      else patchReel({ cover: { mode: 'upload', url: result.publicUrl, path: result.path, name: file.name, timeMs: 0 } });
+      flash(kind === 'audio' ? 'Áudio adicionado' : 'Capa adicionada');
+    } catch (error) {
+      setMediaError(error.message || 'Não foi possível enviar o arquivo.');
+    } finally { setBusy(''); }
+  }
+
+  function fitReelCanvas() {
+    mutateDoc((doc, current) => {
+      const target = getSurface(doc, current.format);
+      if (target.media) {
+        target.bg = fitMediaToCanvas(
+          { width: target.media.width, height: target.media.height },
+          canvasSize(current.format, current.ratio)
+        );
+      }
     });
   }
 
@@ -678,7 +757,9 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         brandId, draftId, caption: state.caption, hashtags: state.hashtags, firstComment: state.firstComment,
         altText: state.altText, imageUrls: mediaUrls, format: toApiFormat(state.format),
         editorState: serializeComposer(state), location: state.location, taggedPeople: state.tags,
-        share_to_feed: state.showFeed
+        share_to_feed: state.showFeed,
+        thumb_offset_ms: state.format === 'reel' ? reel.cover.timeMs : null,
+        coverUrl: state.format === 'reel' && reel.cover.mode === 'upload' ? reel.cover.url : null
       });
       if (result?.error) throw new Error(result.error);
       if (result?.id) {
@@ -700,7 +781,8 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         altText: state.altText, imageUrls: mediaUrls, format: toApiFormat(state.format),
         editorState: serializeComposer(state), location: state.location, taggedPeople: state.tags,
         share_to_feed: state.showFeed,
-        thumb_offset_ms: state.format === 'reel' ? state.doc.reel.cover * 5000 : null
+        thumb_offset_ms: state.format === 'reel' ? reel.cover.timeMs : null,
+        coverUrl: state.format === 'reel' && reel.cover.mode === 'upload' ? reel.cover.url : null
       };
       const result = kind === 'schedule'
         ? await schedulePost({ ...payload, scheduledAt: new Date(`${state.schedDate}T${state.schedTime}`).toISOString() })
@@ -800,6 +882,19 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
                   </label>
                   <button type="button" aria-label="Remover arquivo" className={`${styles.button} ${styles.removeMedia}`} disabled={busy === 'remove-media'} onClick={removeCurrentMedia}><Trash2 size={14} /> Remover arquivo</button>
                 </div>
+                {state.format === 'reel' && <ReelVideoPanel
+                  duration={reelDuration}
+                  current={playhead}
+                  video={reel.video}
+                  audio={reel.audio}
+                  cover={reel.cover}
+                  onVideo={patchReelVideo}
+                  onAudio={patchReelAudio}
+                  onCover={(patch) => patchReel({ cover: { ...reel.cover, ...patch } })}
+                  onAudioFile={(file) => uploadReelAsset(file, 'audio')}
+                  onCoverFile={(file) => uploadReelAsset(file, 'cover')}
+                  onFitCanvas={fitReelCanvas}
+                />}
               </>
             )}
             {uploading != null && <div className={styles.progress}><span style={{ width: `${uploading}%` }} /></div>}
@@ -928,6 +1023,9 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
                       onRotateKey={(event) => handleMediaKey(event, 'rotate')}
                       onFocus={() => setState((current) => ({ ...current, sel: 'bg', editing: null }))}
                       onDimensions={syncMediaDimensions}
+                      videoRef={state.format === 'reel' ? videoRef : undefined}
+                      muted={state.format !== 'reel' || reel.video.muted || Boolean(reel.audio?.url)}
+                      volume={state.format === 'reel' ? reel.video.volume : undefined}
                       testId="canvas-media"
                     />
                   : <label className={styles.empty} aria-label="Importar midia pelo canvas">
@@ -944,16 +1042,24 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
               </div>
             </div>
             {state.format === 'carrossel' && <CarouselStrip state={state} setState={setState} onAction={carouselAction} onReorder={reorderSlide} />}
-            {state.format === 'reel' && <div className={styles.reelControls}>
-              <button className={styles.iconButton} onClick={() => setPlaying(!playing)}>{playing ? <Pause size={14} /> : <Play size={14} />}</button>
-              <input type="range" min="0" max="23" value={reelTime} onChange={(e) => { setReelTime(+e.target.value); setPlaying(false); }} />
-              <span>0:{String(reelTime).padStart(2, '0')} / 0:23</span><span>Capa:</span>
-              {[0, 1, 2, 3, 4].map((frame) => <button key={frame} aria-label={`Selecionar capa ${frame + 1}`} onClick={() => mutateDoc((doc) => { doc.reel.cover = frame; })} style={{ width: 25, height: 25, borderRadius: 6, border: state.doc.reel.cover === frame ? '2px solid var(--vc-accent)' : '1px solid var(--vc-border)', background: `linear-gradient(${135 + frame * 18}deg,#343438,#777)` }}>{frame + 1}</button>)}
-            </div>}
+            {state.format === 'reel' && <>
+              <ReelTimeline
+                duration={reelDuration}
+                current={playhead}
+                playing={playing}
+                video={reel.video}
+                audio={reel.audio}
+                layers={surface.layers}
+                onSeek={seekReel}
+                onTrim={(trim) => patchReelVideo(trim)}
+                onTogglePlay={() => setPlaying((value) => !value)}
+              />
+              {reel.audio?.url && <audio ref={audioRef} src={reel.audio.url} preload="auto" />}
+            </>}
           </div>
         </main>
 
-        {previewOpen && <PreviewPanel state={state} surface={surface} brandName={brandName} />}
+        {previewOpen && <PreviewPanel state={state} surface={surface} brandName={brandName} currentTime={state.format === 'reel' ? playhead : undefined} />}
         {layersOpen && <LayersPanel surface={surface} selected={state.sel} onSelect={(id) => setState((current) => ({ ...current, sel: id }))} onPatch={updateLayer} onReorder={moveLayerInStack} onDelete={deleteLayerById} />}
       </div>
 
@@ -1100,7 +1206,7 @@ function CarouselStrip({ state, setState, onAction, onReorder }) {
   </div>;
 }
 
-function PreviewPanel({ state, surface, brandName }) {
+function PreviewPanel({ state, surface, brandName, currentTime }) {
   const [cw, ch] = canvasSize(state.format, state.ratio);
   const vertical = state.format === 'story' || state.format === 'reel';
   const previewScale = 242 / cw;
@@ -1111,7 +1217,7 @@ function PreviewPanel({ state, surface, brandName }) {
       <div className={styles.notch} />
       {!vertical && <div className={styles.phoneHead}><span className={styles.avatar} /><strong>{brandName.replace(/^@/, '')}</strong><span style={{ marginLeft: 'auto' }}><MoreHorizontal size={14} /></span></div>}
       <div className={styles.phoneMedia} style={{ height: previewH }}>
-        <PreviewSurface surface={surface} cw={cw} ch={ch} scale={previewScale} />
+        <PreviewSurface surface={surface} cw={cw} ch={ch} scale={previewScale} currentTime={currentTime} />
         {state.format === 'story' && <div className={styles.storyChrome}><div className={styles.storyProgress} /><strong>{brandName.replace(/^@/, '')}</strong> · 2 min <X size={15} style={{ float: 'right' }} /><div style={{ position: 'absolute', bottom: 17, left: 12, right: 12, border: '1px solid #fff', borderRadius: 99, padding: 8 }}>Enviar mensagem…</div></div>}
         {state.format === 'reel' && <div className={styles.storyChrome}><div style={{ position: 'absolute', right: 12, bottom: 76, display: 'grid', gap: 13, textAlign: 'center' }}>♡<span style={{ fontSize: 8 }}>1,2k</span>◯<span style={{ fontSize: 8 }}>86</span>⌁</div><div style={{ position: 'absolute', left: 11, bottom: 24 }}><strong>@{brandName.replace(/^@/, '')}</strong> · Seguir<br />{state.caption || 'Sua legenda aparece aqui'}<br />♫ Áudio original</div></div>}
       </div>
@@ -1121,9 +1227,19 @@ function PreviewPanel({ state, surface, brandName }) {
   </aside>;
 }
 
-function PreviewSurface({ surface, cw, ch, scale }) {
+function PreviewSurface({ surface, cw, ch, scale, currentTime }) {
+  // A prévia espelha o tempo do canvas e roda muda: o som já sai de lá, tocar
+  // duas vezes daria eco (§6).
+  const previewVideoRef = useRef(null);
   return <div className={styles.phoneSurface} style={{ width: cw, height: ch, transform: `scale(${scale})` }}>
-    {surface.media && <MediaBox media={surface.media} transform={surface.bg} canvas={[cw, ch]} testId="preview-media" />}
+    {surface.media && <MediaBox
+      media={surface.media}
+      transform={surface.bg}
+      canvas={[cw, ch]}
+      videoRef={typeof currentTime === 'number' ? previewVideoRef : undefined}
+      currentTime={currentTime}
+      testId="preview-media"
+    />}
     {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={styles.layer} style={layerBoxStyle(layer)}><LayerContent layer={layer} /></div>)}
   </div>;
 }
@@ -1144,6 +1260,10 @@ function MediaBox({
   transform,
   canvas,
   selected = false,
+  videoRef,
+  muted = true,
+  volume,
+  currentTime,
   onPointerDown,
   onResize,
   onRotate,
@@ -1157,8 +1277,22 @@ function MediaBox({
   const style = mediaTransformStyle(transform, media, canvas);
   const dimensions = (event) => {
     const element = event.currentTarget;
-    onDimensions?.(element.videoWidth || element.naturalWidth, element.videoHeight || element.naturalHeight);
+    onDimensions?.(element.videoWidth || element.naturalWidth, element.videoHeight || element.naturalHeight, element.duration);
   };
+
+  // Volume não existe como atributo do JSX e o tempo da prévia precisa
+  // acompanhar o relógio do canvas sem virar um segundo player (§6).
+  useEffect(() => {
+    const element = videoRef?.current;
+    if (!element) return;
+    if (typeof volume === 'number') element.volume = Math.min(1, Math.max(0, volume));
+  }, [volume, videoRef]);
+
+  useEffect(() => {
+    const element = videoRef?.current;
+    if (!element || typeof currentTime !== 'number') return;
+    if (Math.abs(element.currentTime - currentTime) > .25) element.currentTime = currentTime;
+  }, [currentTime, videoRef]);
   return <div
     data-testid={testId}
     className={`${styles.mediaBox} ${selected ? styles.selectedMedia : ''}`}
@@ -1171,7 +1305,7 @@ function MediaBox({
     onFocus={onFocus}
   >
     {media.kind === 'video'
-      ? <video className={styles.media} src={media.url} muted autoPlay loop playsInline onLoadedMetadata={dimensions} />
+      ? <video ref={videoRef} className={styles.media} src={media.url} muted={muted} autoPlay={!videoRef} loop playsInline onLoadedMetadata={dimensions} />
       : <img className={styles.media} src={media.url} alt="" crossOrigin="anonymous" onLoad={dimensions} />}
     {selected && <>
       {['nw', 'ne', 'sw', 'se'].map((corner) => <span
@@ -1197,7 +1331,12 @@ function MediaBox({
 
 function LayersPanel({ surface, selected, onSelect, onPatch, onReorder, onDelete }) {
   const total = surface.layers.length;
+  const mediaLabel = surface.media?.kind === 'video' ? 'Vídeo' : 'Imagem';
   return <aside className={`${styles.rightPanel} ${styles.layersPanel}`}><div className={styles.rightTitle}>CAMADAS</div>
+    {surface.media && <div className={`${styles.layerRow} ${selected === 'bg' ? styles.layerSelected : ''}`}>
+      <span className={styles.layerIcon}>{surface.media.kind === 'video' ? <Film size={13} /> : <ImageIcon size={13} />}</span>
+      <button type="button" className={styles.layerName} aria-label={`Selecionar camada ${mediaLabel}`} style={{ border: 0, background: 'transparent', textAlign: 'left', padding: 0 }} onClick={() => onSelect('bg')}>{mediaLabel}</button>
+    </div>}
     {[...surface.layers].reverse().map((layer, position) => <div key={layer.id} className={`${styles.layerRow} ${selected === layer.id ? styles.layerSelected : ''}`} onClick={() => onSelect(layer.id)}>
       <span className={styles.layerIcon}>{layer.type === 'text' ? <Type size={13} /> : layer.type === 'sticker' ? <Smile size={13} /> : <Shapes size={13} />}</span><span className={styles.layerName}>{layer.text || ELEMENT_ICON_MAP[layer.icon]?.label || ({ arrow: 'Seta', line: 'Linha', shape: 'Forma', icon: 'Ícone' })[layer.type] || 'Elemento'}</span>
       <span className={styles.layerActions}>
