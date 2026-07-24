@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ELEMENT_LINES, ELEMENT_SHAPES, SOCIALHUB_STICKERS } from '@/lib/composer-text-styles';
 import { ELEMENT_ICON_MAP, ELEMENT_VECTOR_ICONS, iconLayerPreset } from '@/data/element-icons';
+import { EMOJI_CATEGORIES, EMOJI_NAMES, normalizeSearch, searchEmojis } from '@/data/emoji-catalog';
 
 describe('catálogo de elementos (PRD Elementos §5, §7, §10)', () => {
   it('disponibiliza as 11 formas do PRD', () => {
@@ -66,5 +67,29 @@ describe('ícones vetoriais (PRD Elementos §8)', () => {
     expect(iconLayerPreset(ELEMENT_ICON_MAP.telefone)).toMatchObject({
       type: 'icon', icon: 'telefone', w: 64, h: 64, color: '#FFFFFF'
     });
+  });
+});
+
+describe('busca de emojis (PRD Elementos §12)', () => {
+  it('normaliza acentos e caixa', () => {
+    expect(normalizeSearch('  Coração ')).toBe('coracao');
+    expect(normalizeSearch('PROMOÇÃO')).toBe('promocao');
+  });
+
+  it('todo emoji do catálogo tem nome de busca', () => {
+    for (const category of EMOJI_CATEGORIES) {
+      for (const emoji of category.emojis) {
+        expect(EMOJI_NAMES[emoji], `sem nome: ${emoji}`).toBeTruthy();
+      }
+    }
+  });
+
+  it('encontra por nome, categoria e palavra relacionada', () => {
+    expect(searchEmojis('fogo')).toContain('🔥');
+    expect(searchEmojis('coração')).toContain('❤️');
+    expect(searchEmojis('animais')).toContain('🐶');
+    expect(searchEmojis('pizza')).toEqual(['🍕']);
+    expect(searchEmojis('')).toEqual([]);
+    expect(searchEmojis('zzz-nada')).toEqual([]);
   });
 });
