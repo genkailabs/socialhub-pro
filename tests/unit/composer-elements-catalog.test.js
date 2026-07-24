@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ELEMENT_LINES, ELEMENT_SHAPES, SOCIALHUB_STICKERS } from '@/lib/composer-text-styles';
+import { ELEMENT_ICON_MAP, ELEMENT_VECTOR_ICONS, iconLayerPreset } from '@/data/element-icons';
 
 describe('catálogo de elementos (PRD Elementos §5, §7, §10)', () => {
   it('disponibiliza as 11 formas do PRD', () => {
@@ -38,5 +39,32 @@ describe('catálogo de elementos (PRD Elementos §5, §7, §10)', () => {
       'Últimas vagas', 'Lançamento', 'Em breve', 'Frete grátis', 'Desconto',
       'Arraste para cima', 'Confira', 'Aproveite', 'Vagas limitadas'
     ]);
+  });
+});
+
+describe('ícones vetoriais (PRD Elementos §8)', () => {
+  it('disponibiliza os 24 ícones do PRD', () => {
+    expect(ELEMENT_VECTOR_ICONS.map((icon) => icon.id)).toEqual([
+      'telefone', 'whatsapp', 'instagram', 'localizacao', 'calendario', 'relogio',
+      'link', 'carrinho', 'dinheiro', 'promocao', 'atencao', 'check', 'estrela',
+      'coracao', 'play', 'pause', 'volume', 'camera', 'mensagem', 'email',
+      'usuario', 'seta', 'grafico', 'loja'
+    ]);
+  });
+
+  it('todo ícone tem label, keywords e markup vetorial com currentColor', () => {
+    for (const icon of ELEMENT_VECTOR_ICONS) {
+      expect(icon.label.length).toBeGreaterThan(0);
+      expect(icon.keywords.length).toBeGreaterThan(0);
+      expect(icon.body).toContain('currentColor');
+      expect(icon.body).toMatch(/<(path|circle|rect|line|polyline|polygon|ellipse|g)/);
+    }
+    expect(ELEMENT_ICON_MAP.whatsapp.body).toContain('scale');
+  });
+
+  it('gera preset de camada do tipo icon', () => {
+    expect(iconLayerPreset(ELEMENT_ICON_MAP.telefone)).toMatchObject({
+      type: 'icon', icon: 'telefone', w: 64, h: 64, color: '#FFFFFF'
+    });
   });
 });
