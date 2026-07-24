@@ -66,15 +66,16 @@ describe('manipulacao de midia no canvas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Elemen.' }));
     expect(screen.getByRole('textbox', { name: 'Buscar elementos' })).toBeTruthy();
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-      'Formas', 'Linhas', 'Ícones', 'Stickers', 'Emojis'
+      'Formas', 'Linhas e setas', 'Ícones', 'Stickers', 'Emojis'
     ]);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Emojis' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Símbolos' }));
-    expect(screen.getByRole('button', { name: '✨' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Emoji ✨' })).toBeTruthy();
 
+    // Com termo digitado, a busca cruza todas as seções e as abas dão lugar
+    // aos resultados agrupados (PRD Elementos §4).
     fireEvent.change(screen.getByRole('textbox', { name: 'Buscar elementos' }), { target: { value: 'Pill' } });
-    fireEvent.click(screen.getByRole('tab', { name: 'Formas' }));
     expect(screen.getByRole('button', { name: 'Pill' })).toBeTruthy();
   });
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, Bold, CalendarClock, Check, ChevronDown,
-  ChevronLeft, ChevronRight, ChevronUp, Circle, Copy, Eye, EyeOff, Film,
+  ChevronLeft, ChevronRight, ChevronUp, Copy, Eye, EyeOff, Film,
   Image as ImageIcon, Italic, Layers3, Lock, MapPin, Maximize2,
   MessageSquareText, Minus, MoreHorizontal, Palette, Pause, Play, Plus, Redo2,
   Save, Search, Send, Settings2, Shapes, Smartphone, Smile, Trash2, Type,
@@ -20,11 +20,14 @@ import {
 } from '@/lib/composer-editor';
 import { fontsByCategory } from '@/lib/composer-fonts';
 import {
-  ELEMENT_ICONS, ELEMENT_LINES, ELEMENT_SHAPES, SOCIALHUB_STICKERS,
-  TEXT_STYLES, iconPreset
+  ELEMENT_LINES, ELEMENT_SHAPES, SOCIALHUB_STICKERS, TEXT_STYLES
 } from '@/lib/composer-text-styles';
-import { EMOJI_CATEGORIES, RECENT_EMOJIS_KEY, RECENT_EMOJIS_LIMIT } from '@/data/emoji-catalog';
-import { isTextLayer, layerBoxStyle, layerLineBgStyle } from '@/lib/composer-layer-style';
+import { ELEMENT_ICON_MAP, ELEMENT_VECTOR_ICONS, iconLayerPreset } from '@/data/element-icons';
+import {
+  EMOJI_CATEGORIES, RECENT_EMOJIS_KEY, RECENT_EMOJIS_LIMIT, normalizeSearch, searchEmojis
+} from '@/data/emoji-catalog';
+import { GRAPHIC_TYPES, isTextLayer, layerBoxStyle, layerLineBgStyle } from '@/lib/composer-layer-style';
+import { ArrowGraphic, IconGraphic, LineGraphic, ShapeGraphic } from './ElementGraphics';
 import styles from './VisualComposer.module.css';
 import './composer-fonts.css';
 
@@ -40,7 +43,7 @@ const TOOLS = [
   ['config', Settings2, 'Config.'], ['publicar', Send, 'Publicar']
 ];
 const COLORS = ['#FFFFFF', '#1D1D1F', '#007AFF', '#FF9500', '#FF375F'];
-const ELEMENT_CATEGORIES = ['Formas', 'Linhas', 'Ícones', 'Stickers', 'Emojis'];
+const ELEMENT_CATEGORIES = ['Formas', 'Linhas e setas', 'Ícones', 'Stickers', 'Emojis'];
 const FONT_GROUPS = fontsByCategory();
 
 function mediaAccept(format) {
@@ -162,20 +165,22 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     : null;
   const selected = state.sel === 'bg' ? null : surface.layers.find((item) => item.id === state.sel);
   const validation = validateComposer(state);
-  const normalizedElementSearch = elementSearch.trim().toLocaleLowerCase('pt-BR');
-  const byLabel = ({ label }) => label.toLocaleLowerCase('pt-BR').includes(normalizedElementSearch);
-  const matchingShapes = ELEMENT_SHAPES.filter(byLabel);
-  const matchingLines = ELEMENT_LINES.filter(byLabel);
-  const matchingIcons = ELEMENT_ICONS.filter((glyph) => !normalizedElementSearch || glyph.includes(normalizedElementSearch));
-  const matchingStickers = SOCIALHUB_STICKERS.filter(byLabel);
-  const activeEmojiList = normalizedElementSearch
-    ? EMOJI_CATEGORIES.flatMap((category) => category.emojis)
+  // Busca (§4): por nome, categoria e palavras relacionadas, cruzando todas
+  // as seções quando há termo digitado.
+  const elementQuery = normalizeSearch(elementSearch);
+  const bySection = (section) => (item) => !elementQuery
+    || normalizeSearch(section).includes(elementQuery)
+    || normalizeSearch(item.label).includes(elementQuery)
+    || (item.keywords || []).some((keyword) => keyword.includes(elementQuery));
+  const matchingShapes = ELEMENT_SHAPES.filter(bySection('formas'));
+  const matchingLines = ELEMENT_LINES.filter(bySection('linhas e setas'));
+  const matchingIcons = ELEMENT_VECTOR_ICONS.filter(bySection('icones'));
+  const matchingStickers = SOCIALHUB_STICKERS.filter(bySection('stickers'));
+  const matchingEmojis = elementQuery
+    ? searchEmojis(elementSearch)
     : emojiCategory === 'recentes'
       ? recentEmojis
       : EMOJI_CATEGORIES.find((category) => category.id === emojiCategory)?.emojis || [];
-  const matchingEmojis = normalizedElementSearch
-    ? activeEmojiList.filter((emoji) => emoji.includes(normalizedElementSearch))
-    : activeEmojiList;
   const selectedIsText = !!selected && isTextLayer(selected);
 
   const flash = useCallback((message) => {
@@ -829,41 +834,59 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
               <Search size={14} aria-hidden="true" />
               <input aria-label="Buscar elementos" value={elementSearch} onChange={(event) => setElementSearch(event.target.value)} placeholder="Buscar elementos" />
             </div>
-            <div className={styles.elementCategories} role="tablist" aria-label="Categorias de elementos">
+            {!elementQuery && <div className={styles.elementCategories} role="tablist" aria-label="Categorias de elementos">
               {ELEMENT_CATEGORIES.map((category) => <button key={category} type="button" role="tab" aria-selected={elementCategory === category} className={elementCategory === category ? styles.elementCategoryActive : ''} onClick={() => setElementCategory(category)}>{category}</button>)}
-            </div>
-            {elementCategory === 'Formas' && <div className={styles.shapeGrid}>
-              {matchingShapes.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} onClick={() => addPreset(preset)}>
-                {label === 'Retângulo' && <span style={{ display: 'block', width: 24, height: 24, background: '#6E6E73', borderRadius: 4, margin: 'auto' }} />}
-                {label === 'Círculo' && <Circle size={25} fill="currentColor" />}
-                {label === 'Pill' && 'Pill'}
-                {label === 'Selo' && <span style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, background: '#FF375F', color: '#fff', borderRadius: '50%', fontSize: 7, fontWeight: 800, margin: 'auto' }}>NOVO</span>}
-                {label === 'Etiqueta' && <span style={{ display: 'inline-block', padding: '3px 8px', background: '#6E6E73', color: '#fff', borderRadius: 4, fontSize: 9, fontWeight: 700 }}>TAG</span>}
-                {label === 'Balão' && <span style={{ display: 'inline-block', padding: '4px 9px', border: '1.5px solid currentColor', borderRadius: 10, fontSize: 10 }}>Oi!</span>}
-              </button>)}
             </div>}
-            {elementCategory === 'Linhas' && <div className={styles.shapeGrid}>
-              {matchingLines.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} onClick={() => addPreset(preset)}>
-                {label === 'Linha fina' && <span style={{ display: 'block', width: 30, height: 2, background: 'currentColor', borderRadius: 99, margin: 'auto' }} />}
-                {label === 'Linha grossa' && <span style={{ display: 'block', width: 30, height: 6, background: 'currentColor', borderRadius: 99, margin: 'auto' }} />}
-                {label === 'Linha vertical' && <span style={{ display: 'block', width: 2, height: 28, background: 'currentColor', borderRadius: 99, margin: 'auto' }} />}
-                {label.startsWith('Seta') && <span style={{ fontSize: label === 'Seta' ? 22 : 15 }}>→</span>}
-              </button>)}
-            </div>}
-            {elementCategory === 'Ícones' && <div className={styles.stickerGrid}>
-              {matchingIcons.map((glyph) => <button key={glyph} className={styles.sticker} aria-label={`Ícone ${glyph}`} onClick={() => addPreset(iconPreset(glyph))}>{glyph}</button>)}
-            </div>}
-            {elementCategory === 'Stickers' && <div className={styles.stickerList}>
-              {matchingStickers.map(({ label, preset }) => <button key={label} className={styles.stickerBadge} style={{ background: preset.bgFill, color: preset.color }} onClick={() => addPreset(preset)}>{label}</button>)}
-            </div>}
-            {elementCategory === 'Emojis' && <>
-              {!normalizedElementSearch && <div className={styles.elementCategories} role="tablist" aria-label="Categorias de emojis">
-                <button type="button" role="tab" aria-selected={emojiCategory === 'recentes'} className={emojiCategory === 'recentes' ? styles.elementCategoryActive : ''} onClick={() => setEmojiCategory('recentes')}>Recentes</button>
-                {EMOJI_CATEGORIES.map((category) => <button key={category.id} type="button" role="tab" aria-selected={emojiCategory === category.id} className={emojiCategory === category.id ? styles.elementCategoryActive : ''} onClick={() => setEmojiCategory(category.id)}>{category.label}</button>)}
-              </div>}
-              <div className={styles.stickerGrid}>{matchingEmojis.map((emoji) => <button key={emoji} className={styles.sticker} onClick={() => addEmoji(emoji)}>{emoji}</button>)}</div>
-              {emojiCategory === 'recentes' && !recentEmojis.length && !normalizedElementSearch && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Os emojis que você usar aparecem aqui.</p>}
+            {(elementQuery ? matchingShapes.length > 0 : elementCategory === 'Formas') && <>
+              {elementQuery && <div className={styles.sectionLabel}>FORMAS</div>}
+              <div className={styles.shapeGrid}>
+                {matchingShapes.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} onClick={() => addPreset(preset)}>
+                  {preset.type === 'button'
+                    ? <span style={{ display: 'inline-block', background: preset.fill || 'var(--vc-accent)', color: preset.color || '#fff', borderRadius: Math.min(preset.radius ?? 8, 12), fontSize: 9, fontWeight: 700, padding: '3px 7px', whiteSpace: 'nowrap' }}>{preset.text}</span>
+                    : <span style={{ width: 30, height: 26, display: 'block', margin: 'auto' }}><ShapeGraphic layer={{ ...preset, fill: 'currentColor' }} /></span>}
+                </button>)}
+              </div>
             </>}
+            {(elementQuery ? matchingLines.length > 0 : elementCategory === 'Linhas e setas') && <>
+              {elementQuery && <div className={styles.sectionLabel}>LINHAS E SETAS</div>}
+              <div className={styles.shapeGrid}>
+                {matchingLines.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} onClick={() => addPreset(preset)}>
+                  <span style={{ width: 34, height: 16, display: 'block', margin: 'auto' }}>
+                    {preset.type === 'arrow'
+                      ? <ArrowGraphic layer={{ ...preset, fill: 'currentColor' }} />
+                      : <LineGraphic layer={{ ...preset, fill: 'currentColor', h: Math.max(2, Math.round(preset.h / 2)) }} />}
+                  </span>
+                </button>)}
+              </div>
+            </>}
+            {(elementQuery ? matchingIcons.length > 0 : elementCategory === 'Ícones') && <>
+              {elementQuery && <div className={styles.sectionLabel}>ÍCONES</div>}
+              <div className={styles.stickerGrid}>
+                {matchingIcons.map((icon) => <button key={icon.id} className={styles.sticker} aria-label={`Ícone ${icon.label}`} title={icon.label} onClick={() => addPreset(iconLayerPreset(icon))}>
+                  <svg viewBox="0 0 24 24" width="20" height="20" style={{ color: 'currentColor' }} aria-hidden="true" dangerouslySetInnerHTML={{ __html: icon.body }} />
+                </button>)}
+              </div>
+            </>}
+            {(elementQuery ? matchingStickers.length > 0 : elementCategory === 'Stickers') && <>
+              {elementQuery && <div className={styles.sectionLabel}>STICKERS</div>}
+              <div className={styles.stickerList}>
+                {matchingStickers.map(({ label, preset }) => <button key={label} className={styles.stickerBadge} style={{ background: preset.bgFill, color: preset.color }} onClick={() => addPreset(preset)}>{label}</button>)}
+              </div>
+            </>}
+            {(elementQuery ? matchingEmojis.length > 0 : elementCategory === 'Emojis') && <>
+              {elementQuery
+                ? <div className={styles.sectionLabel}>EMOJIS</div>
+                : <div className={styles.elementCategories} role="tablist" aria-label="Categorias de emojis">
+                    <button type="button" role="tab" aria-selected={emojiCategory === 'recentes'} className={emojiCategory === 'recentes' ? styles.elementCategoryActive : ''} onClick={() => setEmojiCategory('recentes')}>Recentes</button>
+                    {EMOJI_CATEGORIES.map((category) => <button key={category.id} type="button" role="tab" aria-selected={emojiCategory === category.id} className={emojiCategory === category.id ? styles.elementCategoryActive : ''} onClick={() => setEmojiCategory(category.id)}>{category.label}</button>)}
+                  </div>}
+              <div className={styles.stickerGrid}>{matchingEmojis.map((emoji) => <button key={emoji} className={styles.sticker} aria-label={`Emoji ${emoji}`} onClick={() => addEmoji(emoji)}>{emoji}</button>)}</div>
+              {!elementQuery && emojiCategory === 'recentes' && !recentEmojis.length && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Os emojis que você usar aparecem aqui.</p>}
+            </>}
+            {elementQuery && !matchingShapes.length && !matchingLines.length && !matchingIcons.length && !matchingStickers.length && !matchingEmojis.length
+              && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Nada encontrado para “{elementSearch}”.</p>}
+            {selected && GRAPHIC_TYPES.has(selected.type)
+              && <ElementProperties layer={selected} onPatch={(patch, history) => updateLayer(selected.id, patch, history)} onHistory={pushHistory} />}
             {state.format === 'story' && <div className={styles.error} style={{ color: 'var(--vc-warn)' }}>GIFs, enquetes e música ficam disponíveis apenas na publicação manual pelo Instagram.</div>}
           </>}
           {tool === 'legenda' && <>
@@ -964,7 +987,7 @@ function FloatingToolbar({ layer, onPatch, onDuplicate, onDelete }) {
       <button onClick={() => onPatch({ weight: layer.weight >= 700 ? 400 : 800 })}><Bold size={13} /></button><button onClick={() => onPatch({ italic: !layer.italic })}><Italic size={13} /></button>
       <button onClick={() => onPatch({ align })}>{layer.align === 'left' ? <AlignLeft size={13} /> : layer.align === 'center' ? <AlignCenter size={13} /> : <AlignRight size={13} />}</button>
     </>}
-    {COLORS.map((color) => <button key={color} aria-label={`Cor ${color}`} className={styles.colorDot} style={{ background: color }} onClick={() => onPatch(layer.type === 'text' || layer.type === 'sticker' ? { color } : { fill: color })} />)}
+    {COLORS.map((color) => <button key={color} aria-label={`Cor ${color}`} className={styles.colorDot} style={{ background: color }} onClick={() => onPatch(layer.type === 'text' || layer.type === 'sticker' || layer.type === 'icon' ? { color } : { fill: color })} />)}
     <input aria-label="Opacidade" type="range" min=".2" max="1" step=".1" value={layer.op} onChange={(e) => onPatch({ op: +e.target.value })} style={{ width: 52 }} />
     <button onClick={onDuplicate}><Copy size={13} /></button><button style={{ color: 'var(--vc-danger)' }} onClick={onDelete}><Trash2 size={13} /></button>
   </div>;
@@ -1023,6 +1046,47 @@ function TextProperties({ layer, onPatch, onHistory }) {
   </div>;
 }
 
+// Propriedades dos elementos gráficos (PRD Elementos §6, §7, §9).
+function ElementProperties({ layer, onPatch, onHistory }) {
+  const slider = (patch) => onPatch(patch, false);
+  const isShape = layer.type === 'shape';
+  const isLine = layer.type === 'line';
+  const isArrow = layer.type === 'arrow';
+  const colorKey = layer.type === 'icon' ? 'color' : 'fill';
+  const colorValue = layer[colorKey];
+  return <div className={styles.textProps}>
+    <div className={styles.sectionLabel}>ELEMENTO SELECIONADO</div>
+    <div className={styles.propRow}><span>Cor</span>
+      <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(colorValue) ? colorValue : '#ffffff'} aria-label="Cor do elemento" onChange={(event) => onPatch({ [colorKey]: event.target.value })} /></div>
+    {isShape && <>
+      {(layer.shape || 'rect') === 'rect' && <div className={styles.propRow}><span>Arredondamento</span>
+        <input type="range" min="0" max="60" step="1" value={layer.radius ?? 0} aria-label="Arredondamento da forma" onPointerDown={onHistory} onChange={(event) => slider({ radius: +event.target.value })} /><em>{layer.radius ?? 0}</em></div>}
+      <div className={styles.propRow}><span>Borda</span>
+        <input type="range" min="0" max="10" step="0.5" value={layer.strokeW ?? 0} aria-label="Espessura da borda" onPointerDown={onHistory} onChange={(event) => slider({ strokeW: +event.target.value })} /><em>{layer.strokeW ?? 0}</em></div>
+      {Number(layer.strokeW) > 0 && <div className={styles.propRow}><span>Cor da borda</span>
+        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(layer.strokeColor) ? layer.strokeColor : '#111111'} aria-label="Cor da borda" onChange={(event) => onPatch({ strokeColor: event.target.value })} /></div>}
+      <div className={styles.toggle}><span>Sombra</span>
+        <button className={`${styles.switch} ${layer.shOn ? styles.switchOn : ''}`} aria-label="Aplicar sombra na forma" onClick={() => onPatch({ shOn: !layer.shOn })}><span /></button></div>
+    </>}
+    {(isLine || isArrow) && <div className={styles.propRow}><span>Espessura</span>
+      <input type="range" min="2" max={isArrow ? 80 : 24} step="1" value={Math.round(layer.h)} aria-label="Espessura da linha" onPointerDown={onHistory} onChange={(event) => slider({ h: +event.target.value })} /><em>{Math.round(layer.h)}</em></div>}
+    {isLine && <div className={styles.segment}>
+      <button className={(layer.dash || 'solid') === 'solid' ? styles.selected : ''} onClick={() => onPatch({ dash: 'solid' })}>Sólida</button>
+      <button className={layer.dash === 'dashed' ? styles.selected : ''} onClick={() => onPatch({ dash: 'dashed' })}>Tracejada</button>
+      <button className={layer.dash === 'dotted' ? styles.selected : ''} onClick={() => onPatch({ dash: 'dotted', cap: 'round' })}>Pontilhada</button>
+    </div>}
+    {isArrow && <div className={styles.segment}>
+      <button className={(Number(layer.heads) || 1) === 1 && !layer.curve ? styles.selected : ''} onClick={() => onPatch({ heads: 1, curve: false })}>Simples</button>
+      <button className={Number(layer.heads) === 2 ? styles.selected : ''} onClick={() => onPatch({ heads: 2, curve: false })}>Dupla</button>
+      <button className={layer.curve ? styles.selected : ''} onClick={() => onPatch({ heads: 1, curve: !layer.curve })}>Curva</button>
+    </div>}
+    <div className={styles.propRow}><span>Rotação</span>
+      <input type="range" min="-180" max="180" step="1" value={Math.round(layer.rot) || 0} aria-label="Rotação do elemento" onPointerDown={onHistory} onChange={(event) => slider({ rot: +event.target.value })} /><em>{Math.round(layer.rot) || 0}°</em></div>
+    <div className={styles.propRow}><span>Opacidade</span>
+      <input type="range" min="0.1" max="1" step="0.05" value={layer.op} aria-label="Opacidade do elemento" onPointerDown={onHistory} onChange={(event) => slider({ op: +event.target.value })} /><em>{Math.round(layer.op * 100)}%</em></div>
+  </div>;
+}
+
 function CarouselStrip({ state, setState, onAction, onReorder }) {
   const [drag, setDrag] = useState(null);
   return <div className={styles.thumbs}>
@@ -1066,23 +1130,13 @@ function PreviewSurface({ surface, cw, ch, scale }) {
 
 // Conteúdo interno de uma camada — idêntico no canvas e na prévia (§16).
 function LayerContent({ layer }) {
+  if (layer.type === 'shape') return <ShapeGraphic layer={layer} />;
+  if (layer.type === 'line') return <LineGraphic layer={layer} />;
   if (layer.type === 'arrow') return <ArrowGraphic layer={layer} />;
+  if (layer.type === 'icon') return <IconGraphic layer={layer} />;
   const lineBg = layerLineBgStyle(layer);
   const text = layerDisplayText(layer);
   return lineBg ? <span style={lineBg}>{text}</span> : text;
-}
-
-function ArrowGraphic({ layer }) {
-  const width = Math.max(1, Number(layer.w) || 1);
-  const height = Math.max(1, Number(layer.h) || 1);
-  const stroke = Math.max(2, Math.min(height * .3, width * .12));
-  const head = Math.min(width * .35, height);
-  const midY = height / 2;
-  const fill = layer.fill || '#FFFFFF';
-  return <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: 'block', pointerEvents: 'none' }} aria-hidden="true">
-    <line x1="0" y1={midY} x2={width - head * .7} y2={midY} stroke={fill} strokeWidth={stroke} strokeLinecap="round" />
-    <polygon points={`${width},${midY} ${width - head},0 ${width - head},${height}`} fill={fill} />
-  </svg>;
 }
 
 function MediaBox({
@@ -1145,7 +1199,7 @@ function LayersPanel({ surface, selected, onSelect, onPatch, onReorder, onDelete
   const total = surface.layers.length;
   return <aside className={`${styles.rightPanel} ${styles.layersPanel}`}><div className={styles.rightTitle}>CAMADAS</div>
     {[...surface.layers].reverse().map((layer, position) => <div key={layer.id} className={`${styles.layerRow} ${selected === layer.id ? styles.layerSelected : ''}`} onClick={() => onSelect(layer.id)}>
-      <span className={styles.layerIcon}>{layer.type === 'text' ? <Type size={13} /> : layer.type === 'sticker' ? <Smile size={13} /> : <Shapes size={13} />}</span><span className={styles.layerName}>{layer.text || (layer.type === 'arrow' ? 'Seta' : 'Forma')}</span>
+      <span className={styles.layerIcon}>{layer.type === 'text' ? <Type size={13} /> : layer.type === 'sticker' ? <Smile size={13} /> : <Shapes size={13} />}</span><span className={styles.layerName}>{layer.text || ELEMENT_ICON_MAP[layer.icon]?.label || ({ arrow: 'Seta', line: 'Linha', shape: 'Forma', icon: 'Ícone' })[layer.type] || 'Elemento'}</span>
       <span className={styles.layerActions}>
         <button aria-label="Trazer para frente" disabled={position === 0} onClick={(e) => { e.stopPropagation(); onReorder(layer.id, 1); }}><ChevronUp size={13} /></button>
         <button aria-label="Enviar para trás" disabled={position === total - 1} onClick={(e) => { e.stopPropagation(); onReorder(layer.id, -1); }}><ChevronDown size={13} /></button>
