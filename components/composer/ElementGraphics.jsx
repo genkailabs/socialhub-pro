@@ -1,7 +1,7 @@
 // Desenho SVG dos elementos no canvas e na prévia. Usa a mesma geometria do
 // render final (lib/composer-element-geometry) para paridade exata (§16).
 // A sombra é uma duplicata deslocada sem blur — idêntica ao arquivo final.
-import { arrowParts, lineDashArray, pointsAttribute, polygonPoints } from '@/lib/composer-element-geometry';
+import { arrowParts, clampRadius, lineDashArray, pointsAttribute, polygonPoints } from '@/lib/composer-element-geometry';
 import { ELEMENT_ICON_MAP } from '@/data/element-icons';
 
 const GRAPHIC_SVG_STYLE = { display: 'block', overflow: 'visible', pointerEvents: 'none' };
@@ -20,7 +20,7 @@ export function ShapeGraphic({ layer }) {
     if (kind === 'ellipse') return <ellipse cx={w / 2} cy={h / 2} rx={w / 2} ry={h / 2} {...extra} />;
     const points = polygonPoints(kind, w, h);
     if (points) return <polygon points={pointsAttribute(points)} {...extra} />;
-    return <rect width={w} height={h} rx={Math.max(0, Number(layer.radius) || 0)} {...extra} />;
+    return <rect width={w} height={h} rx={clampRadius(layer.radius, w, h)} {...extra} />;
   };
   return <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={GRAPHIC_SVG_STYLE} aria-hidden="true">
     {layer.shOn && <g transform={`translate(${Number(layer.shX) || 0} ${Number(layer.shY) || 0})`}>
