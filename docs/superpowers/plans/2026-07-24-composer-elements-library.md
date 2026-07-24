@@ -1,4 +1,4 @@
-# Composer Elements Library Implementation Plan
+﻿# Composer Elements Library Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -33,7 +33,7 @@
 - Create: `lib/composer-element-geometry.js`
 - Test: `tests/unit/composer-element-geometry.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/unit/composer-element-geometry.test.js
@@ -95,12 +95,12 @@ describe('geometria dos elementos (PRD Elementos §5-§7)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-element-geometry.test.js`
 Expected: FAIL — módulo `lib/composer-element-geometry.js` não existe.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```js
 // lib/composer-element-geometry.js
@@ -163,12 +163,12 @@ export function arrowParts({ w, h, heads = 1, curve = false }) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/composer-element-geometry.test.js`
 Expected: PASS (5 testes)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/composer-element-geometry.js tests/unit/composer-element-geometry.test.js
@@ -183,7 +183,7 @@ git commit -m "feat(composer): geometria compartilhada de formas, linhas e setas
 - Modify: `lib/composer-text-styles.js` (blocos `SOCIALHUB_STICKERS`, `ELEMENT_SHAPES`, `ELEMENT_LINES`; manter `ELEMENT_ICONS`/`iconPreset` até a Task 7)
 - Test: `tests/unit/composer-elements-catalog.test.js` (novo) e `tests/unit/composer-story-styles.test.js` (atualizar lista de stickers)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/unit/composer-elements-catalog.test.js
@@ -231,12 +231,12 @@ describe('catálogo de elementos (PRD Elementos §5, §7, §10)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-elements-catalog.test.js`
 Expected: FAIL — labels e props não batem com o catálogo atual.
 
-- [ ] **Step 3: Update the catalog**
+- [x] **Step 3: Update the catalog**
 
 Em `lib/composer-text-styles.js`, substituir os blocos `SOCIALHUB_STICKERS`, `ELEMENT_SHAPES` e `ELEMENT_LINES` por:
 
@@ -290,16 +290,16 @@ export const ELEMENT_LINES = [
 ];
 ```
 
-- [ ] **Step 4: Update the existing assertion**
+- [x] **Step 4: Update the existing assertion**
 
 Em `tests/unit/composer-story-styles.test.js`, na asserção `expect(SOCIALHUB_STICKERS.map(...)).toEqual([...])`, trocar a lista de 13 pela lista de 15 na ordem do PRD (mesma lista do teste novo acima) e ajustar o nome do teste de `13 stickers` para `15 stickers`.
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `npx vitest run tests/unit/composer-elements-catalog.test.js tests/unit/composer-story-styles.test.js`
 Expected: PASS. (Se `composer-story-styles` quebrar em outro ponto que use `ELEMENT_LINES`/`ELEMENT_SHAPES` — por exemplo asserções de preset antigo —, atualizar essas asserções para os novos presets acima.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/composer-text-styles.js tests/unit/composer-elements-catalog.test.js tests/unit/composer-story-styles.test.js
@@ -315,7 +315,7 @@ git commit -m "feat(composer): catalogo de formas, linhas e stickers do PRD Elem
 - Create (gerado): `data/element-icons.js`
 - Test: `tests/unit/composer-elements-catalog.test.js` (acrescentar bloco)
 
-- [ ] **Step 1: Write the failing test** (acrescentar ao arquivo da Task 2)
+- [x] **Step 1: Write the failing test** (acrescentar ao arquivo da Task 2)
 
 ```js
 import { ELEMENT_ICON_MAP, ELEMENT_VECTOR_ICONS, iconLayerPreset } from '@/data/element-icons';
@@ -348,12 +348,12 @@ describe('ícones vetoriais (PRD Elementos §8)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-elements-catalog.test.js`
 Expected: FAIL — `data/element-icons.js` não existe.
 
-- [ ] **Step 3: Write the generator script**
+- [x] **Step 3: Write the generator script**
 
 ```js
 // scripts/generate-element-icons.mjs
@@ -429,7 +429,7 @@ await writeFile('data/element-icons.js', file);
 console.log(`data/element-icons.js gerado com ${entries.length} ícones.`);
 ```
 
-- [ ] **Step 4: Generate and verify**
+- [x] **Step 4: Generate and verify**
 
 Run: `node scripts/generate-element-icons.mjs`
 Expected: `data/element-icons.js gerado com 24 ícones.` (Se falhar com "Ícone lucide não encontrado", conferir o nome no lucide-react 0.428 — ex.: `AlertTriangle` vs `TriangleAlert` — e acrescentar o alias correto na chamada `pick`.)
@@ -437,7 +437,7 @@ Expected: `data/element-icons.js gerado com 24 ícones.` (Se falhar com "Ícone 
 Run: `npx vitest run tests/unit/composer-elements-catalog.test.js`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/generate-element-icons.mjs data/element-icons.js tests/unit/composer-elements-catalog.test.js
@@ -452,7 +452,7 @@ git commit -m "feat(composer): 24 icones vetoriais gerados do lucide"
 - Modify: `data/emoji-catalog.js` (acrescentar ao final, antes de `RECENT_EMOJIS_KEY`)
 - Test: `tests/unit/composer-elements-catalog.test.js` (acrescentar bloco)
 
-- [ ] **Step 1: Write the failing test** (acrescentar ao arquivo da Task 2)
+- [x] **Step 1: Write the failing test** (acrescentar ao arquivo da Task 2)
 
 ```js
 import { EMOJI_CATEGORIES, EMOJI_NAMES, normalizeSearch, searchEmojis } from '@/data/emoji-catalog';
@@ -482,12 +482,12 @@ describe('busca de emojis (PRD Elementos §12)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-elements-catalog.test.js`
 Expected: FAIL — `EMOJI_NAMES`/`searchEmojis`/`normalizeSearch` não exportados.
 
-- [ ] **Step 3: Add names and search to the catalog**
+- [x] **Step 3: Add names and search to the catalog**
 
 Acrescentar em `data/emoji-catalog.js` (após `EMOJI_CATEGORIES`):
 
@@ -555,12 +555,12 @@ export function searchEmojis(query) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/composer-elements-catalog.test.js`
 Expected: PASS (o teste "todo emoji tem nome" pega qualquer emoji esquecido no mapa — se falhar, acrescentar o nome que faltou)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add data/emoji-catalog.js tests/unit/composer-elements-catalog.test.js
@@ -576,7 +576,7 @@ git commit -m "feat(composer): busca de emojis por nome e categoria"
 - Modify: `lib/composer-layer-style.js`
 - Test: `tests/unit/composer-element-graphics.test.jsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```jsx
 // tests/unit/composer-element-graphics.test.jsx
@@ -636,12 +636,12 @@ describe('gráficos dos elementos no canvas (PRD Elementos §5-§9)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-element-graphics.test.jsx`
 Expected: FAIL — `ElementGraphics.jsx` e `GRAPHIC_TYPES` não existem.
 
-- [ ] **Step 3: Write ElementGraphics.jsx**
+- [x] **Step 3: Write ElementGraphics.jsx**
 
 ```jsx
 // components/composer/ElementGraphics.jsx
@@ -705,7 +705,7 @@ export function IconGraphic({ layer }) {
 }
 ```
 
-- [ ] **Step 4: Update layerBoxStyle**
+- [x] **Step 4: Update layerBoxStyle**
 
 Em `lib/composer-layer-style.js`:
 
@@ -720,12 +720,12 @@ E dentro de `layerBoxStyle`, trocar as linhas de `background` e `borderRadius` p
     borderRadius: GRAPHIC_TYPES.has(layer.type) ? 0 : boxBackground ? (layer.bgRadius ?? 8) : layer.radius,
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `npx vitest run tests/unit/composer-element-graphics.test.jsx tests/unit/composer-story-styles.test.js`
 Expected: PASS (o segundo garante que `layerBoxStyle` não regrediu para texto/button)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add components/composer/ElementGraphics.jsx lib/composer-layer-style.js tests/unit/composer-element-graphics.test.jsx
@@ -740,7 +740,7 @@ git commit -m "feat(composer): graficos SVG dos elementos no canvas"
 - Modify: `lib/composer-media-render.js` (função `arrowSvg` linha ~117 e ramos de `buildComposerLayersSvg` linha ~127)
 - Test: `tests/unit/composer-element-render.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/unit/composer-element-render.test.js
@@ -797,12 +797,12 @@ describe('render final dos elementos (PRD Elementos §16)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-element-render.test.js`
 Expected: FAIL — line/icon não renderizam; shape só suporta rect.
 
-- [ ] **Step 3: Extend buildComposerLayersSvg**
+- [x] **Step 3: Extend buildComposerLayersSvg**
 
 Em `lib/composer-media-render.js`:
 
@@ -866,12 +866,12 @@ function shapeElementSvg(layer, width, height, fillOverride = null) {
       }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/unit/composer-element-render.test.js tests/unit/composer-media-render.test.js tests/unit/composer-story-styles.test.js`
 Expected: PASS. (Se `composer-story-styles` assertar o SVG antigo da seta — `<line x1=` com coordenadas absolutas —, atualizar a asserção para o novo formato `translate(x y)` + coordenadas relativas.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/composer-media-render.js tests/unit/composer-element-render.test.js tests/unit/composer-story-styles.test.js
@@ -887,7 +887,7 @@ git commit -m "feat(composer): render final de formas, linhas, setas e icones"
 - Modify: `lib/composer-text-styles.js` (remover `ELEMENT_ICONS` e `iconPreset`)
 - Test: `tests/unit/composer-elements-panel.test.jsx`
 
-- [ ] **Step 1: Write the failing test** (mocks copiados de `tests/unit/composer-media-canvas.test.jsx`)
+- [x] **Step 1: Write the failing test** (mocks copiados de `tests/unit/composer-media-canvas.test.jsx`)
 
 ```jsx
 // tests/unit/composer-elements-panel.test.jsx
@@ -963,12 +963,12 @@ describe('painel Elementos (PRD Elementos §3-§9)', () => {
 
 Nota: o teste "mostra WhatsApp na lista de camadas" depende do painel Camadas estar aberto; se `getByText('WhatsApp')` falhar por o painel estar fechado, abrir antes com `fireEvent.click(screen.getByRole('button', { name: /Camadas/ }))` e então assertar.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-elements-panel.test.jsx`
 Expected: FAIL — categorias antigas, sem busca global, sem ícones vetoriais.
 
-- [ ] **Step 3: Update VisualComposer.jsx**
+- [x] **Step 3: Update VisualComposer.jsx**
 
 3a. Imports (topo do arquivo):
 - Trocar `ELEMENT_ICONS, ELEMENT_LINES, ELEMENT_SHAPES, SOCIALHUB_STICKERS` (e `iconPreset`, se importado) por `ELEMENT_LINES, ELEMENT_SHAPES, SOCIALHUB_STICKERS` em `@/lib/composer-text-styles`.
@@ -1139,12 +1139,12 @@ function ElementProperties({ layer, onPatch, onHistory }) {
 
 3j. Em `lib/composer-text-styles.js`, remover `ELEMENT_ICONS` e `iconPreset` (substituídos pelo catálogo vetorial). Rodar `npx vitest run tests/unit` depois; se algum teste ainda referenciar esses exports, atualizar para `ELEMENT_VECTOR_ICONS`/`iconLayerPreset`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/unit/composer-elements-panel.test.jsx tests/unit/composer-media-canvas.test.jsx tests/unit/composer-story-styles.test.js`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/composer/VisualComposer.jsx lib/composer-text-styles.js tests/unit/composer-elements-panel.test.jsx
@@ -1158,7 +1158,7 @@ git commit -m "feat(composer): painel Elementos com busca global, icones vetoria
 **Files:**
 - Test: `tests/unit/composer-elements-catalog.test.js` (acrescentar bloco)
 
-- [ ] **Step 1: Write the test** (deve passar direto — persistência já é clone profundo; o teste protege contra regressão futura em `serializeComposer`)
+- [x] **Step 1: Write the test** (deve passar direto — persistência já é clone profundo; o teste protege contra regressão futura em `serializeComposer`)
 
 ```js
 import { addLayer, makeSurface, serializeComposer } from '@/lib/composer-editor';
@@ -1183,7 +1183,7 @@ describe('persistência dos elementos (PRD Elementos §15)', () => {
 });
 ```
 
-- [ ] **Step 2: Run and commit**
+- [x] **Step 2: Run and commit**
 
 Run: `npx vitest run tests/unit/composer-elements-catalog.test.js`
 Expected: PASS
@@ -1197,12 +1197,12 @@ git commit -m "test(composer): round-trip de persistencia dos elementos"
 
 ### Task 9: Verificação completa
 
-- [ ] **Step 1: Full suite**
+- [x] **Step 1: Full suite**
 
 Run: `npm test`
 Expected: todos os testes passam. Corrigir qualquer regressão antes de seguir.
 
-- [ ] **Step 2: Verificação visual (obrigatória — ver memória do projeto)**
+- [x] **Step 2: Verificação visual (obrigatória — ver memória do projeto)**
 
 1. Subir o dev server pela ferramenta de preview (launch.json).
 2. Abrir o Composer, painel Elementos.
@@ -1210,11 +1210,11 @@ Expected: todos os testes passam. Corrigir qualquer regressão antes de seguir.
 4. Conferir painel Camadas: nomes/ícones das camadas novas, olho/cadeado/excluir.
 5. Screenshot do canvas com os elementos para o usuário.
 
-- [ ] **Step 3: Paridade do render final**
+- [x] **Step 3: Paridade do render final**
 
 Gerar um PNG de prova pelo caminho real de render (sem publicar): script rápido no scratchpad que chama `buildComposerFrameSvg` + `sharp` com uma surface contendo estrela sombreada, linha tracejada, seta dupla, seta curva, ícone WhatsApp colorido e um sticker — comparar visualmente com o canvas (defeitos só aparecem no PNG; ver memória "PRD MVP V2").
 
-- [ ] **Step 4: Commit final (se houve ajustes)**
+- [x] **Step 4: Commit final (se houve ajustes)**
 
 ```bash
 git add -A
