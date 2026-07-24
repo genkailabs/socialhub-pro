@@ -257,6 +257,30 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     });
   }, []);
 
+  // Delete/Backspace removem a seleção do canvas (camada ou mídia), sem
+  // interferir na digitação em campos ou na edição de texto de uma camada.
+  useEffect(() => {
+    function onDeleteKey(event) {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      const target = event.target;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || ''))) return;
+      const current = stateRef.current;
+      if (!current.sel || current.editing) return;
+      const currentSurface = getSurface(current.doc, current.format);
+      const layer = currentSurface.layers.find((item) => item.id === current.sel);
+      if (current.sel !== 'bg' && (!layer || layer.locked)) return;
+      event.preventDefault();
+      mutateDoc((doc, value) => {
+        const targetSurface = getSurface(doc, value.format);
+        if (value.sel === 'bg') targetSurface.media = null;
+        else targetSurface.layers.splice(targetSurface.layers.findIndex((item) => item.id === value.sel), 1);
+      });
+      setState((value) => ({ ...value, sel: null }));
+    }
+    window.addEventListener('keydown', onDeleteKey);
+    return () => window.removeEventListener('keydown', onDeleteKey);
+  }, [mutateDoc]);
+
   function restoreSnapshot(value, target) {
     const parsed = JSON.parse(value);
     setState((current) => ({ ...current, ...parsed, ...target, sel: null, editing: null }));
