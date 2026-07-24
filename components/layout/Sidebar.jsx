@@ -11,17 +11,17 @@ export function Sidebar({ collapsed = false, canAccessAICosts = false, accountEm
   return (
     <aside
       className={cn(
-        'hidden shrink-0 flex-col justify-between border-r border-line bg-surface transition-[width] duration-300 ease-emphasized md:flex',
-        collapsed ? 'w-[76px]' : 'w-[248px]'
+        'hidden shrink-0 flex-col justify-between border-r border-line bg-panel transition-[width] duration-300 ease-emphasized md:flex',
+        collapsed ? 'w-[76px]' : 'w-[228px]'
       )}
     >
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* Logo */}
         <div className={cn('flex h-16 items-center gap-3', collapsed ? 'justify-center px-0' : 'px-5')}>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-white shadow-[0_4px_12px_-2px_rgb(var(--c-accent)/0.5)]">
-            <Sparkles className="h-[18px] w-[18px]" strokeWidth={2.5} />
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-accent text-white">
+            <Sparkles className="h-[17px] w-[17px]" strokeWidth={1.8} />
           </span>
-          {!collapsed && <span className="text-[17px] font-bold tracking-tight text-ink">SocialHub</span>}
+          {!collapsed && <span className="text-[15px] font-bold tracking-tight text-ink">SocialHub</span>}
         </div>
 
         <div className="mt-2">

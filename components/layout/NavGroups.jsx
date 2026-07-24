@@ -17,7 +17,7 @@ export function NavGroups({ canAccessAICosts = false, onNavigate, collapsed = fa
           className={cn(group.isolated && 'mt-1 border-t border-line pt-4')}
         >
           {group.label && !collapsed && (
-            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-faint">
+            <p className="px-3 pb-2 text-[10.5px] font-bold uppercase tracking-[0.1em] text-faint">
               {group.label}
             </p>
           )}
@@ -31,11 +31,11 @@ export function NavGroups({ canAccessAICosts = false, onNavigate, collapsed = fa
                     key={item.label}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      'flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium text-faint',
+                      'flex items-center gap-2.5 rounded-lg py-2 text-[13px] font-medium text-faint',
                       collapsed ? 'justify-center px-0' : 'px-3'
                     )}
                   >
-                    <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
+                    <Icon className="h-4 w-4 shrink-0" strokeWidth={1.6} />
                     {!collapsed && (
                       <>
                         <span>{item.label}</span>
@@ -53,16 +53,16 @@ export function NavGroups({ canAccessAICosts = false, onNavigate, collapsed = fa
                   onClick={onNavigate}
                   title={collapsed ? item.label : undefined}
                   className={cn(
-                    'flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors',
+                    'flex items-center gap-2.5 rounded-lg py-2 text-[13px] transition-colors',
                     collapsed ? 'justify-center px-0' : 'px-3',
                     active
-                      ? 'bg-accent/10 text-accent'
+                      ? 'bg-accent-tint font-semibold text-accent-ink'
                       : group.isolated
-                        ? 'text-faint hover:bg-surface-2 hover:text-ink'
-                        : 'text-muted hover:bg-surface-2 hover:text-ink'
+                        ? 'font-medium text-faint hover:bg-surface-2 hover:text-ink'
+                        : 'font-medium text-muted hover:bg-surface-2 hover:text-ink'
                   )}
                 >
-                  <Icon className={cn('h-[18px] w-[18px] shrink-0', active ? 'text-accent' : 'text-faint')} strokeWidth={2} />
+                  <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent-ink' : 'text-faint')} strokeWidth={1.6} />
                   {!collapsed && <span>{item.label}</span>}
                 </Link>
               );

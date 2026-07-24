@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Sun, Moon, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 export function ThemeToggle() {
   const [dark, setDark] = useState(false);
@@ -19,34 +19,26 @@ export function ThemeToggle() {
     try { localStorage.setItem('theme', targetDark ? 'dark' : 'light'); } catch {}
   }
 
+  // Segmented do handoff: trilho em inputBg raio 10, item ativo em accent com raio 8.
+  const seg = (active) =>
+    `rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
+      active ? 'bg-accent text-white' : 'text-muted hover:text-ink'
+    }`;
+
   return (
     <div className="flex items-center gap-3">
       {dateStr && (
-        <div className="hidden items-center gap-1.5 rounded-full border border-line/80 bg-surface-2/60 px-3 py-1.5 font-mono text-xs font-semibold text-muted md:flex">
+        <div className="hidden items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3 py-1.5 text-xs font-semibold text-muted md:flex">
           <CalendarIcon className="h-3.5 w-3.5 text-accent" />
           <span className="capitalize tracking-tight tabular-nums">{dateStr}</span>
         </div>
       )}
-      <div className="flex items-center rounded-full border border-line bg-surface-2/80 p-1">
-        <button
-          onClick={() => toggle(false)}
-          aria-label="Modo claro"
-          title="Modo claro"
-          className={`grid h-7 w-7 place-items-center rounded-full transition-all duration-200 ${
-            !dark ? 'bg-surface text-amber-500 shadow-sm' : 'text-muted hover:text-ink'
-          }`}
-        >
-          <Sun className="h-3.5 w-3.5" />
+      <div className="flex items-center rounded-lg bg-surface-2 p-[3px]">
+        <button type="button" onClick={() => toggle(false)} aria-pressed={!dark} className={seg(!dark)}>
+          Claro
         </button>
-        <button
-          onClick={() => toggle(true)}
-          aria-label="Modo escuro"
-          title="Modo escuro"
-          className={`grid h-7 w-7 place-items-center rounded-full transition-all duration-200 ${
-            dark ? 'bg-surface text-accent shadow-sm' : 'text-muted hover:text-ink'
-          }`}
-        >
-          <Moon className="h-3.5 w-3.5" />
+        <button type="button" onClick={() => toggle(true)} aria-pressed={dark} className={seg(dark)}>
+          Escuro
         </button>
       </div>
     </div>

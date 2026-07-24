@@ -8,6 +8,7 @@ module.exports = {
     extend: {
       colors: {
         app: c('--c-app'),
+        panel: c('--c-panel'),
         surface: { DEFAULT: c('--c-surface'), 2: c('--c-surface-2'), 3: c('--c-surface-3') },
         line: { DEFAULT: c('--c-line'), strong: c('--c-line-strong') },
         ink: { DEFAULT: c('--c-ink'), 2: c('--c-ink-2') },
@@ -20,25 +21,30 @@ module.exports = {
           ink: c('--c-accent-ink')
         },
         success: { DEFAULT: c('--c-success'), tint: c('--c-success-tint') },
-        warning: c('--c-warning'),
+        warning: { DEFAULT: c('--c-warning'), ink: c('--c-warning-ink') },
         danger: c('--c-danger'),
         info: c('--c-info')
       },
       boxShadow: {
-        // Sombra do redesign: elevação sutil no light; no dark, só borda translúcida (sem sombra difusa)
-        soft: '0 8px 24px -12px rgb(var(--c-shadow) / 0.08)',
-        lift: '0 12px 32px -14px rgb(var(--c-shadow) / 0.12)',
+        // Padrão Apple: superfícies chapadas com borda; sombra só onde há elevação real.
+        soft: 'none',
+        lift: '0 4px 16px -8px rgb(var(--c-shadow) / 0.18)',
+        modal: '0 8px 30px rgb(var(--c-shadow) / 0.25)',
+        canvas: '0 20px 60px rgb(var(--c-shadow) / 0.12)',
         glow: '0 0 0 4px rgb(var(--c-accent) / 0.18)'
       },
-      // Escala de raios corrigida (menos arredondado). Cards grandes 20, médios 16-18, pequenos 9-14.
-      borderRadius: { lg: '12px', xl: '16px', '2xl': '18px', '3xl': '20px', '4xl': '24px' },
+      // Escala do handoff: inputs/botões 9-11, cards 16-18, hero 18-20, modais 20.
+      borderRadius: { lg: '10px', xl: '12px', '2xl': '16px', '3xl': '18px', '4xl': '20px' },
       fontFamily: {
         sans: [
-          'Outfit', 'DM Sans', 'Geist', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text',
-          'Segoe UI', 'Roboto', 'system-ui', 'sans-serif'
+          '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Segoe UI',
+          'Helvetica', 'Arial', 'sans-serif'
         ],
-        display: ['Outfit', 'DM Sans', 'Geist', 'SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Geist Mono', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+        display: [
+          '-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Segoe UI',
+          'Helvetica', 'Arial', 'sans-serif'
+        ],
+        mono: ['ui-monospace', 'SFMono-Regular', 'SF Mono', 'Menlo', 'Consolas', 'monospace']
       },
       transitionTimingFunction: { emphasized: 'cubic-bezier(.22,1,.36,1)' }
     }

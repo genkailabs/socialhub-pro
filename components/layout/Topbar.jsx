@@ -10,7 +10,7 @@ export function Topbar({ brands, activeId, canAccessAICosts = false, accountEmai
   const [searchFocused, setSearchFocused] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-panel px-4 sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <MobileNav canAccessAICosts={canAccessAICosts} accountEmail={accountEmail} />
         {/* Recolher/expandir sidebar — só desktop (no mobile o menu é gaveta) */}
@@ -28,14 +28,14 @@ export function Topbar({ brands, activeId, canAccessAICosts = false, accountEmai
 
       <div className="flex items-center gap-3 sm:gap-4">
         {/* Barra de busca em pílula — escondida no mobile para não estourar a largura */}
-        <div className={`relative hidden items-center transition-all duration-300 md:flex ${searchFocused ? 'w-64' : 'w-52'}`}>
-          <Search className="absolute left-3.5 h-4 w-4 text-muted pointer-events-none" />
+        <div className={`relative hidden items-center transition-all duration-300 lg:flex ${searchFocused ? 'w-[320px]' : 'w-[260px]'}`}>
+          <Search className="absolute left-3 h-4 w-4 text-faint pointer-events-none" />
           <input
             type="text"
             placeholder="Buscar no hub..."
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            className="w-full h-9 pl-9 pr-4 rounded-full bg-surface-2 border border-line text-xs text-ink placeholder:text-faint focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all duration-200"
+            className="h-9 w-full rounded-lg border border-line bg-surface-2 pl-9 pr-4 text-[13px] text-ink transition-all duration-200 placeholder:text-faint focus:border-accent focus:outline-none"
           />
         </div>
 
