@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addLayer, canvasSize, fitMediaToCanvas, getSurface, makeComposerDocument,
-  resizeMediaFromCorner, serializeComposer, snapPosition, toApiFormat,
-  validateComposer, zoomMediaAtPoint
+  addLayer, canvasSize, computeSnap, fitMediaToCanvas, getSurface,
+  makeComposerDocument, moveLayerToIndex, resizeMediaFromCorner, serializeComposer,
+  toApiFormat, validateComposer, zoomMediaAtPoint
 } from '@/lib/composer-editor';
 
 describe('novo Composer visual', () => {
@@ -23,13 +23,36 @@ describe('novo Composer visual', () => {
     expect(toApiFormat('story')).toBe('stories');
   });
 
-  it('faz snap no centro e nas margens com guias objetivas', () => {
-    expect(snapPosition({ x: 161, y: 190, w: 100, h: 50, canvas: [430, 430] })).toMatchObject({
-      x: 165, y: 190, guideV: true, guideH: true
+  it('faz snap no centro e nas bordas do canvas com guias objetivas', () => {
+    expect(computeSnap({ x: 161, y: 190, w: 100, h: 50, canvas: [430, 430] })).toEqual({
+      x: 165, y: 190, guides: [{ axis: 'v', pos: 215 }, { axis: 'h', pos: 215 }]
     });
-    expect(snapPosition({ x: 27, y: 27, w: 80, h: 40, canvas: [430, 430] })).toMatchObject({
-      x: 24, y: 24
+    expect(computeSnap({ x: 3, y: 386, w: 80, h: 40, canvas: [430, 430] })).toEqual({
+      x: 0, y: 390, guides: [{ axis: 'v', pos: 0 }, { axis: 'h', pos: 430 }]
     });
+    expect(computeSnap({ x: 200, y: 200, w: 40, h: 40, canvas: [430, 430], threshold: 0 })).toEqual({
+      x: 200, y: 200, guides: []
+    });
+  });
+
+  it('alinha pelas bordas e pelo centro de outro elemento', () => {
+    const others = [{ x: 100, y: 60, w: 120, h: 80 }];
+    expect(computeSnap({ x: 96, y: 300, w: 40, h: 30, canvas: [430, 430], others })).toMatchObject({
+      x: 100, guides: [{ axis: 'v', pos: 100 }]
+    });
+    expect(computeSnap({ x: 300, y: 137, w: 40, h: 30, canvas: [430, 430], others })).toMatchObject({
+      y: 140, guides: [{ axis: 'h', pos: 140 }]
+    });
+  });
+
+  it('move uma camada para uma posição absoluta da pilha', () => {
+    const surface = { media: null, bg: {}, layers: [] };
+    for (const id of ['a', 'b', 'c']) addLayer(surface, { text: id }, [430, 430], id);
+    expect(moveLayerToIndex(surface, 'a', 2)).toBe(true);
+    expect(surface.layers.map((layer) => layer.id)).toEqual(['b', 'c', 'a']);
+    expect(moveLayerToIndex(surface, 'a', 9)).toBe(false);
+    expect(moveLayerToIndex(surface, 'c', 0)).toBe(true);
+    expect(surface.layers.map((layer) => layer.id)).toEqual(['c', 'b', 'a']);
   });
 
   it('valida publicação e serializa o documento sem estado efêmero', () => {

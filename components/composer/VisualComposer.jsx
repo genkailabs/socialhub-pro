@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, Bold, CalendarClock, Check, ChevronDown,
-  ChevronLeft, ChevronRight, ChevronUp, Copy, Eye, EyeOff, Film,
+  AlignCenter, AlignLeft, AlignRight, ArrowUpRight, Bold, Check, ChevronDown,
+  ChevronLeft, ChevronRight, ChevronUp, Copy, Eye, EyeOff, Film, GripVertical,
   Image as ImageIcon, Italic, Layers3, Lock, MapPin, Maximize2,
-  MessageSquareText, Minus, MoreHorizontal, Palette, Pause, Play, Plus, Redo2,
+  MessageSquareText, Minus, MoreHorizontal, Redo2,
   Save, Search, Send, Settings2, Shapes, Smartphone, Smile, Trash2, Type,
   Undo2, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
@@ -13,10 +13,11 @@ import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, publishNow, saveDraft, schedulePost } from '@/lib/posts-actions';
 import {
-  COMPOSER_FORMATS, addLayer, canvasSize, cloneEditorState, fitMediaToCanvas,
-  getSurface, layerDisplayText, makeComposerDocument, mediaTransformStyle,
-  normalizeMediaTransform, reorderLayer, resizeMediaFromCorner, serializeComposer,
-  snapPosition, toApiFormat, validateComposer, zoomMediaAtPoint
+  COMPOSER_FORMATS, addLayer, canvasSize, cloneEditorState, computeSnap,
+  fitMediaToCanvas, getSurface, layerDisplayText, makeComposerDocument,
+  mediaTransformStyle, moveLayerToIndex, normalizeMediaTransform, reorderLayer,
+  resizeMediaFromCorner, serializeComposer, toApiFormat, validateComposer,
+  zoomMediaAtPoint
 } from '@/lib/composer-editor';
 import { fontsByCategory } from '@/lib/composer-fonts';
 import {
@@ -42,12 +43,17 @@ const FORMAT_META = {
 };
 const TOOLS = [
   ['formato', Maximize2, 'Formato'], ['midia', ImageIcon, 'Mídia'], ['texto', Type, 'Texto'],
-  ['elementos', Shapes, 'Elemen.'], ['legenda', MessageSquareText, 'Legenda'],
+  ['elementos', Shapes, 'Elementos'], ['legenda', MessageSquareText, 'Legenda'],
   ['config', Settings2, 'Config.'], ['publicar', Send, 'Publicar']
 ];
-const COLORS = ['#FFFFFF', '#1D1D1F', '#007AFF', '#FF9500', '#FF375F'];
 const ELEMENT_CATEGORIES = ['Formas', 'Linhas e setas', 'Ícones', 'Stickers', 'Emojis'];
 const FONT_GROUPS = fontsByCategory();
+const ELEMENT_DRAG_TYPE = 'application/x-socialhub-element';
+const LAYER_DRAG_TYPE = 'application/x-socialhub-layer';
+
+function emojiPreset(emoji) {
+  return { type: 'sticker', text: emoji, fs: 44, w: 62, h: 62, fill: 'transparent' };
+}
 
 function mediaAccept(format) {
   if (format === 'reel') return 'video/mp4,video/quicktime';
@@ -147,7 +153,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   const [toast, setToast] = useState('');
   const [uploading, setUploading] = useState(null);
   const [mediaError, setMediaError] = useState('');
-  const [guide, setGuide] = useState({ v: false, h: false });
+  const [guides, setGuides] = useState([]);
   const [scale, setScale] = useState(1);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
@@ -471,9 +477,19 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     }
   }
 
-  function addPreset(preset) {
+  // point (opcional) = posição em coordenadas do canvas onde o elemento foi
+  // solto; sem ele o elemento entra no centro, como no clique simples (§2.7).
+  function addPreset(preset, point = null) {
     let created;
-    mutateDoc((doc, current) => { created = addLayer(getSurface(doc, current.format), preset, canvasSize(current.format, current.ratio)); });
+    mutateDoc((doc, current) => {
+      const targetSurface = getSurface(doc, current.format);
+      const [canvasW, canvasH] = canvasSize(current.format, current.ratio);
+      created = addLayer(targetSurface, preset, [canvasW, canvasH]);
+      if (point) {
+        created.x = Math.round(Math.min(canvasW - 4, Math.max(4 - created.w, point.x - created.w / 2)));
+        created.y = Math.round(Math.min(canvasH - 4, Math.max(4 - created.h, point.y - created.h / 2)));
+      }
+    });
     window.setTimeout(() => setState((current) => ({ ...current, sel: created.id })), 0);
   }
 
@@ -484,21 +500,10 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     }, history);
   }
 
-  function deleteSelected() {
-    if (state.sel === 'bg') {
-      mutateDoc((doc, current) => { getSurface(doc, current.format).media = null; });
-    } else if (selected) {
-      mutateDoc((doc, current) => {
-        const list = getSurface(doc, current.format).layers;
-        list.splice(list.findIndex((item) => item.id === selected.id), 1);
-      });
-    }
-    setState((current) => ({ ...current, sel: null }));
-  }
-
-  function duplicateSelected() {
-    if (!selected) return;
-    const copy = { ...cloneEditorState(selected), id: `l${Date.now().toString(36)}`, x: selected.x + 18, y: selected.y + 18 };
+  function duplicateLayer(id) {
+    const original = surface.layers.find((item) => item.id === id);
+    if (!original) return;
+    const copy = { ...cloneEditorState(original), id: `l${Date.now().toString(36)}`, x: original.x + 18, y: original.y + 18 };
     mutateDoc((doc, current) => getSurface(doc, current.format).layers.push(copy));
     setState((current) => ({ ...current, sel: copy.id }));
   }
@@ -509,13 +514,48 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     else addPreset({ text: 'Seu texto aqui', fs: 30, h: 52, ...style.patch });
   }
 
-  function addEmoji(emoji) {
-    addPreset({ type: 'sticker', text: emoji, fs: 44, w: 62, h: 62, fill: 'transparent' });
+  function rememberEmoji(emoji) {
     setRecentEmojis((current) => {
       const next = [emoji, ...current.filter((item) => item !== emoji)].slice(0, RECENT_EMOJIS_LIMIT);
       try { localStorage.setItem(RECENT_EMOJIS_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
+  }
+
+  function addEmoji(emoji, point = null) {
+    addPreset(emojiPreset(emoji), point);
+    rememberEmoji(emoji);
+  }
+
+  // Arrastar da biblioteca para o canvas (§2.7): o preset viaja no
+  // dataTransfer e só vira camada quando solto dentro do canvas.
+  function elementDragProps(preset, emoji = null) {
+    return {
+      draggable: true,
+      onDragStart: (event) => {
+        event.dataTransfer.effectAllowed = 'copy';
+        event.dataTransfer.setData(ELEMENT_DRAG_TYPE, JSON.stringify({ preset, emoji }));
+      }
+    };
+  }
+
+  function handleCanvasDrop(event) {
+    const raw = event.dataTransfer.getData(ELEMENT_DRAG_TYPE);
+    if (!raw) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    let payload;
+    try { payload = JSON.parse(raw); } catch { return; }
+    if (!payload?.preset) return;
+    const point = {
+      x: (event.clientX - rect.left) / (scale || 1),
+      y: (event.clientY - rect.top) / (scale || 1)
+    };
+    const droppedAt = Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;
+    addPreset(payload.preset, droppedAt);
+    if (payload.emoji) rememberEmoji(payload.emoji);
   }
 
   // Estado do Reel (§1, §2, §5): vídeo, áudio próprio e capa.
@@ -569,6 +609,12 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
 
   function moveLayerInStack(id, delta) {
     mutateDoc((doc, current) => { reorderLayer(getSurface(doc, current.format), id, delta); });
+  }
+
+  // Reordenação por arrasto no painel de camadas (§2.4): índice absoluto na
+  // mesma lista de camadas do documento — sem estado paralelo.
+  function moveLayerToStackIndex(id, index) {
+    mutateDoc((doc, current) => { moveLayerToIndex(getSurface(doc, current.format), id, index); });
   }
 
   function deleteLayerById(id) {
@@ -660,9 +706,16 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
           const layer = targetSurface.layers.find((item) => item.id === gesture.id);
           if (!layer) return current;
           if (gesture.kind === 'move') {
-            const snapped = snapPosition({ x: gesture.original.x + dx, y: gesture.original.y + dy, w: layer.w, h: layer.h, canvas: canvasSize(current.format, current.ratio) });
+            const snapped = computeSnap({
+              x: gesture.original.x + dx,
+              y: gesture.original.y + dy,
+              w: layer.w,
+              h: layer.h,
+              canvas: canvasSize(current.format, current.ratio),
+              others: targetSurface.layers.filter((item) => item.id !== layer.id && !item.hidden)
+            });
             layer.x = snapped.x; layer.y = snapped.y;
-            setGuide({ v: snapped.guideV, h: snapped.guideH });
+            setGuides(snapped.guides);
           } else if (gesture.kind === 'resize') {
             const signX = gesture.corner.includes('e') ? 1 : -1;
             const signY = gesture.corner.includes('s') ? 1 : -1;
@@ -684,7 +737,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         return { ...current, doc };
       });
     }
-    function end() { gestureRef.current = null; setGuide({ v: false, h: false }); }
+    function end() { gestureRef.current = null; setGuides([]); }
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', end);
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); };
@@ -935,7 +988,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
             {(elementQuery ? matchingShapes.length > 0 : elementCategory === 'Formas') && <>
               {elementQuery && <div className={styles.sectionLabel}>FORMAS</div>}
               <div className={styles.shapeGrid}>
-                {matchingShapes.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} onClick={() => addPreset(preset)}>
+                {matchingShapes.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} {...elementDragProps(preset)} onClick={() => addPreset(preset)}>
                   {preset.type === 'button'
                     ? <span style={{ display: 'inline-block', background: preset.fill || 'var(--vc-accent)', color: preset.color || '#fff', borderRadius: Math.min(preset.radius ?? 8, 12), fontSize: 9, fontWeight: 700, padding: '3px 7px', whiteSpace: 'nowrap' }}>{preset.text}</span>
                     : <span style={{ width: 30, height: 26, display: 'block', margin: 'auto' }}><ShapeGraphic layer={{ ...preset, fill: 'currentColor' }} /></span>}
@@ -945,7 +998,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
             {(elementQuery ? matchingLines.length > 0 : elementCategory === 'Linhas e setas') && <>
               {elementQuery && <div className={styles.sectionLabel}>LINHAS E SETAS</div>}
               <div className={styles.shapeGrid}>
-                {matchingLines.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} onClick={() => addPreset(preset)}>
+                {matchingLines.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} {...elementDragProps(preset)} onClick={() => addPreset(preset)}>
                   <span style={{ width: 34, height: 16, display: 'block', margin: 'auto' }}>
                     {preset.type === 'arrow'
                       ? <ArrowGraphic layer={{ ...preset, fill: 'currentColor' }} />
@@ -957,7 +1010,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
             {(elementQuery ? matchingIcons.length > 0 : elementCategory === 'Ícones') && <>
               {elementQuery && <div className={styles.sectionLabel}>ÍCONES</div>}
               <div className={styles.stickerGrid}>
-                {matchingIcons.map((icon) => <button key={icon.id} className={styles.sticker} aria-label={`Ícone ${icon.label}`} title={icon.label} onClick={() => addPreset(iconLayerPreset(icon))}>
+                {matchingIcons.map((icon) => <button key={icon.id} className={styles.sticker} aria-label={`Ícone ${icon.label}`} title={icon.label} {...elementDragProps(iconLayerPreset(icon))} onClick={() => addPreset(iconLayerPreset(icon))}>
                   <svg viewBox="0 0 24 24" width="20" height="20" style={{ color: 'currentColor' }} aria-hidden="true" dangerouslySetInnerHTML={{ __html: icon.body }} />
                 </button>)}
               </div>
@@ -965,7 +1018,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
             {(elementQuery ? matchingStickers.length > 0 : elementCategory === 'Stickers') && <>
               {elementQuery && <div className={styles.sectionLabel}>STICKERS</div>}
               <div className={styles.stickerList}>
-                {matchingStickers.map(({ label, preset }) => <button key={label} className={styles.stickerBadge} style={{ background: preset.bgFill, color: preset.color }} onClick={() => addPreset(preset)}>{label}</button>)}
+                {matchingStickers.map(({ label, preset }) => <button key={label} className={styles.stickerBadge} style={{ background: preset.bgFill, color: preset.color }} {...elementDragProps(preset)} onClick={() => addPreset(preset)}>{label}</button>)}
               </div>
             </>}
             {(elementQuery ? matchingEmojis.length > 0 : elementCategory === 'Emojis') && <>
@@ -975,7 +1028,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
                     <button type="button" role="tab" aria-selected={emojiCategory === 'recentes'} className={emojiCategory === 'recentes' ? styles.elementCategoryActive : ''} onClick={() => setEmojiCategory('recentes')}>Recentes</button>
                     {EMOJI_CATEGORIES.map((category) => <button key={category.id} type="button" role="tab" aria-selected={emojiCategory === category.id} className={emojiCategory === category.id ? styles.elementCategoryActive : ''} onClick={() => setEmojiCategory(category.id)}>{category.label}</button>)}
                   </div>}
-              <div className={styles.stickerGrid}>{matchingEmojis.map((emoji) => <button key={emoji} className={styles.sticker} aria-label={`Emoji ${emoji}`} onClick={() => addEmoji(emoji)}>{emoji}</button>)}</div>
+              <div className={styles.stickerGrid}>{matchingEmojis.map((emoji) => <button key={emoji} className={styles.sticker} aria-label={`Emoji ${emoji}`} {...elementDragProps(emojiPreset(emoji), emoji)} onClick={() => addEmoji(emoji)}>{emoji}</button>)}</div>
               {!elementQuery && emojiCategory === 'recentes' && !recentEmojis.length && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Os emojis que você usar aparecem aqui.</p>}
             </>}
             {elementQuery && !matchingShapes.length && !matchingLines.length && !matchingIcons.length && !matchingStickers.length && !matchingEmojis.length
@@ -1008,7 +1061,19 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
           </div>
           <div className={styles.canvasRegion} ref={regionRef} onPointerDown={() => setState((current) => ({ ...current, sel: null, editing: null }))}>
             <div className={styles.scaleWrap} style={{ width: cw * scale, height: ch * scale }}>
-              <div ref={canvasRef} className={styles.canvas} style={{ width: cw, height: ch, transform: `scale(${scale})` }} onWheel={handleMediaWheel}>
+              <div
+                ref={canvasRef}
+                data-testid="composer-canvas"
+                className={styles.canvas}
+                style={{ width: cw, height: ch, transform: `scale(${scale})` }}
+                onWheel={handleMediaWheel}
+                onDragOver={(event) => {
+                  if (!event.dataTransfer.types.includes(ELEMENT_DRAG_TYPE)) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'copy';
+                }}
+                onDrop={handleCanvasDrop}
+              >
                 {surface.media
                   ? <MediaBox
                       media={surface.media}
@@ -1033,11 +1098,21 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
                       <input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} />
                     </label>}
                 {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={`${styles.layer} ${state.sel === layer.id ? styles.selectedLayer : ''}`} style={{ ...layerBoxStyle(layer), cursor: layer.locked ? 'default' : 'move' }} onPointerDown={(e) => beginGesture('move', e, layer)} onDoubleClick={(e) => { e.stopPropagation(); if (layer.type === 'text' || layer.type === 'button') setState((current) => ({ ...current, editing: layer.id, sel: layer.id })); }}>
-                  {state.editing === layer.id ? <textarea autoFocus value={layer.text} onChange={(e) => updateLayer(layer.id, { text: e.target.value }, false)} onBlur={() => setState((current) => ({ ...current, editing: null }))} style={{ width: '100%', height: '100%', resize: 'none', background: 'rgba(0,0,0,.2)', color: 'inherit', border: 0, textAlign: layer.align, font: 'inherit' }} /> : <LayerContent layer={layer} />}
-                  {state.sel === layer.id && !layer.locked && <><span className={`${styles.handle} ${styles.nw}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'nw')} /><span className={`${styles.handle} ${styles.ne}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'ne')} /><span className={`${styles.handle} ${styles.sw}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'sw')} /><span className={`${styles.handle} ${styles.se}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'se')} /><span className={styles.rotate} onPointerDown={(e) => beginGesture('rotate', e, layer)} />
-                    <FloatingToolbar layer={layer} onPatch={(patch) => updateLayer(layer.id, patch)} onDuplicate={duplicateSelected} onDelete={deleteSelected} /></>}
+                  {state.editing === layer.id
+                    ? <LayerTextEditor
+                        layer={layer}
+                        onChange={(text) => updateLayer(layer.id, { text }, false)}
+                        onGrow={(height) => updateLayer(layer.id, { h: height }, false)}
+                        onFinish={() => setState((current) => ({ ...current, editing: null }))}
+                      />
+                    : <LayerContent layer={layer} />}
+                  {state.sel === layer.id && !layer.locked && state.editing !== layer.id && <><span className={`${styles.handle} ${styles.nw}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'nw')} /><span className={`${styles.handle} ${styles.ne}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'ne')} /><span className={`${styles.handle} ${styles.sw}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'sw')} /><span className={`${styles.handle} ${styles.se}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'se')} /><span className={styles.rotate} onPointerDown={(e) => beginGesture('rotate', e, layer)} /></>}
                 </div>)}
-                {guide.v && <div className={styles.guideV} />}{guide.h && <div className={styles.guideH} />}
+                {guides.map((line) => <div
+                  key={`${line.axis}:${line.pos}`}
+                  className={line.axis === 'v' ? styles.guideV : styles.guideH}
+                  style={line.axis === 'v' ? { left: line.pos } : { top: line.pos }}
+                />)}
                 {state.format === 'story' && <><div className={styles.safeTop}>INTERFACE DO INSTAGRAM</div><div className={styles.safeBottom}>ÁREA SEGURA</div></>}
               </div>
             </div>
@@ -1060,7 +1135,16 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         </main>
 
         {previewOpen && <PreviewPanel state={state} surface={surface} brandName={brandName} currentTime={state.format === 'reel' ? playhead : undefined} />}
-        {layersOpen && <LayersPanel surface={surface} selected={state.sel} onSelect={(id) => setState((current) => ({ ...current, sel: id }))} onPatch={updateLayer} onReorder={moveLayerInStack} onDelete={deleteLayerById} />}
+        {layersOpen && <LayersPanel
+          surface={surface}
+          selected={state.sel}
+          onSelect={(id) => setState((current) => ({ ...current, sel: id, editing: null }))}
+          onPatch={updateLayer}
+          onReorder={moveLayerInStack}
+          onReorderTo={moveLayerToStackIndex}
+          onDuplicate={duplicateLayer}
+          onDelete={deleteLayerById}
+        />}
       </div>
 
       {modal === 'delete-draft'
@@ -1084,19 +1168,70 @@ function FontSelect({ value, onChange, ariaLabel = 'Fonte' }) {
   </select>;
 }
 
-function FloatingToolbar({ layer, onPatch, onDuplicate, onDelete }) {
-  const align = layer.align === 'left' ? 'center' : layer.align === 'center' ? 'right' : 'left';
-  return <div className={styles.floating} onPointerDown={(e) => e.stopPropagation()}>
-    {(layer.type === 'text' || layer.type === 'button') && <>
-      <FontSelect value={layer.font} onChange={(font) => onPatch({ font })} />
-      <button onClick={() => onPatch({ fs: Math.max(8, layer.fs - 2) })}><Minus size={12} /></button><span style={{ fontSize: 10 }}>{Math.round(layer.fs)}</span><button onClick={() => onPatch({ fs: layer.fs + 2 })}><Plus size={12} /></button>
-      <button onClick={() => onPatch({ weight: layer.weight >= 700 ? 400 : 800 })}><Bold size={13} /></button><button onClick={() => onPatch({ italic: !layer.italic })}><Italic size={13} /></button>
-      <button onClick={() => onPatch({ align })}>{layer.align === 'left' ? <AlignLeft size={13} /> : layer.align === 'center' ? <AlignCenter size={13} /> : <AlignRight size={13} />}</button>
-    </>}
-    {COLORS.map((color) => <button key={color} aria-label={`Cor ${color}`} className={styles.colorDot} style={{ background: color }} onClick={() => onPatch(layer.type === 'text' || layer.type === 'sticker' || layer.type === 'icon' ? { color } : { fill: color })} />)}
-    <input aria-label="Opacidade" type="range" min=".2" max="1" step=".1" value={layer.op} onChange={(e) => onPatch({ op: +e.target.value })} style={{ width: 52 }} />
-    <button onClick={onDuplicate}><Copy size={13} /></button><button style={{ color: 'var(--vc-danger)' }} onClick={onDelete}><Trash2 size={13} /></button>
-  </div>;
+// Edição do texto no próprio canvas (§2.1): a área editável nasce com a mesma
+// tipografia, largura e alinhamento da camada, cresce conforme o conteúdo e
+// nunca rola por dentro — o estilo continua todo no painel lateral (§2.2).
+function LayerTextEditor({ layer, onChange, onGrow, onFinish }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    element.focus();
+    element.setSelectionRange(element.value.length, element.value.length);
+  }, []);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    element.style.height = 'auto';
+    const needed = Math.ceil(element.scrollHeight);
+    element.style.height = `${Math.max(needed, layer.h)}px`;
+    if (needed > layer.h + 0.5) onGrow(needed);
+  });
+
+  return <textarea
+    ref={ref}
+    aria-label="Editar texto da camada"
+    value={layer.text}
+    rows={1}
+    onChange={(event) => onChange(event.target.value)}
+    onPointerDown={(event) => event.stopPropagation()}
+    onDoubleClick={(event) => event.stopPropagation()}
+    onKeyDown={(event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      onFinish();
+    }}
+    onBlur={onFinish}
+    style={{
+      font: 'inherit',
+      fontFamily: 'inherit',
+      fontSize: 'inherit',
+      fontWeight: 'inherit',
+      fontStyle: 'inherit',
+      lineHeight: 'inherit',
+      letterSpacing: 'inherit',
+      textAlign: 'inherit',
+      textTransform: layer.tt === 'upper' ? 'uppercase' : layer.tt === 'lower' ? 'lowercase' : 'none',
+      color: 'inherit',
+      caretColor: layer.color === 'transparent' ? '#ffffff' : layer.color,
+      width: '100%',
+      minHeight: '100%',
+      display: 'block',
+      margin: 0,
+      padding: 0,
+      border: 0,
+      outline: 'none',
+      background: 'transparent',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+      resize: 'none',
+      whiteSpace: 'pre-wrap',
+      overflowWrap: 'break-word'
+    }}
+  />;
 }
 
 // Painel completo de propriedades de texto (PRD Story §8-§9).
@@ -1329,25 +1464,88 @@ function MediaBox({
   </div>;
 }
 
-function LayersPanel({ surface, selected, onSelect, onPatch, onReorder, onDelete }) {
+// Painel de camadas (§2.3, §2.4): espelha exatamente surface.layers e a mídia
+// da superfície — nenhuma lista paralela. A ordem do array é a ordem do canvas
+// (última camada por cima), por isso a lista é exibida invertida.
+const LAYER_TYPE_LABEL = {
+  text: 'Texto', button: 'Botão', sticker: 'Sticker',
+  shape: 'Forma', line: 'Linha', arrow: 'Seta', icon: 'Ícone'
+};
+
+function isEmojiLayer(layer) {
+  return layer.type === 'sticker' && /\p{Extended_Pictographic}/u.test(String(layer.text || ''));
+}
+
+function LayerTypeIcon({ layer }) {
+  if (layer.type === 'icon') {
+    const body = ELEMENT_ICON_MAP[layer.icon]?.body;
+    return body
+      ? <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" dangerouslySetInnerHTML={{ __html: body }} />
+      : <Shapes size={13} />;
+  }
+  if (layer.type === 'line') return <Minus size={13} />;
+  if (layer.type === 'arrow') return <ArrowUpRight size={13} />;
+  if (layer.type === 'shape') return <Shapes size={13} />;
+  if (layer.type === 'sticker') return <Smile size={13} />;
+  return <Type size={13} />;
+}
+
+function layerRowLabel(layer) {
+  if (layer.type === 'icon') return ELEMENT_ICON_MAP[layer.icon]?.label || 'Ícone';
+  if (isEmojiLayer(layer)) return `Emoji ${layer.text}`;
+  const text = String(layer.text || '').trim();
+  return text || LAYER_TYPE_LABEL[layer.type] || 'Elemento';
+}
+
+function LayersPanel({ surface, selected, onSelect, onPatch, onReorder, onReorderTo, onDuplicate, onDelete }) {
+  const [dragId, setDragId] = useState(null);
+  const [dropAt, setDropAt] = useState(null);
   const total = surface.layers.length;
   const mediaLabel = surface.media?.kind === 'video' ? 'Vídeo' : 'Imagem';
+  const endDrag = () => { setDragId(null); setDropAt(null); };
   return <aside className={`${styles.rightPanel} ${styles.layersPanel}`}><div className={styles.rightTitle}>CAMADAS</div>
-    {surface.media && <div className={`${styles.layerRow} ${selected === 'bg' ? styles.layerSelected : ''}`}>
-      <span className={styles.layerIcon}>{surface.media.kind === 'video' ? <Film size={13} /> : <ImageIcon size={13} />}</span>
-      <button type="button" className={styles.layerName} aria-label={`Selecionar camada ${mediaLabel}`} style={{ border: 0, background: 'transparent', textAlign: 'left', padding: 0 }} onClick={() => onSelect('bg')}>{mediaLabel}</button>
-    </div>}
-    {[...surface.layers].reverse().map((layer, position) => <div key={layer.id} className={`${styles.layerRow} ${selected === layer.id ? styles.layerSelected : ''}`} onClick={() => onSelect(layer.id)}>
-      <span className={styles.layerIcon}>{layer.type === 'text' ? <Type size={13} /> : layer.type === 'sticker' ? <Smile size={13} /> : <Shapes size={13} />}</span><span className={styles.layerName}>{layer.text || ELEMENT_ICON_MAP[layer.icon]?.label || ({ arrow: 'Seta', line: 'Linha', shape: 'Forma', icon: 'Ícone' })[layer.type] || 'Elemento'}</span>
+    {[...surface.layers].reverse().map((layer, position) => <div
+      key={layer.id}
+      draggable
+      className={`${styles.layerRow} ${selected === layer.id ? styles.layerSelected : ''} ${dragId === layer.id ? styles.layerDragging : ''} ${dropAt === position && dragId !== layer.id ? styles.layerDropTarget : ''}`}
+      onClick={() => onSelect(layer.id)}
+      onDragStart={(event) => {
+        event.dataTransfer?.setData(LAYER_DRAG_TYPE, layer.id);
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+        setDragId(layer.id);
+      }}
+      onDragOver={(event) => {
+        if (!dragId) return;
+        event.preventDefault();
+        setDropAt(position);
+      }}
+      onDragEnd={endDrag}
+      onDrop={(event) => {
+        event.preventDefault();
+        const id = event.dataTransfer?.getData(LAYER_DRAG_TYPE) || dragId;
+        if (id) onReorderTo(id, total - 1 - position);
+        endDrag();
+      }}
+    >
+      <span className={styles.layerGrip} aria-hidden="true"><GripVertical size={12} /></span>
+      <span className={styles.layerIcon}><LayerTypeIcon layer={layer} /></span>
+      <span className={styles.layerName}>{layerRowLabel(layer)}</span>
       <span className={styles.layerActions}>
         <button aria-label="Trazer para frente" disabled={position === 0} onClick={(e) => { e.stopPropagation(); onReorder(layer.id, 1); }}><ChevronUp size={13} /></button>
         <button aria-label="Enviar para trás" disabled={position === total - 1} onClick={(e) => { e.stopPropagation(); onReorder(layer.id, -1); }}><ChevronDown size={13} /></button>
         <button aria-label={layer.hidden ? 'Mostrar camada' : 'Ocultar camada'} onClick={(e) => { e.stopPropagation(); onPatch(layer.id, { hidden: !layer.hidden }); }}>{layer.hidden ? <EyeOff size={13} /> : <Eye size={13} />}</button>
         <button aria-label={layer.locked ? 'Desbloquear camada' : 'Bloquear camada'} onClick={(e) => { e.stopPropagation(); onPatch(layer.id, { locked: !layer.locked }); }}>{layer.locked ? <Lock size={13} /> : <Unlock size={13} />}</button>
+        <button aria-label="Duplicar camada" onClick={(e) => { e.stopPropagation(); onDuplicate(layer.id); }}><Copy size={13} /></button>
         <button aria-label="Excluir camada" onClick={(e) => { e.stopPropagation(); onDelete(layer.id); }}><Trash2 size={13} /></button>
       </span>
     </div>)}
-    {!surface.layers.length && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Adicione textos, formas ou figurinhas ao canvas.</p>}
+    {surface.media && <div className={`${styles.layerRow} ${styles.layerMediaRow} ${selected === 'bg' ? styles.layerSelected : ''}`} onClick={() => onSelect('bg')}>
+      <span className={styles.layerGrip} aria-hidden="true" />
+      <span className={styles.layerIcon}>{surface.media.kind === 'video' ? <Film size={13} /> : <ImageIcon size={13} />}</span>
+      <button type="button" className={styles.layerName} aria-label={`Selecionar camada ${mediaLabel}`} style={{ border: 0, background: 'transparent', textAlign: 'left', padding: 0 }} onClick={() => onSelect('bg')}>{surface.media.name || mediaLabel}</button>
+      <span className={styles.layerActions}><span className={styles.layerBadge}>{mediaLabel}</span></span>
+    </div>}
+    {!surface.layers.length && !surface.media && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Adicione textos, formas ou figurinhas ao canvas.</p>}
   </aside>;
 }
 

@@ -63,7 +63,7 @@ describe('manipulacao de midia no canvas', () => {
   it('organiza os elementos existentes por categoria e permite buscá-los', () => {
     render(<VisualComposer brandId="brand-1" brandName="socialhub" />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Elemen.' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Elementos' }));
     expect(screen.getByRole('textbox', { name: 'Buscar elementos' })).toBeTruthy();
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Formas', 'Linhas e setas', 'Ícones', 'Stickers', 'Emojis'

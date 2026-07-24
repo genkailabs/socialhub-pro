@@ -27,7 +27,7 @@ async function renderWithSelectedLayer() {
   render(<VisualComposer brandId="brand-1" brandName="Marca" />);
   fireEvent.click(screen.getByRole('button', { name: /Elemen/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Retângulo' }));
-  await waitFor(() => expect(screen.getByLabelText('Opacidade')).toBeTruthy());
+  await waitFor(() => expect(screen.getByLabelText('Opacidade do elemento')).toBeTruthy());
 }
 
 describe('tecla Delete no canvas', () => {
