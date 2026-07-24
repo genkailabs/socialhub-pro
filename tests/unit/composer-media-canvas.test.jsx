@@ -70,6 +70,7 @@ describe('manipulacao de midia no canvas', () => {
     ]);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Emojis' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Símbolos' }));
     expect(screen.getByRole('button', { name: '✨' })).toBeTruthy();
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Buscar elementos' }), { target: { value: 'Pill' } });

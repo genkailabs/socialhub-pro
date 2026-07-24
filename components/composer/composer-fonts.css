@@ -1,0 +1,29 @@
+/* Fontes licenciadas (OFL) da biblioteca do Composer. Arquivos em public/fonts. */
+@font-face{font-family:'Poppins';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/poppins-400.ttf') format('truetype')}
+@font-face{font-family:'Poppins';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/poppins-700.ttf') format('truetype')}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/montserrat-400.ttf') format('truetype')}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/montserrat-700.ttf') format('truetype')}
+@font-face{font-family:'Anton';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/anton-400.ttf') format('truetype')}
+@font-face{font-family:'Archivo Black';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/archivo-black-400.ttf') format('truetype')}
+@font-face{font-family:'Playfair Display';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/playfair-display-400.ttf') format('truetype')}
+@font-face{font-family:'Playfair Display';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/playfair-display-700.ttf') format('truetype')}
+@font-face{font-family:'Lora';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/lora-400.ttf') format('truetype')}
+@font-face{font-family:'Lora';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/lora-700.ttf') format('truetype')}
+@font-face{font-family:'Merriweather';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/merriweather-400.ttf') format('truetype')}
+@font-face{font-family:'Merriweather';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/merriweather-700.ttf') format('truetype')}
+@font-face{font-family:'EB Garamond';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/eb-garamond-400.ttf') format('truetype')}
+@font-face{font-family:'EB Garamond';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/eb-garamond-700.ttf') format('truetype')}
+@font-face{font-family:'Caveat';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/caveat-400.ttf') format('truetype')}
+@font-face{font-family:'Caveat';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/caveat-700.ttf') format('truetype')}
+@font-face{font-family:'Pacifico';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/pacifico-400.ttf') format('truetype')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/jetbrains-mono-400.ttf') format('truetype')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/jetbrains-mono-700.ttf') format('truetype')}
+@font-face{font-family:'Space Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/space-mono-400.ttf') format('truetype')}
+@font-face{font-family:'Space Mono';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/space-mono-700.ttf') format('truetype')}
+@font-face{font-family:'Fredoka';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/fredoka-400.ttf') format('truetype')}
+@font-face{font-family:'Fredoka';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/fredoka-600.ttf') format('truetype')}
+@font-face{font-family:'Baloo 2';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/baloo-2-400.ttf') format('truetype')}
+@font-face{font-family:'Baloo 2';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/baloo-2-700.ttf') format('truetype')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/cormorant-garamond-400.ttf') format('truetype')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/cormorant-garamond-700.ttf') format('truetype')}
+@font-face{font-family:'Marcellus';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/marcellus-400.ttf') format('truetype')}

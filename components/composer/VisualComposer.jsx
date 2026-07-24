@@ -2,22 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, Bold, CalendarClock, Check, ChevronLeft,
-  ChevronRight, Circle, Copy, Eye, EyeOff, Film, Image as ImageIcon, Italic,
-  Layers3, Lock, MapPin, Maximize2, MessageSquareText, Minus, MoreHorizontal,
-  Palette, Pause, Play, Plus, Redo2, Save, Search, Send, Settings2, Shapes,
-  Smartphone, Smile, Trash2, Type, Undo2, Unlock, Upload, UserRoundPlus, X
+  AlignCenter, AlignLeft, AlignRight, Bold, CalendarClock, Check, ChevronDown,
+  ChevronLeft, ChevronRight, ChevronUp, Circle, Copy, Eye, EyeOff, Film,
+  Image as ImageIcon, Italic, Layers3, Lock, MapPin, Maximize2,
+  MessageSquareText, Minus, MoreHorizontal, Palette, Pause, Play, Plus, Redo2,
+  Save, Search, Send, Settings2, Shapes, Smartphone, Smile, Trash2, Type,
+  Undo2, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, publishNow, saveDraft, schedulePost } from '@/lib/posts-actions';
 import {
   COMPOSER_FORMATS, addLayer, canvasSize, cloneEditorState, fitMediaToCanvas,
-  getSurface, makeComposerDocument, mediaTransformStyle, normalizeMediaTransform,
-  resizeMediaFromCorner, serializeComposer, snapPosition, toApiFormat,
-  validateComposer, zoomMediaAtPoint
+  getSurface, layerDisplayText, makeComposerDocument, mediaTransformStyle,
+  normalizeMediaTransform, reorderLayer, resizeMediaFromCorner, serializeComposer,
+  snapPosition, toApiFormat, validateComposer, zoomMediaAtPoint
 } from '@/lib/composer-editor';
+import { fontsByCategory } from '@/lib/composer-fonts';
+import {
+  ELEMENT_ICONS, ELEMENT_LINES, ELEMENT_SHAPES, SOCIALHUB_STICKERS,
+  TEXT_STYLES, iconPreset
+} from '@/lib/composer-text-styles';
+import { EMOJI_CATEGORIES, RECENT_EMOJIS_KEY, RECENT_EMOJIS_LIMIT } from '@/data/emoji-catalog';
+import { isTextLayer, layerBoxStyle, layerLineBgStyle } from '@/lib/composer-layer-style';
 import styles from './VisualComposer.module.css';
+import './composer-fonts.css';
 
 const FORMAT_META = {
   post: ['Post', 'Imagem única'],
@@ -30,14 +39,9 @@ const TOOLS = [
   ['elementos', Shapes, 'Elemen.'], ['legenda', MessageSquareText, 'Legenda'],
   ['config', Settings2, 'Config.'], ['publicar', Send, 'Publicar']
 ];
-const EMOJIS = ['✨', '🔥', '💡', '❤️', '🚀', '🎯', '👏', '😍', '📌', '✅'];
 const COLORS = ['#FFFFFF', '#1D1D1F', '#007AFF', '#FF9500', '#FF375F'];
 const ELEMENT_CATEGORIES = ['Formas', 'Linhas', 'Ícones', 'Stickers', 'Emojis'];
-const ELEMENT_SHAPES = [
-  { label: 'Retângulo', preset: { type: 'shape', text: '', w: 110, h: 90, fill: '#007AFF' } },
-  { label: 'Círculo', preset: { type: 'shape', text: '', w: 90, h: 90, radius: 99, fill: '#FF9500' } },
-  { label: 'Pill', preset: { type: 'button', text: 'Saiba mais', w: 130, h: 42, fs: 14, radius: 99 } }
-];
+const FONT_GROUPS = fontsByCategory();
 
 function mediaAccept(format) {
   if (format === 'reel') return 'video/mp4,video/quicktime';
@@ -129,6 +133,8 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   const [tool, setTool] = useState('formato');
   const [elementCategory, setElementCategory] = useState('Formas');
   const [elementSearch, setElementSearch] = useState('');
+  const [emojiCategory, setEmojiCategory] = useState('recentes');
+  const [recentEmojis, setRecentEmojis] = useState([]);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [layersOpen, setLayersOpen] = useState(true);
   const [modal, setModal] = useState(null);
@@ -157,8 +163,20 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   const selected = state.sel === 'bg' ? null : surface.layers.find((item) => item.id === state.sel);
   const validation = validateComposer(state);
   const normalizedElementSearch = elementSearch.trim().toLocaleLowerCase('pt-BR');
-  const matchingShapes = ELEMENT_SHAPES.filter(({ label }) => label.toLocaleLowerCase('pt-BR').includes(normalizedElementSearch));
-  const matchingEmojis = EMOJIS.filter((emoji) => emoji.includes(normalizedElementSearch));
+  const byLabel = ({ label }) => label.toLocaleLowerCase('pt-BR').includes(normalizedElementSearch);
+  const matchingShapes = ELEMENT_SHAPES.filter(byLabel);
+  const matchingLines = ELEMENT_LINES.filter(byLabel);
+  const matchingIcons = ELEMENT_ICONS.filter((glyph) => !normalizedElementSearch || glyph.includes(normalizedElementSearch));
+  const matchingStickers = SOCIALHUB_STICKERS.filter(byLabel);
+  const activeEmojiList = normalizedElementSearch
+    ? EMOJI_CATEGORIES.flatMap((category) => category.emojis)
+    : emojiCategory === 'recentes'
+      ? recentEmojis
+      : EMOJI_CATEGORIES.find((category) => category.id === emojiCategory)?.emojis || [];
+  const matchingEmojis = normalizedElementSearch
+    ? activeEmojiList.filter((emoji) => emoji.includes(normalizedElementSearch))
+    : activeEmojiList;
+  const selectedIsText = !!selected && isTextLayer(selected);
 
   const flash = useCallback((message) => {
     setToast(message);
@@ -167,6 +185,10 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
 
   useEffect(() => {
     setState((current) => ({ ...current, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }));
+    try {
+      const stored = JSON.parse(localStorage.getItem(RECENT_EMOJIS_KEY) || '[]');
+      if (Array.isArray(stored)) setRecentEmojis(stored.filter((item) => typeof item === 'string').slice(0, RECENT_EMOJIS_LIMIT));
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -420,6 +442,34 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     const copy = { ...cloneEditorState(selected), id: `l${Date.now().toString(36)}`, x: selected.x + 18, y: selected.y + 18 };
     mutateDoc((doc, current) => getSurface(doc, current.format).layers.push(copy));
     setState((current) => ({ ...current, sel: copy.id }));
+  }
+
+  // Aplica um estilo pronto (§10): na camada selecionada ou em um texto novo.
+  function applyTextStyle(style) {
+    if (selectedIsText) updateLayer(selected.id, style.patch);
+    else addPreset({ text: 'Seu texto aqui', fs: 30, h: 52, ...style.patch });
+  }
+
+  function addEmoji(emoji) {
+    addPreset({ type: 'sticker', text: emoji, fs: 44, w: 62, h: 62, fill: 'transparent' });
+    setRecentEmojis((current) => {
+      const next = [emoji, ...current.filter((item) => item !== emoji)].slice(0, RECENT_EMOJIS_LIMIT);
+      try { localStorage.setItem(RECENT_EMOJIS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  function moveLayerInStack(id, delta) {
+    mutateDoc((doc, current) => { reorderLayer(getSurface(doc, current.format), id, delta); });
+  }
+
+  function deleteLayerById(id) {
+    mutateDoc((doc, current) => {
+      const list = getSurface(doc, current.format).layers;
+      const index = list.findIndex((item) => item.id === id);
+      if (index >= 0) list.splice(index, 1);
+    });
+    setState((current) => ({ ...current, sel: current.sel === id ? null : current.sel }));
   }
 
   function beginGesture(kind, event, layer, corner) {
@@ -730,7 +780,25 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
             <button className={styles.preset} style={{ fontSize: 19, fontWeight: 800 }} onClick={() => addPreset({ text: 'Adicionar título', fs: 32, weight: 800, h: 52 })}>Adicionar título</button>
             <button className={styles.preset} style={{ fontSize: 14, fontWeight: 600 }} onClick={() => addPreset({ text: 'Adicionar subtítulo', fs: 18, weight: 600, h: 38 })}>Adicionar subtítulo</button>
             <button className={styles.preset} onClick={() => addPreset({ text: 'Adicionar texto de corpo', fs: 13, weight: 400, h: 34 })}>Adicionar texto de corpo</button>
-            <p style={{ fontSize: 11, color: 'var(--vc-faint)', lineHeight: 1.5 }}>Clique duas vezes no texto para editar. Arraste, gire e redimensione pelas alças.</p>
+            <div className={styles.sectionLabel}>ESTILOS PRONTOS</div>
+            <div className={styles.styleGrid}>
+              {TEXT_STYLES.map((style) => <button key={style.id} className={styles.styleCard} onClick={() => applyTextStyle(style)}>
+                <span style={{
+                  fontFamily: `'${style.patch.font}', sans-serif`,
+                  fontWeight: style.patch.weight,
+                  textTransform: style.patch.tt === 'upper' ? 'uppercase' : 'none',
+                  letterSpacing: style.patch.ls ? `${Math.min(style.patch.ls, 1)}px` : undefined,
+                  background: style.patch.bgMode ? style.patch.bgFill : 'transparent',
+                  color: style.patch.color === 'transparent' ? 'var(--vc-text)' : style.patch.bgMode ? style.patch.color : 'var(--vc-text)',
+                  WebkitTextStroke: style.patch.color === 'transparent' ? `1px var(--vc-text)` : undefined,
+                  textShadow: style.patch.shOn ? '0 2px 4px rgba(0,0,0,.5)' : undefined,
+                  borderRadius: 6, padding: '2px 8px', fontSize: 13
+                }}>{style.label}</span>
+              </button>)}
+            </div>
+            {selectedIsText
+              ? <TextProperties layer={selected} onPatch={(patch, history) => updateLayer(selected.id, patch, history)} onHistory={pushHistory} />
+              : <p style={{ fontSize: 11, color: 'var(--vc-faint)', lineHeight: 1.5 }}>Clique duas vezes no texto para editar. Arraste, gire e redimensione pelas alças. Selecione um texto para ver todas as propriedades.</p>}
           </>}
           {tool === 'elementos' && <>
             <div className={styles.elementSearch}>
@@ -741,13 +809,37 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
               {ELEMENT_CATEGORIES.map((category) => <button key={category} type="button" role="tab" aria-selected={elementCategory === category} className={elementCategory === category ? styles.elementCategoryActive : ''} onClick={() => setElementCategory(category)}>{category}</button>)}
             </div>
             {elementCategory === 'Formas' && <div className={styles.shapeGrid}>
-              {matchingShapes.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} onClick={() => addPreset(preset)}>
+              {matchingShapes.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} onClick={() => addPreset(preset)}>
                 {label === 'Retângulo' && <span style={{ display: 'block', width: 24, height: 24, background: '#6E6E73', borderRadius: 4, margin: 'auto' }} />}
                 {label === 'Círculo' && <Circle size={25} fill="currentColor" />}
                 {label === 'Pill' && 'Pill'}
+                {label === 'Selo' && <span style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, background: '#FF375F', color: '#fff', borderRadius: '50%', fontSize: 7, fontWeight: 800, margin: 'auto' }}>NOVO</span>}
+                {label === 'Etiqueta' && <span style={{ display: 'inline-block', padding: '3px 8px', background: '#6E6E73', color: '#fff', borderRadius: 4, fontSize: 9, fontWeight: 700 }}>TAG</span>}
+                {label === 'Balão' && <span style={{ display: 'inline-block', padding: '4px 9px', border: '1.5px solid currentColor', borderRadius: 10, fontSize: 10 }}>Oi!</span>}
               </button>)}
             </div>}
-            {elementCategory === 'Emojis' && <div className={styles.stickerGrid}>{matchingEmojis.map((emoji) => <button key={emoji} className={styles.sticker} onClick={() => addPreset({ type: 'sticker', text: emoji, fs: 44, w: 62, h: 62, fill: 'transparent' })}>{emoji}</button>)}</div>}
+            {elementCategory === 'Linhas' && <div className={styles.shapeGrid}>
+              {matchingLines.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} title={label} onClick={() => addPreset(preset)}>
+                {label === 'Linha fina' && <span style={{ display: 'block', width: 30, height: 2, background: 'currentColor', borderRadius: 99, margin: 'auto' }} />}
+                {label === 'Linha grossa' && <span style={{ display: 'block', width: 30, height: 6, background: 'currentColor', borderRadius: 99, margin: 'auto' }} />}
+                {label === 'Linha vertical' && <span style={{ display: 'block', width: 2, height: 28, background: 'currentColor', borderRadius: 99, margin: 'auto' }} />}
+                {label.startsWith('Seta') && <span style={{ fontSize: label === 'Seta' ? 22 : 15 }}>→</span>}
+              </button>)}
+            </div>}
+            {elementCategory === 'Ícones' && <div className={styles.stickerGrid}>
+              {matchingIcons.map((glyph) => <button key={glyph} className={styles.sticker} aria-label={`Ícone ${glyph}`} onClick={() => addPreset(iconPreset(glyph))}>{glyph}</button>)}
+            </div>}
+            {elementCategory === 'Stickers' && <div className={styles.stickerList}>
+              {matchingStickers.map(({ label, preset }) => <button key={label} className={styles.stickerBadge} style={{ background: preset.bgFill, color: preset.color }} onClick={() => addPreset(preset)}>{label}</button>)}
+            </div>}
+            {elementCategory === 'Emojis' && <>
+              {!normalizedElementSearch && <div className={styles.elementCategories} role="tablist" aria-label="Categorias de emojis">
+                <button type="button" role="tab" aria-selected={emojiCategory === 'recentes'} className={emojiCategory === 'recentes' ? styles.elementCategoryActive : ''} onClick={() => setEmojiCategory('recentes')}>Recentes</button>
+                {EMOJI_CATEGORIES.map((category) => <button key={category.id} type="button" role="tab" aria-selected={emojiCategory === category.id} className={emojiCategory === category.id ? styles.elementCategoryActive : ''} onClick={() => setEmojiCategory(category.id)}>{category.label}</button>)}
+              </div>}
+              <div className={styles.stickerGrid}>{matchingEmojis.map((emoji) => <button key={emoji} className={styles.sticker} onClick={() => addEmoji(emoji)}>{emoji}</button>)}</div>
+              {emojiCategory === 'recentes' && !recentEmojis.length && !normalizedElementSearch && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Os emojis que você usar aparecem aqui.</p>}
+            </>}
             {state.format === 'story' && <div className={styles.error} style={{ color: 'var(--vc-warn)' }}>GIFs, enquetes e música ficam disponíveis apenas na publicação manual pelo Instagram.</div>}
           </>}
           {tool === 'legenda' && <>
@@ -795,8 +887,8 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
                       <div><Upload size={25} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small></div>
                       <input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} />
                     </label>}
-                {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={`${styles.layer} ${state.sel === layer.id ? styles.selectedLayer : ''}`} style={{ left: layer.x, top: layer.y, width: layer.w, height: layer.h, fontSize: layer.fs, fontWeight: layer.weight, fontStyle: layer.italic ? 'italic' : 'normal', textAlign: layer.align, fontFamily: layer.font, color: layer.color, background: layer.type === 'text' || layer.type === 'sticker' ? 'transparent' : layer.fill, borderRadius: layer.radius, opacity: layer.op, transform: `rotate(${layer.rot}deg)`, cursor: layer.locked ? 'default' : 'move' }} onPointerDown={(e) => beginGesture('move', e, layer)} onDoubleClick={(e) => { e.stopPropagation(); if (layer.type === 'text' || layer.type === 'button') setState((current) => ({ ...current, editing: layer.id, sel: layer.id })); }}>
-                  {state.editing === layer.id ? <textarea autoFocus value={layer.text} onChange={(e) => updateLayer(layer.id, { text: e.target.value }, false)} onBlur={() => setState((current) => ({ ...current, editing: null }))} style={{ width: '100%', height: '100%', resize: 'none', background: 'rgba(0,0,0,.2)', color: 'inherit', border: 0, textAlign: layer.align, font: 'inherit' }} /> : layer.text}
+                {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={`${styles.layer} ${state.sel === layer.id ? styles.selectedLayer : ''}`} style={{ ...layerBoxStyle(layer), cursor: layer.locked ? 'default' : 'move' }} onPointerDown={(e) => beginGesture('move', e, layer)} onDoubleClick={(e) => { e.stopPropagation(); if (layer.type === 'text' || layer.type === 'button') setState((current) => ({ ...current, editing: layer.id, sel: layer.id })); }}>
+                  {state.editing === layer.id ? <textarea autoFocus value={layer.text} onChange={(e) => updateLayer(layer.id, { text: e.target.value }, false)} onBlur={() => setState((current) => ({ ...current, editing: null }))} style={{ width: '100%', height: '100%', resize: 'none', background: 'rgba(0,0,0,.2)', color: 'inherit', border: 0, textAlign: layer.align, font: 'inherit' }} /> : <LayerContent layer={layer} />}
                   {state.sel === layer.id && !layer.locked && <><span className={`${styles.handle} ${styles.nw}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'nw')} /><span className={`${styles.handle} ${styles.ne}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'ne')} /><span className={`${styles.handle} ${styles.sw}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'sw')} /><span className={`${styles.handle} ${styles.se}`} onPointerDown={(e) => beginGesture('resize', e, layer, 'se')} /><span className={styles.rotate} onPointerDown={(e) => beginGesture('rotate', e, layer)} />
                     <FloatingToolbar layer={layer} onPatch={(patch) => updateLayer(layer.id, patch)} onDuplicate={duplicateSelected} onDelete={deleteSelected} /></>}
                 </div>)}
@@ -815,7 +907,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         </main>
 
         {previewOpen && <PreviewPanel state={state} surface={surface} brandName={brandName} />}
-        {layersOpen && <LayersPanel surface={surface} selected={state.sel} onSelect={(id) => setState((current) => ({ ...current, sel: id }))} onPatch={updateLayer} />}
+        {layersOpen && <LayersPanel surface={surface} selected={state.sel} onSelect={(id) => setState((current) => ({ ...current, sel: id }))} onPatch={updateLayer} onReorder={moveLayerInStack} onDelete={deleteLayerById} />}
       </div>
 
       {modal === 'delete-draft'
@@ -826,11 +918,24 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   );
 }
 
+function FontSelect({ value, onChange, ariaLabel = 'Fonte' }) {
+  return <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel}>
+    <optgroup label="Sistema">
+      <option value="system-ui">Padrão</option>
+      <option value="Georgia">Serif</option>
+      <option value="ui-monospace">Mono</option>
+    </optgroup>
+    {FONT_GROUPS.map(({ category, fonts }) => <optgroup key={category} label={category}>
+      {fonts.map((font) => <option key={font.id} value={font.family} style={{ fontFamily: `'${font.family}'` }}>{font.family}</option>)}
+    </optgroup>)}
+  </select>;
+}
+
 function FloatingToolbar({ layer, onPatch, onDuplicate, onDelete }) {
   const align = layer.align === 'left' ? 'center' : layer.align === 'center' ? 'right' : 'left';
   return <div className={styles.floating} onPointerDown={(e) => e.stopPropagation()}>
     {(layer.type === 'text' || layer.type === 'button') && <>
-      <select value={layer.font} onChange={(e) => onPatch({ font: e.target.value })}><option value="system-ui">SF</option><option value="Georgia">Serif</option><option value="ui-monospace">Mono</option></select>
+      <FontSelect value={layer.font} onChange={(font) => onPatch({ font })} />
       <button onClick={() => onPatch({ fs: Math.max(8, layer.fs - 2) })}><Minus size={12} /></button><span style={{ fontSize: 10 }}>{Math.round(layer.fs)}</span><button onClick={() => onPatch({ fs: layer.fs + 2 })}><Plus size={12} /></button>
       <button onClick={() => onPatch({ weight: layer.weight >= 700 ? 400 : 800 })}><Bold size={13} /></button><button onClick={() => onPatch({ italic: !layer.italic })}><Italic size={13} /></button>
       <button onClick={() => onPatch({ align })}>{layer.align === 'left' ? <AlignLeft size={13} /> : layer.align === 'center' ? <AlignCenter size={13} /> : <AlignRight size={13} />}</button>
@@ -838,6 +943,59 @@ function FloatingToolbar({ layer, onPatch, onDuplicate, onDelete }) {
     {COLORS.map((color) => <button key={color} aria-label={`Cor ${color}`} className={styles.colorDot} style={{ background: color }} onClick={() => onPatch(layer.type === 'text' || layer.type === 'sticker' ? { color } : { fill: color })} />)}
     <input aria-label="Opacidade" type="range" min=".2" max="1" step=".1" value={layer.op} onChange={(e) => onPatch({ op: +e.target.value })} style={{ width: 52 }} />
     <button onClick={onDuplicate}><Copy size={13} /></button><button style={{ color: 'var(--vc-danger)' }} onClick={onDelete}><Trash2 size={13} /></button>
+  </div>;
+}
+
+// Painel completo de propriedades de texto (PRD Story §8-§9).
+function TextProperties({ layer, onPatch, onHistory }) {
+  const slider = (patch) => onPatch(patch, false);
+  return <div className={styles.textProps}>
+    <div className={styles.sectionLabel}>FONTE</div>
+    <FontSelect value={layer.font} onChange={(font) => onPatch({ font })} ariaLabel="Fonte do texto selecionado" />
+    <div className={styles.propRow}><span>Tamanho</span>
+      <input type="range" min="8" max="96" step="1" value={layer.fs} aria-label="Tamanho da fonte" onPointerDown={onHistory} onChange={(e) => slider({ fs: +e.target.value })} /><em>{Math.round(layer.fs)}</em></div>
+    <div className={styles.segment}>
+      <button className={layer.weight >= 700 ? styles.selected : ''} aria-label="Negrito" onClick={() => onPatch({ weight: layer.weight >= 700 ? 400 : 700 })}><Bold size={13} /></button>
+      <button className={layer.italic ? styles.selected : ''} aria-label="Itálico" onClick={() => onPatch({ italic: !layer.italic })}><Italic size={13} /></button>
+      <button className={layer.align === 'left' ? styles.selected : ''} aria-label="Alinhar à esquerda" onClick={() => onPatch({ align: 'left' })}><AlignLeft size={13} /></button>
+      <button className={layer.align === 'center' ? styles.selected : ''} aria-label="Centralizar" onClick={() => onPatch({ align: 'center' })}><AlignCenter size={13} /></button>
+      <button className={layer.align === 'right' ? styles.selected : ''} aria-label="Alinhar à direita" onClick={() => onPatch({ align: 'right' })}><AlignRight size={13} /></button>
+    </div>
+    <div className={styles.segment}>
+      <button className={layer.tt === 'upper' ? styles.selected : ''} onClick={() => onPatch({ tt: layer.tt === 'upper' ? 'none' : 'upper' })}>AA</button>
+      <button className={layer.tt === 'lower' ? styles.selected : ''} onClick={() => onPatch({ tt: layer.tt === 'lower' ? 'none' : 'lower' })}>aa</button>
+    </div>
+    <div className={styles.propRow}><span>Cor</span>
+      <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(layer.color) ? layer.color : '#ffffff'} aria-label="Cor do texto" onChange={(e) => onPatch({ color: e.target.value })} /></div>
+    <div className={styles.propRow}><span>Letras</span>
+      <input type="range" min="-2" max="12" step="0.5" value={layer.ls ?? 0} aria-label="Espaçamento entre letras" onPointerDown={onHistory} onChange={(e) => slider({ ls: +e.target.value })} /><em>{layer.ls ?? 0}</em></div>
+    <div className={styles.propRow}><span>Linhas</span>
+      <input type="range" min="0.8" max="2" step="0.05" value={layer.lh ?? 1.05} aria-label="Espaçamento entre linhas" onPointerDown={onHistory} onChange={(e) => slider({ lh: +e.target.value })} /><em>{(layer.lh ?? 1.05).toFixed(2)}</em></div>
+    <div className={styles.propRow}><span>Opacidade</span>
+      <input type="range" min="0.1" max="1" step="0.05" value={layer.op} aria-label="Opacidade do texto" onPointerDown={onHistory} onChange={(e) => slider({ op: +e.target.value })} /><em>{Math.round(layer.op * 100)}%</em></div>
+
+    <div className={styles.sectionLabel}>FUNDO</div>
+    <div className={styles.segment}>
+      <button className={(layer.bgMode ?? 'none') === 'none' ? styles.selected : ''} onClick={() => onPatch({ bgMode: 'none' })}>Sem fundo</button>
+      <button className={layer.bgMode === 'box' ? styles.selected : ''} onClick={() => onPatch({ bgMode: 'box' })}>Caixa</button>
+      <button className={layer.bgMode === 'line' ? styles.selected : ''} onClick={() => onPatch({ bgMode: 'line' })}>Por linha</button>
+    </div>
+    {layer.bgMode && layer.bgMode !== 'none' && <>
+      <div className={styles.propRow}><span>Cor do fundo</span>
+        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(layer.bgFill) ? layer.bgFill : '#111111'} aria-label="Cor do fundo" onChange={(e) => onPatch({ bgFill: e.target.value })} /></div>
+      <div className={styles.propRow}><span>Arredondamento</span>
+        <input type="range" min="0" max="40" step="1" value={layer.bgRadius ?? 8} aria-label="Arredondamento do fundo" onPointerDown={onHistory} onChange={(e) => slider({ bgRadius: +e.target.value })} /><em>{layer.bgRadius ?? 8}</em></div>
+    </>}
+
+    <div className={styles.sectionLabel}>CONTORNO</div>
+    <div className={styles.propRow}><span>Espessura</span>
+      <input type="range" min="0" max="6" step="0.5" value={layer.strokeW ?? 0} aria-label="Espessura do contorno" onPointerDown={onHistory} onChange={(e) => slider({ strokeW: +e.target.value })} /><em>{layer.strokeW ?? 0}</em></div>
+    {Number(layer.strokeW) > 0 && <div className={styles.propRow}><span>Cor do contorno</span>
+      <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(layer.strokeColor) ? layer.strokeColor : '#111111'} aria-label="Cor do contorno" onChange={(e) => onPatch({ strokeColor: e.target.value })} /></div>}
+
+    <div className={styles.sectionLabel}>SOMBRA</div>
+    <div className={styles.toggle}><span>Aplicar sombra</span>
+      <button className={`${styles.switch} ${layer.shOn ? styles.switchOn : ''}`} aria-label="Aplicar sombra" onClick={() => onPatch({ shOn: !layer.shOn })}><span /></button></div>
   </div>;
 }
 
@@ -878,8 +1036,29 @@ function PreviewPanel({ state, surface, brandName }) {
 function PreviewSurface({ surface, cw, ch, scale }) {
   return <div className={styles.phoneSurface} style={{ width: cw, height: ch, transform: `scale(${scale})` }}>
     {surface.media && <MediaBox media={surface.media} transform={surface.bg} canvas={[cw, ch]} testId="preview-media" />}
-    {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={styles.layer} style={{ left: layer.x, top: layer.y, width: layer.w, height: layer.h, fontSize: layer.fs, fontWeight: layer.weight, fontStyle: layer.italic ? 'italic' : 'normal', textAlign: layer.align, fontFamily: layer.font, color: layer.color, background: layer.type === 'text' || layer.type === 'sticker' ? 'transparent' : layer.fill, borderRadius: layer.radius, opacity: layer.op, transform: `rotate(${layer.rot}deg)` }}>{layer.text}</div>)}
+    {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={styles.layer} style={layerBoxStyle(layer)}><LayerContent layer={layer} /></div>)}
   </div>;
+}
+
+// Conteúdo interno de uma camada — idêntico no canvas e na prévia (§16).
+function LayerContent({ layer }) {
+  if (layer.type === 'arrow') return <ArrowGraphic layer={layer} />;
+  const lineBg = layerLineBgStyle(layer);
+  const text = layerDisplayText(layer);
+  return lineBg ? <span style={lineBg}>{text}</span> : text;
+}
+
+function ArrowGraphic({ layer }) {
+  const width = Math.max(1, Number(layer.w) || 1);
+  const height = Math.max(1, Number(layer.h) || 1);
+  const stroke = Math.max(2, Math.min(height * .3, width * .12));
+  const head = Math.min(width * .35, height);
+  const midY = height / 2;
+  const fill = layer.fill || '#FFFFFF';
+  return <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: 'block', pointerEvents: 'none' }} aria-hidden="true">
+    <line x1="0" y1={midY} x2={width - head * .7} y2={midY} stroke={fill} strokeWidth={stroke} strokeLinecap="round" />
+    <polygon points={`${width},${midY} ${width - head},0 ${width - head},${height}`} fill={fill} />
+  </svg>;
 }
 
 function MediaBox({
@@ -938,12 +1117,18 @@ function MediaBox({
   </div>;
 }
 
-function LayersPanel({ surface, selected, onSelect, onPatch }) {
+function LayersPanel({ surface, selected, onSelect, onPatch, onReorder, onDelete }) {
+  const total = surface.layers.length;
   return <aside className={`${styles.rightPanel} ${styles.layersPanel}`}><div className={styles.rightTitle}>CAMADAS</div>
-    {[...surface.layers].reverse().map((layer) => <div key={layer.id} className={`${styles.layerRow} ${selected === layer.id ? styles.layerSelected : ''}`} onClick={() => onSelect(layer.id)}>
-      <span className={styles.layerIcon}>{layer.type === 'text' ? <Type size={13} /> : layer.type === 'sticker' ? <Smile size={13} /> : <Shapes size={13} />}</span><span className={styles.layerName}>{layer.text || 'Forma'}</span>
-      <button aria-label={layer.hidden ? 'Mostrar camada' : 'Ocultar camada'} onClick={(e) => { e.stopPropagation(); onPatch(layer.id, { hidden: !layer.hidden }); }}>{layer.hidden ? <EyeOff size={13} /> : <Eye size={13} />}</button>
-      <button aria-label={layer.locked ? 'Desbloquear camada' : 'Bloquear camada'} onClick={(e) => { e.stopPropagation(); onPatch(layer.id, { locked: !layer.locked }); }}>{layer.locked ? <Lock size={13} /> : <Unlock size={13} />}</button>
+    {[...surface.layers].reverse().map((layer, position) => <div key={layer.id} className={`${styles.layerRow} ${selected === layer.id ? styles.layerSelected : ''}`} onClick={() => onSelect(layer.id)}>
+      <span className={styles.layerIcon}>{layer.type === 'text' ? <Type size={13} /> : layer.type === 'sticker' ? <Smile size={13} /> : <Shapes size={13} />}</span><span className={styles.layerName}>{layer.text || (layer.type === 'arrow' ? 'Seta' : 'Forma')}</span>
+      <span className={styles.layerActions}>
+        <button aria-label="Trazer para frente" disabled={position === 0} onClick={(e) => { e.stopPropagation(); onReorder(layer.id, 1); }}><ChevronUp size={13} /></button>
+        <button aria-label="Enviar para trás" disabled={position === total - 1} onClick={(e) => { e.stopPropagation(); onReorder(layer.id, -1); }}><ChevronDown size={13} /></button>
+        <button aria-label={layer.hidden ? 'Mostrar camada' : 'Ocultar camada'} onClick={(e) => { e.stopPropagation(); onPatch(layer.id, { hidden: !layer.hidden }); }}>{layer.hidden ? <EyeOff size={13} /> : <Eye size={13} />}</button>
+        <button aria-label={layer.locked ? 'Desbloquear camada' : 'Bloquear camada'} onClick={(e) => { e.stopPropagation(); onPatch(layer.id, { locked: !layer.locked }); }}>{layer.locked ? <Lock size={13} /> : <Unlock size={13} />}</button>
+        <button aria-label="Excluir camada" onClick={(e) => { e.stopPropagation(); onDelete(layer.id); }}><Trash2 size={13} /></button>
+      </span>
     </div>)}
     {!surface.layers.length && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Adicione textos, formas ou figurinhas ao canvas.</p>}
   </aside>;
