@@ -60,6 +60,23 @@ afterEach(() => {
 });
 
 describe('manipulacao de midia no canvas', () => {
+  it('organiza os elementos existentes por categoria e permite buscá-los', () => {
+    render(<VisualComposer brandId="brand-1" brandName="socialhub" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Elemen.' }));
+    expect(screen.getByRole('textbox', { name: 'Buscar elementos' })).toBeTruthy();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Formas', 'Linhas', 'Ícones', 'Stickers', 'Emojis'
+    ]);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Emojis' }));
+    expect(screen.getByRole('button', { name: '✨' })).toBeTruthy();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Buscar elementos' }), { target: { value: 'Pill' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Formas' }));
+    expect(screen.getByRole('button', { name: 'Pill' })).toBeTruthy();
+  });
+
   it('abre o upload pelo canvas e adiciona a midia inteira', async () => {
     render(<VisualComposer brandId="brand-1" brandName="socialhub" />);
 

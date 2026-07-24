@@ -5,7 +5,7 @@ import {
   AlignCenter, AlignLeft, AlignRight, Bold, CalendarClock, Check, ChevronLeft,
   ChevronRight, Circle, Copy, Eye, EyeOff, Film, Image as ImageIcon, Italic,
   Layers3, Lock, MapPin, Maximize2, MessageSquareText, Minus, MoreHorizontal,
-  Palette, Pause, Play, Plus, Redo2, Save, Send, Settings2, Shapes,
+  Palette, Pause, Play, Plus, Redo2, Save, Search, Send, Settings2, Shapes,
   Smartphone, Smile, Trash2, Type, Undo2, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -32,6 +32,12 @@ const TOOLS = [
 ];
 const EMOJIS = ['✨', '🔥', '💡', '❤️', '🚀', '🎯', '👏', '😍', '📌', '✅'];
 const COLORS = ['#FFFFFF', '#1D1D1F', '#007AFF', '#FF9500', '#FF375F'];
+const ELEMENT_CATEGORIES = ['Formas', 'Linhas', 'Ícones', 'Stickers', 'Emojis'];
+const ELEMENT_SHAPES = [
+  { label: 'Retângulo', preset: { type: 'shape', text: '', w: 110, h: 90, fill: '#007AFF' } },
+  { label: 'Círculo', preset: { type: 'shape', text: '', w: 90, h: 90, radius: 99, fill: '#FF9500' } },
+  { label: 'Pill', preset: { type: 'button', text: 'Saiba mais', w: 130, h: 42, fs: 14, radius: 99 } }
+];
 
 function mediaAccept(format) {
   if (format === 'reel') return 'video/mp4,video/quicktime';
@@ -121,6 +127,8 @@ function IconButton({ title, children, ...props }) {
 export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft = null }) {
   const [state, setState] = useState(() => baseState(initialDraft));
   const [tool, setTool] = useState('formato');
+  const [elementCategory, setElementCategory] = useState('Formas');
+  const [elementSearch, setElementSearch] = useState('');
   const [previewOpen, setPreviewOpen] = useState(true);
   const [layersOpen, setLayersOpen] = useState(true);
   const [modal, setModal] = useState(null);
@@ -148,6 +156,9 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
     : null;
   const selected = state.sel === 'bg' ? null : surface.layers.find((item) => item.id === state.sel);
   const validation = validateComposer(state);
+  const normalizedElementSearch = elementSearch.trim().toLocaleLowerCase('pt-BR');
+  const matchingShapes = ELEMENT_SHAPES.filter(({ label }) => label.toLocaleLowerCase('pt-BR').includes(normalizedElementSearch));
+  const matchingEmojis = EMOJIS.filter((emoji) => emoji.includes(normalizedElementSearch));
 
   const flash = useCallback((message) => {
     setToast(message);
@@ -722,11 +733,21 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
             <p style={{ fontSize: 11, color: 'var(--vc-faint)', lineHeight: 1.5 }}>Clique duas vezes no texto para editar. Arraste, gire e redimensione pelas alças.</p>
           </>}
           {tool === 'elementos' && <>
-            <div className={styles.sectionLabel}>FORMAS</div><div className={styles.shapeGrid}>
-              <button className={styles.shape} onClick={() => addPreset({ type: 'shape', text: '', w: 110, h: 90, fill: '#007AFF' })}><span style={{ display: 'block', width: 24, height: 24, background: '#6E6E73', borderRadius: 4, margin: 'auto' }} /></button>
-              <button className={styles.shape} onClick={() => addPreset({ type: 'shape', text: '', w: 90, h: 90, radius: 99, fill: '#FF9500' })}><Circle size={25} fill="currentColor" /></button>
-              <button className={styles.shape} onClick={() => addPreset({ type: 'button', text: 'Saiba mais', w: 130, h: 42, fs: 14, radius: 99 })}>Pill</button>
-            </div><div className={styles.sectionLabel}>FIGURINHAS</div><div className={styles.stickerGrid}>{EMOJIS.map((emoji) => <button key={emoji} className={styles.sticker} onClick={() => addPreset({ type: 'sticker', text: emoji, fs: 44, w: 62, h: 62, fill: 'transparent' })}>{emoji}</button>)}</div>
+            <div className={styles.elementSearch}>
+              <Search size={14} aria-hidden="true" />
+              <input aria-label="Buscar elementos" value={elementSearch} onChange={(event) => setElementSearch(event.target.value)} placeholder="Buscar elementos" />
+            </div>
+            <div className={styles.elementCategories} role="tablist" aria-label="Categorias de elementos">
+              {ELEMENT_CATEGORIES.map((category) => <button key={category} type="button" role="tab" aria-selected={elementCategory === category} className={elementCategory === category ? styles.elementCategoryActive : ''} onClick={() => setElementCategory(category)}>{category}</button>)}
+            </div>
+            {elementCategory === 'Formas' && <div className={styles.shapeGrid}>
+              {matchingShapes.map(({ label, preset }) => <button key={label} className={styles.shape} aria-label={label} onClick={() => addPreset(preset)}>
+                {label === 'Retângulo' && <span style={{ display: 'block', width: 24, height: 24, background: '#6E6E73', borderRadius: 4, margin: 'auto' }} />}
+                {label === 'Círculo' && <Circle size={25} fill="currentColor" />}
+                {label === 'Pill' && 'Pill'}
+              </button>)}
+            </div>}
+            {elementCategory === 'Emojis' && <div className={styles.stickerGrid}>{matchingEmojis.map((emoji) => <button key={emoji} className={styles.sticker} onClick={() => addPreset({ type: 'sticker', text: emoji, fs: 44, w: 62, h: 62, fill: 'transparent' })}>{emoji}</button>)}</div>}
             {state.format === 'story' && <div className={styles.error} style={{ color: 'var(--vc-warn)' }}>GIFs, enquetes e música ficam disponíveis apenas na publicação manual pelo Instagram.</div>}
           </>}
           {tool === 'legenda' && <>
