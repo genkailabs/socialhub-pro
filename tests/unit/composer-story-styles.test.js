@@ -7,14 +7,15 @@ import { layerBoxStyle, layerLineBgStyle } from '@/lib/composer-layer-style';
 import { buildComposerLayersSvg, emojiAssetFile, prepareLayersForSvg } from '@/lib/composer-media-render';
 
 describe('melhorias do Composer de Story (PRD)', () => {
-  it('disponibiliza os 13 estilos prontos e os 13 stickers do PRD', () => {
+  it('disponibiliza os 13 estilos prontos e os 15 stickers do PRD', () => {
     expect(TEXT_STYLES.map((style) => style.label)).toEqual([
       'Moderno', 'Forte', 'Editorial', 'Clássico', 'Manuscrito', 'Máquina',
       'Divertido', 'Elegante', 'Destaque', 'Contornado', 'Sombreado', 'Faixa', 'Etiqueta'
     ]);
     expect(SOCIALHUB_STICKERS.map((sticker) => sticker.label)).toEqual([
       'Novo', 'Oferta', 'Promoção', 'Saiba mais', 'Clique aqui', 'Link na bio',
-      'Últimas vagas', 'Lançamento', 'Em breve', 'Frete grátis', 'Desconto', 'Confira', 'Aproveite'
+      'Últimas vagas', 'Lançamento', 'Em breve', 'Frete grátis', 'Desconto',
+      'Arraste para cima', 'Confira', 'Aproveite', 'Vagas limitadas'
     ]);
   });
 
