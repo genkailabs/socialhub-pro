@@ -356,12 +356,14 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
 
   function setRatio(ratio) {
     mutateDoc((doc, current) => {
-      const targetSurface = getSurface(doc, current.format);
-      if (targetSurface.media) {
-        targetSurface.bg = fitMediaToCanvas(
-          { width: targetSurface.media.width, height: targetSurface.media.height },
-          canvasSize(current.format, ratio)
-        );
+      const canvas = canvasSize(current.format, ratio);
+      // Carrossel usa uma proporção só para todos os slides — reenquadra cada
+      // um; nos demais formatos só existe a superfície ativa.
+      const surfaces = current.format === 'carrossel' ? doc.carrossel.slides : [getSurface(doc, current.format)];
+      for (const item of surfaces) {
+        if (item?.media) {
+          item.bg = fitMediaToCanvas({ width: item.media.width, height: item.media.height }, canvas);
+        }
       }
     });
     setState((current) => ({ ...current, ratio, sel: current.sel === 'bg' ? 'bg' : null }));
@@ -911,7 +913,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
           <div className={styles.panelHead}><span>{TOOLS.find(([id]) => id === tool)?.[2]}</span><IconButton title="Fechar painel" onClick={() => setTool(null)}><X size={14} /></IconButton></div>
           {tool === 'formato' && <>
             {Object.entries(FORMAT_META).map(([id, meta]) => <button key={id} className={`${styles.formatCard} ${state.format === id ? styles.activeCard : ''}`} onClick={() => setFormat(id)}><strong>{meta[0]}</strong><span>{meta[1]}</span></button>)}
-            {state.format === 'post' && <><div className={styles.sectionLabel}>PROPORÇÃO</div><div className={styles.segment}>{Object.keys(COMPOSER_FORMATS.post.ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => setRatio(ratio)}>{ratio}</button>)}</div></>}
+            {Object.keys(COMPOSER_FORMATS[state.format].ratios).length > 1 && <><div className={styles.sectionLabel}>PROPORÇÃO</div><div className={styles.segment}>{Object.keys(COMPOSER_FORMATS[state.format].ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => setRatio(ratio)}>{ratio}</button>)}</div></>}
           </>}
           {tool === 'midia' && <>
             {!surface.media ? (
@@ -1056,7 +1058,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
         <main className={styles.stage}>
           <div className={styles.formatBar}>
             <div className={styles.segment}>{Object.entries(FORMAT_META).map(([id, meta]) => <button key={id} className={state.format === id ? styles.selected : ''} onClick={() => setFormat(id)}>{meta[0]}</button>)}</div>
-            {state.format === 'post' && <div className={styles.segment}>{Object.keys(COMPOSER_FORMATS.post.ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => setRatio(ratio)}>{ratio}</button>)}</div>}
+            {Object.keys(COMPOSER_FORMATS[state.format].ratios).length > 1 && <div className={styles.segment}>{Object.keys(COMPOSER_FORMATS[state.format].ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => setRatio(ratio)}>{ratio}</button>)}</div>}
             {state.format === 'carrossel' && <span className={styles.chip}>Slide {state.doc.carrossel.active + 1} de {state.doc.carrossel.slides.length}</span>}
           </div>
           <div className={styles.canvasRegion} ref={regionRef} onPointerDown={() => setState((current) => ({ ...current, sel: null, editing: null }))}>
@@ -1094,7 +1096,6 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
                       testId="canvas-media"
                     />
                   : <label className={styles.empty} aria-label="Importar midia pelo canvas">
-                      <div><Upload size={25} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small></div>
                       <input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} />
                     </label>}
                 {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={`${styles.layer} ${state.sel === layer.id ? styles.selectedLayer : ''}`} style={{ ...layerBoxStyle(layer), cursor: layer.locked ? 'default' : 'move' }} onPointerDown={(e) => beginGesture('move', e, layer)} onDoubleClick={(e) => { e.stopPropagation(); if (layer.type === 'text' || layer.type === 'button') setState((current) => ({ ...current, editing: layer.id, sel: layer.id })); }}>

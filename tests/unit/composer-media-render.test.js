@@ -22,6 +22,9 @@ describe('renderizacao final da midia do Composer', () => {
   it('usa as dimensoes finais oficiais de cada formato', () => {
     expect(composerOutputSize('post', '1:1')).toEqual([1080, 1080]);
     expect(composerOutputSize('post', '4:5')).toEqual([1080, 1350]);
+    expect(composerOutputSize('post', '3:4')).toEqual([1080, 1440]);
+    expect(composerOutputSize('post', '1.91:1')).toEqual([1080, 566]);
+    expect(composerOutputSize('carrossel', '4:5')).toEqual([1080, 1350]);
     expect(composerOutputSize('story', '9:16')).toEqual([1080, 1920]);
     expect(composerOutputSize('reel', '9:16')).toEqual([1080, 1920]);
   });

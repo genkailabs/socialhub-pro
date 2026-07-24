@@ -17,7 +17,9 @@ describe('novo Composer visual', () => {
 
   it('calcula dimensões oficiais e converte formatos para a API existente', () => {
     expect(canvasSize('post', '4:5')).toEqual([384, 480]);
+    expect(canvasSize('post', '3:4')).toEqual([384, 512]);
     expect(canvasSize('post', '1.91:1')).toEqual([600, 314]);
+    expect(canvasSize('carrossel', '4:5')).toEqual([384, 480]);
     expect(canvasSize('story')).toEqual([292, 519]);
     expect(toApiFormat('carrossel')).toBe('carousel');
     expect(toApiFormat('story')).toBe('stories');
