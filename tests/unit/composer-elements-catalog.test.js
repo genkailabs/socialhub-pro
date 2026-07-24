@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ELEMENT_LINES, ELEMENT_SHAPES, SOCIALHUB_STICKERS } from '@/lib/composer-text-styles';
 import { ELEMENT_ICON_MAP, ELEMENT_VECTOR_ICONS, iconLayerPreset } from '@/data/element-icons';
 import { EMOJI_CATEGORIES, EMOJI_NAMES, normalizeSearch, searchEmojis } from '@/data/emoji-catalog';
+import { addLayer, makeSurface, serializeComposer } from '@/lib/composer-editor';
 
 describe('catálogo de elementos (PRD Elementos §5, §7, §10)', () => {
   it('disponibiliza as 11 formas do PRD', () => {
@@ -91,5 +92,24 @@ describe('busca de emojis (PRD Elementos §12)', () => {
     expect(searchEmojis('pizza')).toEqual(['🍕']);
     expect(searchEmojis('')).toEqual([]);
     expect(searchEmojis('zzz-nada')).toEqual([]);
+  });
+});
+
+describe('persistência dos elementos (PRD Elementos §15)', () => {
+  it('serializa todas as propriedades novas das camadas', () => {
+    const surface = makeSurface();
+    addLayer(surface, { type: 'shape', shape: 'star', fill: '#FFD60A', strokeW: 2, strokeColor: '#111', shOn: true }, [430, 430], 'l1');
+    addLayer(surface, { type: 'line', dash: 'dotted', cap: 'round', fill: '#FFF' }, [430, 430], 'l2');
+    addLayer(surface, { type: 'arrow', heads: 2, curve: true, fill: '#FFF' }, [430, 430], 'l3');
+    addLayer(surface, { type: 'icon', icon: 'whatsapp', color: '#25D366' }, [430, 430], 'l4');
+    const state = { doc: { post: surface }, format: 'post', undoStack: [1], redoStack: [2], sel: 'l1', editing: 'l1' };
+    const saved = serializeComposer(state);
+    const [shape, line, arrow, icon] = saved.doc.post.layers;
+    expect(shape).toMatchObject({ shape: 'star', strokeW: 2, shOn: true, locked: false, hidden: false });
+    expect(line).toMatchObject({ dash: 'dotted', cap: 'round' });
+    expect(arrow).toMatchObject({ heads: 2, curve: true });
+    expect(icon).toMatchObject({ type: 'icon', icon: 'whatsapp', color: '#25D366' });
+    expect(saved.undoStack).toBeUndefined();
+    expect(saved.sel).toBeUndefined();
   });
 });
