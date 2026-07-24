@@ -1,4 +1,4 @@
-# Composer de Reels Implementation Plan
+﻿# Composer de Reels Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -36,7 +36,7 @@
 - Create: `lib/composer-reel.js`
 - Test: `tests/unit/composer-reel.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/unit/composer-reel.test.js
@@ -134,12 +134,12 @@ describe('estado do Reel (PRD Reels §1, §5, §7)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-reel.test.js`
 Expected: FAIL — `lib/composer-reel.js` não existe.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```js
 // lib/composer-reel.js
@@ -263,12 +263,12 @@ export function validateReelMedia({ media, video } = {}) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/composer-reel.test.js`
 Expected: PASS (7 testes)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/composer-reel.js tests/unit/composer-reel.test.js
@@ -283,7 +283,7 @@ git commit -m "feat(composer): estado e regras do Reel (trim, audio, capa, valid
 - Modify: `lib/composer-editor.js` (`makeComposerDocument`, `getSurface`, `validateComposer`)
 - Test: `tests/unit/composer-reel.test.js` (acrescentar bloco)
 
-- [ ] **Step 1: Write the failing test** (acrescentar ao arquivo da Task 1)
+- [x] **Step 1: Write the failing test** (acrescentar ao arquivo da Task 1)
 
 ```js
 import { getSurface, makeComposerDocument, validateComposer } from '@/lib/composer-editor';
@@ -319,12 +319,12 @@ describe('documento do Composer com Reel (PRD Reels §1, §7)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-reel.test.js`
 Expected: FAIL — `getReelState` não existe e `doc.reel` ainda tem `cover: 0`.
 
-- [ ] **Step 3: Add `getReelState` to `lib/composer-reel.js`**
+- [x] **Step 3: Add `getReelState` to `lib/composer-reel.js`**
 
 ```js
 // Lê o estado do reel a partir do documento do Composer, sempre normalizado.
@@ -333,7 +333,7 @@ export function getReelState(doc) {
 }
 ```
 
-- [ ] **Step 4: Update `lib/composer-editor.js`**
+- [x] **Step 4: Update `lib/composer-editor.js`**
 
 Trocar o import inicial (topo do arquivo) e o reel de `makeComposerDocument`:
 
@@ -361,12 +361,12 @@ E dentro de `validateComposer`, logo depois da checagem `if (!surface?.media)`, 
   }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `npx vitest run tests/unit/composer-reel.test.js tests/unit/composer-editor.test.js`
 Expected: PASS. Se `composer-editor.test.js` assertar `reel: { ..., cover: 0 }`, atualizar a asserção para o novo formato (`cover` objeto, `video`, `audio`).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/composer-editor.js lib/composer-reel.js tests/unit/composer-reel.test.js tests/unit/composer-editor.test.js
@@ -381,7 +381,7 @@ git commit -m "feat(composer): documento do Reel com video, audio e capa"
 - Modify: `lib/composer-media-render.js` (`renderComposerVideo`, novo `buildReelFfmpegArgs`)
 - Test: `tests/unit/composer-reel-render.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/unit/composer-reel-render.test.js
@@ -459,12 +459,12 @@ describe('args do ffmpeg para o Reel (PRD Reels §1, §5, §6)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-reel-render.test.js`
 Expected: FAIL — `buildReelFfmpegArgs` não é exportado.
 
-- [ ] **Step 3: Implement the args builder in `lib/composer-media-render.js`**
+- [x] **Step 3: Implement the args builder in `lib/composer-media-render.js`**
 
 Acrescentar depois de `buildComposerVideoFilter`:
 
@@ -535,7 +535,7 @@ export function buildReelFfmpegArgs({
 }
 ```
 
-- [ ] **Step 4: Use the builder in `renderComposerVideo`**
+- [x] **Step 4: Use the builder in `renderComposerVideo`**
 
 Trocar a assinatura e o corpo de `renderComposerVideo` (o bloco `await runFfmpeg([...])` inteiro) por:
 
@@ -572,12 +572,12 @@ export async function renderComposerVideo({ source, extension, transform, canvas
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `npx vitest run tests/unit/composer-reel-render.test.js tests/unit/composer-media-render.test.js`
 Expected: PASS — inclusive o teste que roda ffmpeg de verdade em `composer-media-render.test.js`, provando que a linha de comando nova continua produzindo vídeo válido.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/composer-media-render.js tests/unit/composer-reel-render.test.js
@@ -593,7 +593,7 @@ git commit -m "feat(composer): render do Reel com corte, volume e audio proprio"
 - Modify: `lib/posts-actions.js` (usar `prepared.coverUrl`)
 - Test: `tests/unit/composer-reel-cover.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/unit/composer-reel-cover.test.js
@@ -616,12 +616,12 @@ describe('capa do Reel (PRD Reels §2)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-reel-cover.test.js`
 Expected: FAIL — `buildFrameFfmpegArgs` não existe.
 
-- [ ] **Step 3: Implement frame extraction in `lib/composer-media-render.js`**
+- [x] **Step 3: Implement frame extraction in `lib/composer-media-render.js`**
 
 ```js
 // Extrai um quadro do vídeo JÁ RENDERIZADO — a capa mostra os textos e
@@ -646,7 +646,7 @@ export async function renderReelCoverFrame({ videoBytes, timeMs }) {
 }
 ```
 
-- [ ] **Step 4: Wire trim, audio and cover into `prepareComposerMedia`**
+- [x] **Step 4: Wire trim, audio and cover into `prepareComposerMedia`**
 
 Dentro de `prepareComposerMedia`, no ramo de vídeo, passar o estado do reel e produzir a capa. Substituir a chamada `renderComposerVideo({...})` por:
 
@@ -712,7 +712,7 @@ Acrescentar o import no topo do arquivo:
 import { normalizeReelState } from '@/lib/composer-reel';
 ```
 
-- [ ] **Step 5: Use the generated cover in `lib/posts-actions.js`**
+- [x] **Step 5: Use the generated cover in `lib/posts-actions.js`**
 
 Em `publishNow` e em `schedulePost`, logo após o `prepared = await prepareComposerMedia({...})`, a capa gerada tem prioridade sobre a que veio do cliente (ela reflete o vídeo final):
 
@@ -722,12 +722,12 @@ Em `publishNow` e em `schedulePost`, logo após o `prepared = await prepareCompo
 
 Em `publishNow` o parâmetro chega como `coverUrl = null` (já é `let`? se estiver declarado como parâmetro const-like, usar uma variável local `let effectiveCoverUrl = prepared?.coverUrl || coverUrl;` e substituir os usos de `coverUrl` daí para baixo — há usos em `syncPostsMedia`, `cover_url` e `finalizePublishedTempMedia`).
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `npx vitest run tests/unit/composer-reel-cover.test.js tests/unit/composer-media-render.test.js tests/unit/composer-media-lifecycle.test.js tests/unit/composer-unified.test.js`
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add lib/composer-media-render.js lib/posts-actions.js tests/unit/composer-reel-cover.test.js
@@ -742,7 +742,7 @@ git commit -m "feat(composer): capa do Reel extraida do video final"
 - Create: `components/composer/ReelTimeline.jsx`
 - Test: `tests/unit/composer-reel-timeline.test.jsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```jsx
 // tests/unit/composer-reel-timeline.test.jsx
@@ -830,12 +830,12 @@ describe('timeline do Reel (PRD Reels §3)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-reel-timeline.test.jsx`
 Expected: FAIL — componente não existe.
 
-- [ ] **Step 3: Write `components/composer/ReelTimeline.jsx`**
+- [x] **Step 3: Write `components/composer/ReelTimeline.jsx`**
 
 ```jsx
 // Linha do tempo do Reel (PRD Reels §3): régua de tempo, corte e faixas de
@@ -917,12 +917,12 @@ export function ReelTimeline({ duration, current, playing, video, audio, layers 
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/composer-reel-timeline.test.jsx`
 Expected: PASS (8 testes). O teste do trim espera os valores já clampados — conferir que `clampTrim` devolve exatamente `{ start: 5, end: 20 }` e `{ start: 2, end: 25 }` para esses inputs.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/composer/ReelTimeline.jsx tests/unit/composer-reel-timeline.test.jsx
@@ -937,7 +937,7 @@ git commit -m "feat(composer): linha do tempo do Reel com faixas e corte"
 - Create: `components/composer/ReelVideoPanel.jsx`
 - Test: `tests/unit/composer-reel-panel.test.jsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```jsx
 // tests/unit/composer-reel-panel.test.jsx
@@ -1020,12 +1020,12 @@ describe('painel de vídeo do Reel (PRD Reels §1, §2, §5)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-reel-panel.test.jsx`
 Expected: FAIL — componente não existe.
 
-- [ ] **Step 3: Write `components/composer/ReelVideoPanel.jsx`**
+- [x] **Step 3: Write `components/composer/ReelVideoPanel.jsx`**
 
 ```jsx
 // Painel Mídia quando o formato é Reel (PRD Reels §1, §2, §5). Só cuida de
@@ -1095,12 +1095,12 @@ export function ReelVideoPanel({
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/composer-reel-panel.test.jsx`
 Expected: PASS (7 testes)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/composer/ReelVideoPanel.jsx tests/unit/composer-reel-panel.test.jsx
@@ -1115,7 +1115,7 @@ git commit -m "feat(composer): painel de video, audio e capa do Reel"
 - Modify: `components/composer/VisualComposer.jsx`
 - Test: `tests/unit/composer-reel-editor.test.jsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```jsx
 // tests/unit/composer-reel-editor.test.jsx
@@ -1214,12 +1214,12 @@ describe('editor de Reel (PRD Reels §3, §4, §6, §7)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/composer-reel-editor.test.jsx`
 Expected: FAIL — timeline e camada de vídeo não existem.
 
-- [ ] **Step 3: Wire the reel state, clock and panels into `components/composer/VisualComposer.jsx`**
+- [x] **Step 3: Wire the reel state, clock and panels into `components/composer/VisualComposer.jsx`**
 
 3a. Imports novos:
 
@@ -1432,12 +1432,12 @@ Dentro de `LayersPanel`, antes da lista de camadas:
   }, [currentTime]);
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/unit/composer-reel-editor.test.jsx tests/unit/composer-media-canvas.test.jsx tests/unit/composer-elements-panel.test.jsx tests/unit/composer-delete-key.test.jsx`
 Expected: PASS. Se algum teste antigo procurar o slider `0..23` ou os botões `Selecionar capa N`, atualizar para a timeline.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/composer/VisualComposer.jsx tests/unit/composer-reel-editor.test.jsx
@@ -1451,7 +1451,7 @@ git commit -m "feat(composer): editor de Reel com relogio unico, timeline e cama
 **Files:**
 - Modify: `components/composer/VisualComposer.module.css`
 
-- [ ] **Step 1: Append the new classes**
+- [x] **Step 1: Append the new classes**
 
 Acrescentar como uma linha nova ao final do arquivo (o arquivo é minificado, uma regra por linha lógica):
 
@@ -1459,12 +1459,12 @@ Acrescentar como uma linha nova ao final do arquivo (o arquivo é minificado, um
 .timeline{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:min(620px,94%);background:var(--vc-panel);border:1px solid var(--vc-border);border-radius:12px;padding:8px 12px;font-size:10px}.timelineEmpty{color:var(--vc-faint);text-align:center;margin:4px 0}.timelineHead{display:flex;align-items:center;gap:8px}.timelineHead input[type=range]{flex:1;min-width:0}.timelineClock{font:10px ui-monospace,monospace;color:var(--vc-sub);white-space:nowrap}.timelineTracks{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;max-height:104px;overflow:auto}.timelineTrack{display:grid;grid-template-columns:62px 1fr;align-items:center;gap:8px;color:var(--vc-sub)}.timelineTrackName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.timelineBar{position:relative;height:14px;border-radius:5px;background:var(--vc-track);overflow:hidden}.timelineClip{position:absolute;top:0;bottom:0;background:var(--vc-accentSoft);border-left:2px solid var(--vc-accent);border-right:2px solid var(--vc-accent)}.timelineMuted{opacity:.45}.timelinePlayhead{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--vc-danger)}.timelineTrim{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}.timelineTrim label{display:grid;grid-template-columns:34px 1fr 34px;align-items:center;gap:6px;color:var(--vc-sub)}.timelineTrim em{font-style:normal;font:10px ui-monospace,monospace;color:var(--vc-faint);text-align:right}.hint{font-size:10.5px;line-height:1.45;color:var(--vc-faint);margin:6px 0}.coverPreview{width:100%;border-radius:10px;border:1px solid var(--vc-border);display:block;margin-bottom:8px}.coverProfile{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--vc-faint);font-size:10px}.coverProfileThumb{width:44px;height:44px;flex:none;border-radius:8px;border:1px solid var(--vc-border);background:var(--vc-input) center/cover no-repeat}
 ```
 
-- [ ] **Step 2: Verify the panel still renders**
+- [x] **Step 2: Verify the panel still renders**
 
 Run: `npx vitest run tests/unit/composer-reel-timeline.test.jsx tests/unit/composer-reel-panel.test.jsx`
 Expected: PASS
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add components/composer/VisualComposer.module.css
@@ -1475,17 +1475,17 @@ git commit -m "style(composer): estilos da timeline e do painel de Reel"
 
 ### Task 9: Verificação completa
 
-- [ ] **Step 1: Full suite**
+- [x] **Step 1: Full suite**
 
 Run: `npm test`
 Expected: todos os testes passam. Corrigir regressões antes de seguir.
 
-- [ ] **Step 2: Build de produção**
+- [x] **Step 2: Build de produção**
 
 Run: `npm run build`
 Expected: build sem erros.
 
-- [ ] **Step 3: Prova de vídeo real (obrigatória — ver memória do projeto)**
+- [x] **Step 3: Prova de vídeo real (obrigatória — ver memória do projeto)**
 
 Escrever um teste temporário em `tests/unit/zz-reel-proof.test.js` que gere um MP4 de teste com ffmpeg (`testsrc` + `sine`), rode `renderComposerVideo` com trim (`start: 1, end: 4`), `muted: false`, `volume: 0.5` e duas camadas (um texto e um ícone), grave o resultado no scratchpad e extraia a capa com `renderReelCoverFrame` em `timeMs: 2000`. Conferir com `ffprobe`/`sharp`:
 - duração do arquivo ≈ 3s (o trim foi aplicado);
@@ -1495,11 +1495,11 @@ Escrever um teste temporário em `tests/unit/zz-reel-proof.test.js` que gere um 
 
 Abrir o PNG da capa e conferir visualmente. Remover o teste temporário depois.
 
-- [ ] **Step 4: Verificação no app**
+- [x] **Step 4: Verificação no app**
 
 Subir o dev server (`preview_start` com `socialhub-dev`), abrir o Composer no formato Reel, subir um vídeo e conferir: timeline com duração real, play/pause, corte movendo o trecho, silenciar áudio, enviar áudio próprio, escolher frame de capa, camada "Vídeo" no painel e prévia acompanhando o tempo. Tirar screenshot. Se a tela estiver atrás de login e não for possível ver, dizer isso explicitamente em vez de afirmar que está certo.
 
-- [ ] **Step 5: Commit final (se houve ajustes)**
+- [x] **Step 5: Commit final (se houve ajustes)**
 
 ```bash
 git add -A
