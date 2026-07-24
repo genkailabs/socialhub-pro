@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   REEL_MAX_SECONDS, REEL_MIN_SECONDS, clampTrim, formatTimecode, makeReelState,
-  normalizeReelState, reelClipDuration, validateReelMedia
+  getReelState, normalizeReelState, reelClipDuration, validateReelMedia
 } from '@/lib/composer-reel';
+import { getSurface, makeComposerDocument, validateComposer } from '@/lib/composer-editor';
 
 describe('estado do Reel (PRD Reels §1, §5, §7)', () => {
   it('cria o estado padrão do reel', () => {
@@ -88,5 +89,34 @@ describe('estado do Reel (PRD Reels §1, §5, §7)', () => {
     });
     expect(pequeno.ok).toBe(true);
     expect(pequeno.warnings[0]).toContain('resolução');
+  });
+});
+
+describe('documento do Composer com Reel (PRD Reels §1, §7)', () => {
+  it('cria o reel com estado de vídeo, áudio e capa', () => {
+    const doc = makeComposerDocument();
+    expect(doc.reel.video).toEqual({ start: 0, end: null, volume: 1, muted: false });
+    expect(doc.reel.audio).toBeNull();
+    expect(doc.reel.cover).toMatchObject({ mode: 'frame', timeMs: 0 });
+    expect(doc.reel.layers).toEqual([]);
+  });
+
+  it('lê o estado do reel normalizando documentos antigos', () => {
+    expect(getReelState({ reel: { cover: 2 } }).cover.timeMs).toBe(10000);
+    expect(getReelState({}).video.start).toBe(0);
+  });
+
+  it('valida o Reel na publicação', () => {
+    const doc = makeComposerDocument();
+    const surface = getSurface(doc, 'reel');
+    surface.media = { kind: 'video', duration: 30, width: 1080, height: 1920, type: 'video/mp4', url: 'https://x/v.mp4' };
+    doc.reel.video = { start: 0, end: 20, volume: 1, muted: false };
+    const okState = { doc, format: 'reel', caption: '', hashtags: '' };
+    expect(validateComposer(okState)).toEqual({ ok: true, errors: [] });
+
+    doc.reel.video = { start: 0, end: 2, volume: 1, muted: false };
+    const shortState = { doc, format: 'reel', caption: '', hashtags: '' };
+    expect(validateComposer(shortState).ok).toBe(false);
+    expect(validateComposer(shortState).errors[0]).toContain('3 segundos');
   });
 });
