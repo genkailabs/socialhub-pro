@@ -81,6 +81,8 @@ URL de produção: https://socialhub-mvp-production.up.railway.app
 2. Configurar env vars (as `NEXT_PUBLIC_*` e as de servidor) no painel do Railway.
 3. No Supabase Auth, adicionar `https://socialhub-mvp-production.up.railway.app/auth/callback` em **Redirect URLs**.
 
+**Como sobe para produção:** o serviço está ligado ao repositório no GitHub (Service → Settings → Source), branch `main`, com Auto Deploy. Push em `main` = build e deploy; não há `railway up` manual no fluxo normal. Para acompanhar: `railway status` e `railway logs --build`.
+
 Headers de segurança são definidos em `next.config.js`.
 
 ---
