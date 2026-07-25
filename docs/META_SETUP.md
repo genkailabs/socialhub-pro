@@ -29,7 +29,10 @@ Guia para habilitar o **connect real do Instagram** (OAuth). Você faz os passos
 
 ## 3. Permissões / modo do app
 
-- Escopos usados: `public_profile, pages_show_list, pages_read_engagement, instagram_basic, instagram_content_publish, business_management`.
+- Escopos pedidos sempre (`REQUIRED_SCOPES` em `lib/meta/scopes.js`): `public_profile, pages_show_list, pages_read_engagement, instagram_basic, instagram_content_publish, business_management`.
+- Escopos **opt-in** (`META_OPTIONAL_SCOPES`): `instagram_manage_insights` (alcance/impressões/salvamentos no diagnóstico) e `pages_manage_posts` (publicar na Página do Facebook).
+- ⚠️ Pedir permissão que o app **não declarou** faz a Meta responder `Invalid Scopes: ...` e o diálogo inteiro morre em "Este conteúdo não está disponível no momento" — ninguém conecta conta nenhuma. Por isso as duas acima só entram no pedido depois de existirem no painel.
+- Para liberar uma delas: **Painel do app → Casos de uso → Personalizar → Adicionar** a permissão (ou App Review, se exigir). Depois defina `META_OPTIONAL_SCOPES=instagram_manage_insights,pages_manage_posts` e **reconecte a conta** — token já emitido mantém as permissões antigas.
 - Em **modo de Desenvolvimento**, esses escopos funcionam para quem tem **papel no app** (admin/dev/testador) — perfeito para você testar.
 - Para **outros usuários** (produção), a Meta exige **Revisão do App** (App Review) desses escopos + **Verificação de Negócio**. Fica para depois.
 
@@ -40,7 +43,8 @@ Abra `H:\GERENCIADOR REDES SOCIAIS\.env.local` e preencha (descomente as linhas)
 ```
 META_APP_ID=seu_app_id
 META_APP_SECRET=o_novo_secret_rotacionado
-META_OAUTH_SCOPES=public_profile,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management
+# vazio = pede só os obrigatórios; preencha quando liberar no painel da Meta
+META_OPTIONAL_SCOPES=
 APP_URL=http://localhost:3000
 ```
 
