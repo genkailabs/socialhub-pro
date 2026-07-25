@@ -6,6 +6,7 @@ import { listConnectedPlatforms } from '@/lib/social-tokens-data';
 import { PlatformCard } from '@/components/connections/PlatformCard';
 import { ConnectionsBanner } from '@/components/connections/ConnectionsBanner';
 import { ConnectionsSummary } from '@/components/connections/ConnectionsSummary';
+import { MascotTip } from '@/components/onboarding/MascotTip';
 
 export default async function ConnectionsPage() {
   const brands = await listBrands();
@@ -43,6 +44,16 @@ export default async function ConnectionsPage() {
       </header>
 
       <Suspense><ConnectionsBanner /></Suspense>
+
+      <MascotTip
+        id="connections"
+        title="Conectar é o que torna tudo real."
+        lines={[
+          'Instagram e Facebook entram por OAuth da Meta: publicação e métricas saem da conta de verdade.',
+          'Cada rede se liga uma vez por marca — o acesso fica salvo até você revogar.',
+          'O que está em “Em breve” ainda não publica. Prefiro avisar a prometer.'
+        ]}
+      />
 
       {active && (
         <ConnectionsSummary

@@ -5,7 +5,7 @@ import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listStrategies } from '@/lib/planning-data';
 import { getPipeline } from '@/lib/pipeline';
-import { PipelineProgress } from '@/components/onboarding/PipelineProgress';
+import { FlowStepper } from '@/components/onboarding/FlowStepper';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
 
 export default async function StrategyPage() {
@@ -35,7 +35,7 @@ export default async function StrategyPage() {
         {active && <BrandBadge name={active.name} color={active.color} size={44} />}
       </div>
 
-      {active && <PipelineProgress pipeline={pipeline} />}
+      {active && <FlowStepper pipeline={pipeline} />}
 
       {!active ? (
         <EmptyState title="Nenhuma marca selecionada" icon={Sparkles}>

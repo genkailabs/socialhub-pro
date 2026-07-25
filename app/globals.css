@@ -108,3 +108,29 @@
 .animate-socialhub-loader {
   animation: socialhub-loader 1.1s cubic-bezier(.55, .15, .35, .85) infinite;
 }
+
+/* Mascote guia (components/onboarding/Mascot.jsx): flutuação e antena. */
+@keyframes mascot-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes mascot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+.animate-mascot-bob {
+  animation: mascot-bob 2.6s ease-in-out infinite;
+}
+
+.animate-mascot-pulse {
+  animation: mascot-pulse 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-mascot-bob,
+  .animate-mascot-pulse {
+    animation: none;
+  }
+}
