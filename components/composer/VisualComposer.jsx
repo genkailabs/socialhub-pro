@@ -98,6 +98,24 @@ async function readFileDimensions(file, kind) {
   }
 }
 
+// Campos onde Delete/Backspace significam "apagar caractere". Só estes seguram a
+// tecla: slider, seletor de cor e input de arquivo não digitam nada, e barrá-los
+// deixava o usuário sem conseguir excluir a camada depois de mexer numa
+// propriedade.
+const TEXT_ENTRY_TYPES = new Set([
+  'text', 'search', 'url', 'tel', 'email', 'password', 'number',
+  'date', 'datetime-local', 'month', 'week', 'time'
+]);
+
+function isTextEntry(target) {
+  if (!target) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName || '';
+  if (tag === 'TEXTAREA') return true;
+  if (tag !== 'INPUT') return false;
+  return TEXT_ENTRY_TYPES.has(String(target.type || 'text').toLowerCase());
+}
+
 function formatFileSize(bytes) {
   const size = Number(bytes);
   if (!Number.isFinite(size) || size <= 0) return 'Arquivo temporário';
@@ -301,8 +319,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
   useEffect(() => {
     function onDeleteKey(event) {
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-      const target = event.target;
-      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || ''))) return;
+      if (isTextEntry(event.target)) return;
       const current = stateRef.current;
       if (!current.sel || current.editing) return;
       const currentSurface = getSurface(current.doc, current.format);
@@ -917,7 +934,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
           </>}
           {tool === 'midia' && <>
             {!surface.media ? (
-              <label className={styles.upload}><Upload size={22} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small><input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} /></label>
+              <label className={styles.upload} aria-label="Importar mídia"><Upload size={22} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small><input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} /></label>
             ) : (
               <>
                 <div className={styles.sectionLabel}>ARQUIVO ATUAL</div>
@@ -1095,9 +1112,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', initialDraft
                       volume={state.format === 'reel' ? reel.video.volume : undefined}
                       testId="canvas-media"
                     />
-                  : <label className={styles.empty} aria-label="Importar midia pelo canvas">
-                      <input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} />
-                    </label>}
+                  : null}
                 {surface.layers.map((layer) => !layer.hidden && <div key={layer.id} className={`${styles.layer} ${state.sel === layer.id ? styles.selectedLayer : ''}`} style={{ ...layerBoxStyle(layer), cursor: layer.locked ? 'default' : 'move' }} onPointerDown={(e) => beginGesture('move', e, layer)} onDoubleClick={(e) => { e.stopPropagation(); if (layer.type === 'text' || layer.type === 'button') setState((current) => ({ ...current, editing: layer.id, sel: layer.id })); }}>
                   {state.editing === layer.id
                     ? <LayerTextEditor

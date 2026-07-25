@@ -43,6 +43,16 @@ describe('tecla Delete no canvas', () => {
     await waitFor(() => expect(screen.getByText('Adicione textos, formas ou figurinhas ao canvas.')).toBeTruthy());
   });
 
+  // Regressão: o guard antigo ignorava qualquer INPUT, então depois de encostar
+  // num slider de propriedade (ou no input de arquivo do canvas) a tecla Delete
+  // virava no-op e o usuário não conseguia mais apagar nada.
+  it('Delete remove a camada mesmo com o foco num controle que não é de texto', async () => {
+    await renderWithSelectedLayer();
+    const opacity = screen.getByLabelText('Opacidade do elemento');
+    fireEvent.keyDown(opacity, { key: 'Delete' });
+    await waitFor(() => expect(screen.getByText('Adicione textos, formas ou figurinhas ao canvas.')).toBeTruthy());
+  });
+
   it('não remove a camada enquanto o usuário digita em um campo', async () => {
     await renderWithSelectedLayer();
     fireEvent.click(screen.getByRole('button', { name: /Legenda/ }));

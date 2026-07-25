@@ -48,8 +48,9 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 async function renderReelWithVideo() {
   render(<VisualComposer brandId="brand-1" brandName="Marca" />);
   fireEvent.click(screen.getAllByRole('button', { name: 'Reel' })[0]);
-  const canvasUpload = screen.getByLabelText('Importar midia pelo canvas');
-  const input = canvasUpload.matches('input') ? canvasUpload : canvasUpload.querySelector('input');
+  // Importação mora no painel Mídia; o canvas vazio não abre mais o seletor.
+  fireEvent.click(screen.getByRole('button', { name: /Mídia|Midia/ }));
+  const input = screen.getByLabelText('Importar mídia').querySelector('input[type="file"]');
   fireEvent.change(input, { target: { files: [new File(['v'], 'reel.mp4', { type: 'video/mp4' })] } });
   const box = await screen.findByTestId('canvas-media');
   const element = box.querySelector('video');
@@ -57,6 +58,8 @@ async function renderReelWithVideo() {
   Object.defineProperty(element, 'videoWidth', { configurable: true, value: 1080 });
   Object.defineProperty(element, 'videoHeight', { configurable: true, value: 1920 });
   fireEvent.loadedMetadata(element);
+  // Fecha o painel para o teste seguir do mesmo estado de antes (rail sem painel).
+  fireEvent.click(screen.getByRole('button', { name: /Mídia|Midia/ }));
   return element;
 }
 

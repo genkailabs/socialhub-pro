@@ -59,6 +59,12 @@ afterEach(() => {
   localStorage.clear();
 });
 
+// A importação mora no painel Mídia (o canvas vazio não abre mais o seletor).
+function mediaPanelInput() {
+  fireEvent.click(screen.getByRole('button', { name: /Mídia|Midia/ }));
+  return screen.getByLabelText('Importar mídia').querySelector('input[type="file"]');
+}
+
 describe('manipulacao de midia no canvas', () => {
   it('organiza os elementos existentes por categoria e permite buscá-los', () => {
     render(<VisualComposer brandId="brand-1" brandName="socialhub" />);
@@ -79,11 +85,18 @@ describe('manipulacao de midia no canvas', () => {
     expect(screen.getByRole('button', { name: 'Pill' })).toBeTruthy();
   });
 
-  it('abre o upload pelo canvas e adiciona a midia inteira', async () => {
+  // O canvas vazio não importa mais nada: mídia entra só pelo painel Mídia.
+  it('nao oferece importacao pelo canvas vazio', () => {
     render(<VisualComposer brandId="brand-1" brandName="socialhub" />);
 
-    const uploadControl = screen.getByLabelText('Importar midia pelo canvas');
-    const input = uploadControl.matches('input') ? uploadControl : uploadControl.querySelector('input');
+    expect(screen.queryByLabelText('Importar midia pelo canvas')).toBeNull();
+    expect(screen.getByTestId('composer-canvas').querySelector('input[type="file"]')).toBeNull();
+  });
+
+  it('abre o upload pelo painel de midia e adiciona a midia inteira', async () => {
+    render(<VisualComposer brandId="brand-1" brandName="socialhub" />);
+
+    const input = mediaPanelInput();
     const file = new File(['png'], 'campanha.png', { type: 'image/png' });
     fireEvent.change(input, { target: { files: [file] } });
 
@@ -147,8 +160,7 @@ describe('manipulacao de midia no canvas', () => {
     }));
     render(<VisualComposer brandId="brand-1" brandName="socialhub" />);
 
-    const uploadControl = screen.getByLabelText('Importar midia pelo canvas');
-    const input = uploadControl.matches('input') ? uploadControl : uploadControl.querySelector('input');
+    const input = mediaPanelInput();
     fireEvent.change(input, {
       target: { files: [new File(['png'], 'campanha.png', { type: 'image/png' })] }
     });
@@ -172,8 +184,7 @@ describe('manipulacao de midia no canvas', () => {
     }));
     render(<VisualComposer brandId="brand-1" brandName="socialhub" />);
 
-    const uploadControl = screen.getByLabelText('Importar midia pelo canvas');
-    const input = uploadControl.matches('input') ? uploadControl : uploadControl.querySelector('input');
+    const input = mediaPanelInput();
     fireEvent.change(input, {
       target: { files: [new File(['png'], 'campanha.png', { type: 'image/png' })] }
     });
@@ -193,8 +204,7 @@ describe('manipulacao de midia no canvas', () => {
     mocks.uploadTempMedia.mockImplementation(() => new Promise((resolve) => pending.push(resolve)));
     render(<VisualComposer brandId="brand-1" brandName="socialhub" />);
 
-    const uploadControl = screen.getByLabelText('Importar midia pelo canvas');
-    const input = uploadControl.matches('input') ? uploadControl : uploadControl.querySelector('input');
+    const input = mediaPanelInput();
     fireEvent.change(input, { target: { files: [new File(['one'], 'one.png', { type: 'image/png' })] } });
     fireEvent.change(input, { target: { files: [new File(['two'], 'two.png', { type: 'image/png' })] } });
     await waitFor(() => expect(pending).toHaveLength(2));
