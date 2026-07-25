@@ -69,7 +69,7 @@ describe('camada de provedores de texto', () => {
 });
 
 describe('deepseekChat direto', () => {
-  it('mapeia deepseek-v4-flash para deepseek-chat no payload da API mas mantem modelo na resposta', async () => {
+  async function callDeepseek(model) {
     const originalEnv = process.env.DEEPSEEK_API_KEY;
     process.env.DEEPSEEK_API_KEY = 'test-key';
     const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
@@ -79,19 +79,31 @@ describe('deepseekChat direto', () => {
         usage: { prompt_tokens: 1, completion_tokens: 1 }
       })
     });
-    
+
     // We import directly to test deepseekChat unmocked implementation
     const { deepseekChat: actualDeepSeekChat } = await vi.importActual('@/lib/ai/deepseek');
-    const res = await actualDeepSeekChat({ system: 'sys', user: 'usr', model: 'deepseek-v4-flash' });
-    
-    expect(fetchSpy).toHaveBeenCalled();
-    const callArgs = fetchSpy.mock.calls[0];
-    const bodyObj = JSON.parse(callArgs[1].body);
-    expect(bodyObj.model).toBe('deepseek-chat');
-    expect(res.model).toBe('deepseek-v4-flash');
-    
+    const res = await actualDeepSeekChat({ system: 'sys', user: 'usr', model });
+    const sent = JSON.parse(fetchSpy.mock.calls[0][1].body);
+
     fetchSpy.mockRestore();
     if (originalEnv) process.env.DEEPSEEK_API_KEY = originalEnv;
     else delete process.env.DEEPSEEK_API_KEY;
+    return { sent, res };
+  }
+
+  it('envia o nome de modelo aceito pela API em vez do alias aposentado', async () => {
+    const flash = await callDeepseek('deepseek-v4-flash');
+    expect(flash.sent.model).toBe('deepseek-v4-flash');
+    expect(flash.res.model).toBe('deepseek-v4-flash');
+
+    const pro = await callDeepseek('deepseek-v4-pro');
+    expect(pro.sent.model).toBe('deepseek-v4-pro');
+    expect(pro.res.model).toBe('deepseek-v4-pro');
+  });
+
+  it('sobe chamada legada de deepseek-chat como flash mas registra o modelo pedido', async () => {
+    const { sent, res } = await callDeepseek('deepseek-chat');
+    expect(sent.model).toBe('deepseek-v4-flash');
+    expect(res.model).toBe('deepseek-chat');
   });
 });
