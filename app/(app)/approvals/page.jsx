@@ -6,7 +6,7 @@ import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listPostsForBrand, getPostComments } from '@/lib/posts-data';
 import { getPipeline } from '@/lib/pipeline';
-import { PipelineProgress } from '@/components/onboarding/PipelineProgress';
+import { FlowStepper } from '@/components/onboarding/FlowStepper';
 
 export default async function ApprovalsPage() {
   const brands = await listBrands();
@@ -25,7 +25,7 @@ export default async function ApprovalsPage() {
         </p>
       </div>
 
-      {active && <PipelineProgress pipeline={pipeline} />}
+      {active && <FlowStepper pipeline={pipeline} />}
 
       {!active ? (
         <EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState>

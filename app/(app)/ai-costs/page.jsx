@@ -7,6 +7,7 @@ import { getAICostsSummary } from '@/lib/ai-costs-data';
 import { actionLabel, ACTION_OPTIONS, COST_PERIODS } from '@/lib/ai-costs-labels';
 import { formatUsd } from '@/lib/ai/cost';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
+import { MascotTip } from '@/components/onboarding/MascotTip';
 import { listBrands } from '@/lib/brands-data';
 import { createClient } from '@/lib/supabase/server';
 import { canAccessAICosts } from '@/lib/admin-access';
@@ -98,6 +99,16 @@ export default async function AICostsPage({ searchParams }) {
           Detalhamento em tempo real do uso do <strong className="text-ink">DeepSeek (texto & prompt)</strong> e do <strong className="text-ink">Pollinations (imagens & pesquisa)</strong>.
         </p>
       </div>
+
+      <MascotTip
+        id="ai-costs"
+        title="Cada coisa que eu gero tem preço — e ele fica registrado."
+        lines={[
+          'Todo job de texto ou imagem grava provedor, modelo, tokens e custo em dólar.',
+          'O gasto diário mostra para onde o dinheiro foi antes da fatura chegar.',
+          'Dá para abrir o post que originou cada chamada e conferir o que saiu dali.'
+        ]}
+      />
 
       {/* Gasto diário (novo no redesign) */}
       <SpendTrend daily={summary.daily} />

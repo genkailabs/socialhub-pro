@@ -1,6 +1,7 @@
 import { Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PlanningPanel } from '@/components/planning/PlanningPanel';
+import { MascotTip } from '@/components/onboarding/MascotTip';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listStrategies, getWeekPlan } from '@/lib/planning-data';
@@ -31,6 +32,19 @@ export default async function PlanningPage() {
             : 'Crie uma marca primeiro.'}
         </p>
       </div>
+
+      {active && (
+        <MascotTip
+          id="planning"
+          title="Eu proponho a semana, você decide o que vira post."
+          lines={[
+            'Puxo os temas dos próximos 7 dias a partir dos pilares da sua Estratégia.',
+            'Nada é produzido antes da sua aprovação — tema por tema.',
+            'O que você aprovar nasce como rascunho e segue para o Calendário.'
+          ]}
+          cta={{ label: 'Rever a Estratégia', href: '/strategy' }}
+        />
+      )}
 
       {!active ? (
         <EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState>

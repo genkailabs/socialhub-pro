@@ -10,6 +10,7 @@ import { resolveActive } from '@/lib/brands';
 import { getBrandInstagramMetrics, getFollowerHistory } from '@/lib/metrics-data';
 import { hasYoutube, getYoutubeBestTimes, getYoutubeFollowerHistory, getYoutubeVideos } from '@/lib/youtube-data';
 import { normalizeReportChannel, reportSectionForMetric } from '@/lib/reports/channel-adapters';
+import { MascotTip } from '@/components/onboarding/MascotTip';
 
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 
@@ -79,5 +80,14 @@ export default async function MetricsPage({ searchParams = {} }) {
   const channel = normalizeReportChannel(searchParams.channel); const activeSection = reportSectionForMetric(channel, searchParams.metric);
   const instagram = await getBrandInstagramMetrics(active.id); const instagramHistory = instagram?.ok ? await getFollowerHistory(active.id) : [];
   const youtube = await hasYoutube(active.id); const [youtubeHistory, youtubeVideos, bestTimes] = youtube ? await Promise.all([getYoutubeFollowerHistory(active.id), getYoutubeVideos(active.id), getYoutubeBestTimes(active.id)]) : [[], [], []];
-  return <div className="space-y-7"><header className="flex flex-col gap-4 border-b border-line pb-6 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Analise de desempenho</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-ink">Relatorios de {active.name}</h1><p className="mt-1 text-sm text-muted">Dados reais das contas conectadas, separados por canal.</p></div><Link href="/connections" className="inline-flex items-center justify-center rounded-lg border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-ink">Gerenciar conexoes</Link></header><ReportNavigation activeChannel={channel} />{channel === 'instagram' ? <InstagramReport instagram={instagram} history={instagramHistory} activeSection={activeSection} /> : channel === 'youtube' ? <YoutubeReport connected={youtube} history={youtubeHistory} videos={youtubeVideos} bestTimes={bestTimes} activeSection={activeSection} /> : <Overview instagram={instagram} instagramHistory={instagramHistory} youtube={youtube} youtubeHistory={youtubeHistory} youtubeVideos={youtubeVideos} />}</div>;
+  return <div className="space-y-7"><header className="flex flex-col gap-4 border-b border-line pb-6 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Analise de desempenho</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-ink">Relatorios de {active.name}</h1><p className="mt-1 text-sm text-muted">Dados reais das contas conectadas, separados por canal.</p></div><Link href="/connections" className="inline-flex items-center justify-center rounded-lg border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-ink">Gerenciar conexoes</Link></header><MascotTip
+    id="metrics"
+    title="Leio os números de cada rede separadamente."
+    lines={[
+      'Cada canal tem o seu relatório: não somo métricas que significam coisas diferentes.',
+      'Os dados vêm das sincronizações reais das contas conectadas.',
+      'Onde falta dado eu escrevo que falta, em vez de inventar.'
+    ]}
+    cta={{ label: 'Gerenciar conexões', href: '/connections' }}
+  /><ReportNavigation activeChannel={channel} />{channel === 'instagram' ? <InstagramReport instagram={instagram} history={instagramHistory} activeSection={activeSection} /> : channel === 'youtube' ? <YoutubeReport connected={youtube} history={youtubeHistory} videos={youtubeVideos} bestTimes={bestTimes} activeSection={activeSection} /> : <Overview instagram={instagram} instagramHistory={instagramHistory} youtube={youtube} youtubeHistory={youtubeHistory} youtubeVideos={youtubeVideos} />}</div>;
 }
