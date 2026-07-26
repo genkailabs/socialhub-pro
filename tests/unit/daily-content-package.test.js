@@ -73,7 +73,10 @@ describe('daily content package', () => {
   });
 
   it('accepts the trusted Composer opportunity shape, including goal as its objective', () => {
-    const [opportunity] = buildLocalOpportunities({ niche: 'medicina' });
+    const [opportunity] = buildLocalOpportunities({
+      niche: 'medicina',
+      strategy: { status: 'approved', objectives: 'Aumentar autoridade' }
+    });
 
     const result = selectDailyOpportunity({ opportunities: [opportunity] });
 
@@ -83,6 +86,14 @@ describe('daily content package', () => {
       format: opportunity.format,
       reason: 'contextual-opportunity'
     });
+  });
+
+  it('excludes an audit-only opportunity without explicit approval', () => {
+    const [auditOpportunity] = buildLocalOpportunities({
+      audit: { ai_analysis: { opportunities: [{ title: 'Aumentar a frequencia de Reels' }] } }
+    });
+
+    expect(selectDailyOpportunity({ opportunities: [auditOpportunity] })).toBeNull();
   });
 
   it('uses a measured slot when valid and marks the fallback explicitly otherwise', () => {

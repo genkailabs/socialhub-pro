@@ -11,7 +11,7 @@ import {
 describe('buildLocalOpportunities', () => {
   it('prioriza temas planejados e mantem a opcao de sugestao local', () => {
     const opportunities = buildLocalOpportunities({
-      planItems: [{ topic: 'Cuidados apos a consulta', format: 'Carrossel', objective: 'educar' }],
+      planItems: [{ status: 'approved', topic: 'Cuidados apos a consulta', format: 'Carrossel', objective: 'educar' }],
       niche: 'medicina'
     });
 
