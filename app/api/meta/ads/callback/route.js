@@ -45,9 +45,9 @@ export async function GET(request) {
     const { token, expiresIn } = await exchangeForLongLivedToken({ shortToken, appId, appSecret });
     const accounts = await listAdAccounts(token);
     if (accounts.length === 0) return back('A Meta nao devolveu nenhuma conta de anuncios autorizada. Confira ads_read e a conta autorizada no painel Meta.');
-    if (accounts.length > 1) return back('Ha mais de uma conta disponivel. A selecao de multiplas contas sera liberada antes de continuar.');
-
-    const account = accounts[0];
+    const accountOptions = accounts.map((account) => ({
+      id: account.id, name: account.name, currency: account.currency || 'BRL', account_status: String(account.account_status || '')
+    }));
     const now = new Date().toISOString();
     const admin = createAdmin();
     const { error: tokenError } = await admin.from('meta_ads_tokens').upsert({
@@ -55,9 +55,17 @@ export async function GET(request) {
       brand_id: brandId,
       access_token: token,
       token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+      account_options: accountOptions,
+      selected_meta_account_id: accountOptions.length === 1 ? accountOptions[0].id : null,
       updated_at: now
     }, { onConflict: 'brand_id' });
     if (tokenError) throw new Error('Nao foi possivel salvar a autorizacao de anuncios.');
+    if (accountOptions.length > 1) {
+      return clearState(NextResponse.redirect(`${appUrl}${returnTo}?status=choose_account`));
+    }
+    const account = accountOptions[0];
+    const { error: deactivateError } = await admin.from('meta_ad_accounts').update({ is_active: false }).eq('brand_id', brandId);
+    if (deactivateError) throw new Error('Nao foi possivel preparar a conta de anuncios.');
     const { data: savedAccount, error: accountError } = await admin.from('meta_ad_accounts').upsert({
       brand_id: brandId,
       meta_account_id: account.id,
@@ -70,7 +78,7 @@ export async function GET(request) {
 
     let warning = null;
     try {
-      await syncPaidTraffic({ admin, brandId, account: { ...savedAccount, meta_account_id: account.id, currency: account.currency || 'BRL' }, token });
+      await syncPaidTraffic({ admin, brandId, account: { ...savedAccount, meta_account_id: account.id, currency: account.currency }, token });
     } catch (syncError) {
       warning = message(syncError);
     }

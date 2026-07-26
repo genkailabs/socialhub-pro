@@ -11,4 +11,4 @@ Esta integração é somente leitura. Ela pede `ads_read` e `business_management
 
 ## Resultado esperado
 
-Ao conectar uma única conta de anúncios, o SocialHub guarda o token apenas no banco protegido para servidor, lê até 30 dias de insights de campanha e mostra os dados em `/paid-traffic`. Se houver mais de uma conta, o fluxo para sem escolher uma conta automaticamente.
+O SocialHub guarda o token apenas no banco protegido para servidor, lê até 30 dias de insights de campanha e mostra os dados em `/paid-traffic`. Se a Meta devolver mais de uma conta, a pessoa escolhe uma delas no SocialHub antes da primeira leitura.
