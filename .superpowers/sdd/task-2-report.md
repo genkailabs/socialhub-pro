@@ -81,3 +81,32 @@ consulted time, then passes the record through the existing strict source
 contract. Incomplete or unsafe links are omitted, so the wrapper returns its
 explicit unavailable state rather than fabricating evidence. Generated images
 remain outside this evidence-fetch path.
+
+## Follow-up security review — DNS-pinned evidence retrieval
+
+### RED
+
+Expanded the deterministic research tests for a pinned custom lookup (the DNS
+rebind prevention model), IPv4-mapped IPv6 rejection, redirect rejection, and
+an HTML body exceeding 256 KiB. Before replacing the global fetch path:
+
+```text
+npx vitest run tests/unit/research.test.js
+```
+
+Result: exit 1, 17 passed / 2 failed. The production path did not call the
+HTTP(S) transport with a pinned lookup; it still used global fetch.
+
+### GREEN
+
+```text
+npx vitest run tests/unit/research.test.js tests/unit/content-research.test.js tests/unit/generate.test.js
+```
+
+Result: exit 0 — 3 test files passed, 29 tests passed.
+
+The adapter now resolves addresses first and rejects unsafe ranges, including
+IPv4-mapped IPv6 forms. It performs HTTP(S) through a custom `lookup` returning
+only the selected vetted address while preserving the original hostname as SNI
+and Host. Redirects are not followed, credentials are omitted, and declared or
+streamed HTML over 256 KiB is rejected before metadata parsing.

@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { EventEmitter } from 'node:events';
 
-const mocks = vi.hoisted(() => ({ pollinationsSearch: vi.fn(), lookup: vi.fn() }));
-const fetchMock = vi.fn();
+const mocks = vi.hoisted(() => ({ pollinationsSearch: vi.fn(), lookup: vi.fn(), httpsRequest: vi.fn(), httpRequest: vi.fn() }));
 vi.mock('@/lib/ai/pollinations-search', () => ({ pollinationsSearch: mocks.pollinationsSearch }));
 vi.mock('node:dns/promises', () => ({ lookup: mocks.lookup, default: { lookup: mocks.lookup } }));
+vi.mock('node:https', () => ({ request: mocks.httpsRequest, default: { request: mocks.httpsRequest } }));
+vi.mock('node:http', () => ({ request: mocks.httpRequest, default: { request: mocks.httpRequest } }));
 
 import { needsResearch, buildResearchQuery, researchContext, ResearchUnavailableError } from '@/lib/ai/research';
 
@@ -24,6 +26,27 @@ function fakeSupabase({ row = null } = {}) {
     }
   };
 }
+
+function respondWith({ statusCode = 200, headers = { 'content-type': 'text/html' }, chunks = [] } = {}) {
+  mocks.httpsRequest.mockImplementation((_url, _options, callback) => {
+    const request = new EventEmitter();
+    request.end = () => {
+      const response = new EventEmitter();
+      response.statusCode = statusCode;
+      response.headers = headers;
+      response.destroy = vi.fn();
+      callback(response);
+      queueMicrotask(() => {
+        chunks.forEach((chunk) => response.emit('data', Buffer.from(chunk)));
+        response.emit('end');
+      });
+    };
+    request.destroy = vi.fn();
+    return request;
+  });
+}
+
+const PAGE = '<html><head><meta property="og:site_name" content="Publicador"><meta property="article:published_time" content="2026-07-20T10:00:00.000Z"><meta name="description" content="Resumo da pagina."></head></html>';
 
 describe('needsResearch', () => {
   it('gatilho textual → true', () => {
@@ -70,13 +93,8 @@ describe('buildResearchQuery', () => {
 describe('researchContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.lookup.mockResolvedValue([{ address: '203.0.113.10', family: 4 }]);
-    vi.stubGlobal('fetch', fetchMock);
-    fetchMock.mockResolvedValue({
-      ok: true,
-      headers: { get: () => 'text/html' },
-      text: async () => '<html><head><meta property="og:site_name" content="Publicador"><meta property="article:published_time" content="2026-07-20T10:00:00.000Z"><meta name="description" content="Resumo da pagina."></head></html>'
-    });
+    mocks.lookup.mockResolvedValue([{ address: '8.8.8.8', family: 4 }]);
+    respondWith({ chunks: [PAGE] });
     process.env.POLLINATIONS_SECRET_KEY = 'test';
   });
 
@@ -102,7 +120,10 @@ describe('researchContext', () => {
 
     const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
 
-    expect(fetchMock).toHaveBeenCalledWith('https://publisher.example.com/report', expect.objectContaining({ redirect: 'error', credentials: 'omit' }));
+    expect(mocks.httpsRequest).toHaveBeenCalledTimes(1);
+    const [, options] = mocks.httpsRequest.mock.calls[0];
+    expect(options).toMatchObject({ servername: 'publisher.example.com', headers: expect.objectContaining({ host: 'publisher.example.com' }) });
+    await expect(new Promise((resolve, reject) => options.lookup('publisher.example.com', {}, (error, address, family) => error ? reject(error) : resolve({ address, family })))).resolves.toEqual({ address: '8.8.8.8', family: 4 });
     expect(out.sources).toEqual([expect.objectContaining({
       url: 'https://publisher.example.com/report',
       title: 'Titulo do provedor',
@@ -113,12 +134,36 @@ describe('researchContext', () => {
   });
 
   it('rejects a provider uri/title source when page metadata cannot complete evidence', async () => {
-    fetchMock.mockResolvedValue({ ok: true, headers: { get: () => 'text/html' }, text: async () => '<html><head></head></html>' });
+    respondWith({ chunks: ['<html><head></head></html>'] });
     mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search' });
 
     const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
 
     expect(out.sources).toEqual([]);
+  });
+
+  it('rejects a private IPv4-mapped IPv6 resolution without opening a connection', async () => {
+    mocks.lookup.mockResolvedValue([{ address: '::ffff:127.0.0.1', family: 6 }]);
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search' });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toEqual([]);
+    expect(mocks.httpsRequest).not.toHaveBeenCalled();
+  });
+
+  it('rejects redirects before reading page metadata', async () => {
+    respondWith({ statusCode: 302, headers: { location: 'https://elsewhere.example.com', 'content-type': 'text/html' } });
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search' });
+
+    await expect(researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} })).resolves.toMatchObject({ sources: [] });
+  });
+
+  it('rejects an oversized HTML response before parsing it', async () => {
+    respondWith({ chunks: ['x'.repeat(256 * 1024 + 1)] });
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search' });
+
+    await expect(researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} })).resolves.toMatchObject({ sources: [] });
   });
 
   it('summary vazio → lança ResearchUnavailableError', async () => {
