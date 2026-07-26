@@ -4,10 +4,11 @@ const mocks = vi.hoisted(() => ({
   deepseekChat: vi.fn(),
   needsResearch: vi.fn(),
   researchContext: vi.fn(),
-  buildContentPrompt: vi.fn(() => ({ system: 's', user: 'u' }))
+  buildContentPrompt: vi.fn(() => ({ system: 's', user: 'u' })),
+  renderArrayBuffer: vi.fn()
 }));
 
-vi.mock('next/og', () => ({ ImageResponse: class { async arrayBuffer() { return new ArrayBuffer(0); } } }));
+vi.mock('next/og', () => ({ ImageResponse: class { async arrayBuffer() { return mocks.renderArrayBuffer(); } } }));
 vi.mock('@/lib/ai/deepseek', () => ({ deepseekChat: mocks.deepseekChat }));
 vi.mock('@/lib/ai/pollinations-image', () => ({ pollinationsImage: vi.fn(), hasPollinationsKey: () => false, POLLINATIONS_IMAGE_MODEL: 'flux' }));
 vi.mock('@/lib/ai/research', async () => {
@@ -24,6 +25,7 @@ const SPEC = '{"template":"news","headline":"Oi","caption":"legenda","hashtags":
 describe('generateCreative + pesquisa', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.renderArrayBuffer.mockResolvedValue(new ArrayBuffer(0));
     mocks.deepseekChat.mockResolvedValue({ content: SPEC, usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'deepseek-v4-flash' });
   });
 
@@ -84,5 +86,35 @@ describe('generateCreative + pesquisa', () => {
     await expect(generateCreative({ supabase: {}, brandId: 'b1', brandName: 'Marca', brief: { topic: 'IA hoje', format: 'news' }, generateImages: false }))
       .rejects.toBeInstanceOf(ResearchUnavailableError);
     expect(mocks.deepseekChat).not.toHaveBeenCalled();
+  });
+
+  it('removes previously uploaded media when a later carousel upload fails', async () => {
+    mocks.needsResearch.mockReturnValue(false);
+    mocks.deepseekChat.mockResolvedValue({
+      content: JSON.stringify({
+        template: 'tips_carousel', headline: 'Dicas', caption: 'Legenda',
+        bullets: ['Primeira', 'Segunda'], hashtags: ['#dicas']
+      }),
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+      model: 'deepseek-v4-flash'
+    });
+    const upload = vi.fn()
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: { message: 'falha no segundo upload' } });
+    const remove = vi.fn().mockResolvedValue({ error: null });
+    const bucket = {
+      upload,
+      remove,
+      getPublicUrl: vi.fn((path) => ({ data: { publicUrl: `https://cdn.example/${path}` } }))
+    };
+    const supabase = { storage: { from: vi.fn(() => bucket) } };
+
+    await expect(generateCreative({
+      supabase, brandId: 'b1', brandName: 'Marca', brief: { topic: 'dicas' },
+      generateImages: true, maxImages: 2
+    })).rejects.toThrow('falha no segundo upload');
+
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(remove).toHaveBeenCalledWith([upload.mock.calls[0][0]]);
   });
 });

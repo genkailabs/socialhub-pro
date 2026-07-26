@@ -100,6 +100,21 @@ describe('prepareDailyContent orchestration', () => {
     expect(deps.generateContent).not.toHaveBeenCalled();
   });
 
+  it('never reclaims an existing draft or starts duplicate generation', async () => {
+    const activeDraft = { ...DRAFT, generation_started_at: '2026-07-26T11:00:00.000Z' };
+    const deps = dependencies({ getPackageForDate: vi.fn().mockResolvedValue(activeDraft) });
+    const service = createDailyContentService(deps);
+
+    await expect(service.prepare({ brandId: BRAND.id, contentDate: '2026-07-26' })).resolves.toEqual({
+      error: 'A geração deste pacote já está em andamento.',
+      code: 'generation_in_progress'
+    });
+
+    expect(deps.loadContext).not.toHaveBeenCalled();
+    expect(deps.reservePackage).not.toHaveBeenCalled();
+    expect(deps.generateContent).not.toHaveBeenCalled();
+  });
+
   it('records a failed outcome and does not generate factual news without verified research', async () => {
     const news = { ...OPPORTUNITY, topic: 'Notícias de hoje', format: 'news' };
     const deps = dependencies({
@@ -191,6 +206,20 @@ describe('daily package state machine', () => {
     expect(deps.transitionPackage).not.toHaveBeenCalled();
   });
 
+  it.each([
+    '2026-07-27',
+    '2026-07-27 15:00:00',
+    '07/27/2026 15:00:00',
+    '2027-02-30T15:00:00Z'
+  ])('rejects a future value without a strict ISO-8601 timezone: %s', async (scheduledAt) => {
+    const service = createDailyContentService(deps);
+    deps.getPackageById.mockResolvedValue({ ...READY, status: 'approved' });
+
+    await expect(service.schedule({ packageId: READY.id, scheduledAt }))
+      .resolves.toEqual({ error: 'Data de agendamento inválida.', code: 'invalid_schedule' });
+    expect(deps.transitionPackage).not.toHaveBeenCalled();
+  });
+
   it('allows only approved -> scheduled and does not publish externally', async () => {
     const publishApi = vi.fn();
     deps = dependencies({
@@ -227,5 +256,30 @@ describe('daily content package migration', () => {
     expect(sql).toMatch(/to authenticated/i);
     expect(sql).not.toMatch(/to\s+(anon|public)/i);
     expect(sql).not.toMatch(/\b(access_token|refresh_token|secret|raw_provider_response)\b/i);
+  });
+
+  it('repairs uniqueness drift with a named brand/date constraint', () => {
+    const sql = readFileSync(migrationPath, 'utf8');
+
+    expect(sql).toMatch(/daily_content_packages_brand_date_key/i);
+    expect(sql).toMatch(/pg_constraint/i);
+    expect(sql).toMatch(/alter table\s+public\.daily_content_packages[\s\S]*add constraint[\s\S]*unique\s*\(\s*brand_id\s*,\s*content_date\s*\)/i);
+  });
+
+  it('installs a database trigger that permits only the legal state edges', () => {
+    const sql = readFileSync(migrationPath, 'utf8');
+
+    expect(sql).toMatch(/create or replace function\s+public\.enforce_daily_content_package_transition/i);
+    expect(sql).toMatch(/old\.status\s*=\s*'draft'[\s\S]*new\.status\s+in\s*\(\s*'ready'\s*,\s*'failed'\s*\)/i);
+    expect(sql).toMatch(/old\.status\s*=\s*'failed'[\s\S]*new\.status\s*=\s*'draft'/i);
+    expect(sql).toMatch(/old\.status\s*=\s*'ready'[\s\S]*new\.status\s*=\s*'approved'/i);
+    expect(sql).toMatch(/old\.status\s*=\s*'approved'[\s\S]*new\.status\s*=\s*'scheduled'/i);
+    expect(sql).toMatch(/create trigger\s+daily_content_packages_enforce_transition/i);
+  });
+
+  it('terminates both PL/pgSQL blocks with valid END statements', () => {
+    const sql = readFileSync(migrationPath, 'utf8');
+
+    expect(sql.match(/END;\s*\$\$;/gi)).toHaveLength(2);
   });
 });
