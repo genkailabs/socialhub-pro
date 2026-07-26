@@ -3,6 +3,10 @@ const { withSentryConfig } = require('@sentry/nextjs');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  // Permite compilar num diretório separado quando um `next dev` já está usando
+  // o .next padrão — sem isso os dois processos se atropelam e o build quebra
+  // com manifests faltando. Vazio em produção: usa o .next de sempre.
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   reactStrictMode: true,
   experimental: {
     instrumentationHook: true,

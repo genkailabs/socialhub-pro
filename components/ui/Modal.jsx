@@ -5,6 +5,10 @@ import { createPortal } from 'react-dom';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Campos que o Chrome incrementa com a roda do mouse quando estão em foco.
+// Rolar o formulário não pode mudar a data do item por acidente.
+const STEPPABLE = new Set(['date', 'datetime-local', 'month', 'number', 'time', 'week']);
+
 /**
  * Diálogo em cima da página. Existe porque formulário renderizado no fluxo abria
  * fora da tela: quem clicava em "Editar" num card do fim do quadro não via nada
@@ -41,11 +45,10 @@ export function Modal({ open, onClose, labelledBy, children, className = '' }) {
     }
 
     document.addEventListener('keydown', onKeyDown);
-    // O primeiro campo recebe o foco: quem abriu com o teclado já começa a digitar.
-    const timer = setTimeout(() => {
-      const focusables = panelRef.current?.querySelectorAll(FOCUSABLE);
-      (focusables?.[0] || panelRef.current)?.focus();
-    }, 0);
+    // O foco vai para o próprio diálogo, NÃO para o primeiro campo. Focar o
+    // primeiro campo parece gentil até ele ser um <input type="date">: aí uma
+    // seta ou uma rolagem perdida troca a data do item sem ninguém pedir.
+    const timer = setTimeout(() => panelRef.current?.focus(), 0);
 
     return () => {
       document.removeEventListener('keydown', onKeyDown);
@@ -57,8 +60,13 @@ export function Modal({ open, onClose, labelledBy, children, className = '' }) {
 
   if (!mounted || !open) return null;
 
+  function onWheel() {
+    const active = document.activeElement;
+    if (active?.tagName === 'INPUT' && STEPPABLE.has(active.type)) active.blur();
+  }
+
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain p-4 sm:items-center sm:p-6">
+    <div onWheel={onWheel} className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain p-4 sm:items-center sm:p-6">
       <div aria-hidden="true" onClick={close} className="animate-modal-backdrop fixed inset-0 bg-black/55 backdrop-blur-[2px]" />
       <div
         ref={panelRef}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Calendar, Coins, Pencil, Sparkles, Target, Wand2 } from 'lucide-react';
+import { AlertCircle, Calendar, Coins, Pencil, Sparkles, Target, Wand2, X } from 'lucide-react';
 import {
   approveAllPlanItems, createPlanItem, generateWeekPlan, removePlanItem,
   replacePlanItem, restorePlanItem, restorePlanItemVersion, setPlanItemStatus, updatePlanItem
@@ -34,6 +34,14 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
     const timer = setTimeout(() => setUndo(null), 8000);
     return () => clearTimeout(timer);
   }, [undo]);
+
+  // Aviso de sucesso/ajuste some sozinho; erro fica até a próxima ação, porque
+  // quem errou pode precisar reler o motivo enquanto corrige.
+  useEffect(() => {
+    if (!message || message.type === 'error') return undefined;
+    const timer = setTimeout(() => setMessage(null), 9000);
+    return () => clearTimeout(timer);
+  }, [message]);
   // A leitura normaliza estados antigos, mas manter essa proteção no cliente
   // evita que um cache antigo esconda itens durante a atualização da migração.
   const items = (plan?.items || []).map((item) => ({ ...item, status: normalizePlanningItemStatus(item.status) }));
@@ -153,7 +161,20 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
     </Modal>
     {generatingPlan && <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft"><LoadingIndicator compact label="Montando seu planejamento" description="Organizando temas, formatos e a sequência da semana." /></div>}
     {busy && busy !== 'form' && <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft"><LoadingIndicator compact label="Atualizando o planejamento" description="Só um instante." /></div>}
-    {message && <p role="status" className={`flex items-center gap-1.5 text-xs font-semibold ${message.type === 'error' ? 'text-danger' : message.type === 'warn' ? 'text-warning' : 'text-success'}`}><AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />{message.text}</p>}
+    {/* O aviso flutua no rodapé, como o "Desfazer". Renderizado aqui no fluxo,
+        ele nascia no topo da página: quem acabou de salvar um card no fim do
+        quadro nunca lia a explicação de por que o horário mudou. */}
+    {message && (
+      // No topo e acima do diálogo: erro de salvamento mantém o formulário
+      // aberto, e no rodapé o aviso cobria os botões Cancelar/Salvar.
+      <div role="status" className="fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
+        <div className={`flex max-w-[min(34rem,100%)] items-start gap-3 rounded-xl border bg-surface px-4 py-3 shadow-lift ${message.type === 'error' ? 'border-danger/40' : message.type === 'warn' ? 'border-warning/40' : 'border-success/40'}`}>
+          <AlertCircle className={`mt-0.5 h-4 w-4 shrink-0 ${message.type === 'error' ? 'text-danger' : message.type === 'warn' ? 'text-warning' : 'text-success'}`} aria-hidden="true" />
+          <p className="text-[13px] leading-snug text-ink">{message.text}</p>
+          <button type="button" aria-label="Fechar aviso" onClick={() => setMessage(null)} className="-mr-1 shrink-0 rounded-lg p-1 text-muted transition-colors hover:bg-line hover:text-ink"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>
+        </div>
+      </div>
+    )}
 
     {items.length > 0 && <PlanningSummary items={items} weeklySummary={plan?.weekly_summary} />}
     {!items.length ? <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-7 text-center"><p className="text-sm font-bold text-ink">Nenhuma ideia planejada ainda</p><p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">Peça sugestões para a semana ou adicione suas próprias ideias. Planejar não cria conteúdo.</p></div> : (
