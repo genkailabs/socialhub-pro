@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildDailyPackageDraft, selectDailyOpportunity } from '@/lib/daily-content-package';
+import { buildLocalOpportunities } from '@/lib/composer-intelligence';
 
 describe('daily content package', () => {
   it('prioritizes an approved calendar item over contextual opportunities', () => {
@@ -69,6 +70,19 @@ describe('daily content package', () => {
     });
 
     expect(result).toMatchObject({ topic: 'Tema aprovado', reason: 'contextual-opportunity' });
+  });
+
+  it('accepts the trusted Composer opportunity shape, including goal as its objective', () => {
+    const [opportunity] = buildLocalOpportunities({ niche: 'medicina' });
+
+    const result = selectDailyOpportunity({ opportunities: [opportunity] });
+
+    expect(result).toMatchObject({
+      topic: opportunity.topic,
+      objective: opportunity.goal,
+      format: opportunity.format,
+      reason: 'contextual-opportunity'
+    });
   });
 
   it('uses a measured slot when valid and marks the fallback explicitly otherwise', () => {
