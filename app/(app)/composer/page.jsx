@@ -6,6 +6,20 @@ import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listConnectedPlatforms } from '@/lib/social-tokens-data';
 import { getComposerPost, getLatestComposerDraft } from '@/lib/posts-data';
+import { getBrandKit } from '@/lib/brand-kit-data';
+
+// Só o que o prompt de arte externa usa — nada de DNA bruto no cliente.
+function publicBrandKit(kit) {
+  if (!kit) return null;
+  return {
+    niche: kit.niche || '',
+    audience: kit.audience || '',
+    tone: kit.tone || '',
+    visual_style: kit.visual_style || '',
+    palette: kit.palette && typeof kit.palette === 'object' ? kit.palette : {},
+    donts: Array.isArray(kit.donts) ? kit.donts : []
+  };
+}
 
 export default async function ComposerPage({ searchParams }) {
   const [brands, activeBrandId] = await Promise.all([
@@ -13,7 +27,9 @@ export default async function ComposerPage({ searchParams }) {
     getActiveBrandId()
   ]);
   const active = resolveActive(brands, activeBrandId);
-  const connected = active ? await listConnectedPlatforms(active.id) : {};
+  const [connected, brandKit] = active
+    ? await Promise.all([listConnectedPlatforms(active.id), getBrandKit(active.id)])
+    : [{}, null];
   const requestedPostId = typeof searchParams?.post === 'string' ? searchParams.post : null;
   const initialDraft = active
     ? requestedPostId
@@ -30,6 +46,8 @@ export default async function ComposerPage({ searchParams }) {
           <VisualComposer
             brandId={active.id}
             brandName={connected.instagram?.platform_username || active.name}
+            brandLabel={active.name}
+            brandKit={publicBrandKit(brandKit)}
             initialDraft={initialDraft}
           />
           {/* Composer não tem cabeçalho: o mascote fica numa bolha fixa, fechada por padrão. */}
