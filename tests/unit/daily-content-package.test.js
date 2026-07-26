@@ -46,8 +46,8 @@ describe('daily content package', () => {
         { status: 'posted_manually', scheduled_at: '2026-07-15T10:00:00.000Z', objective: 'educar', format: 'Carrossel' }
       ],
       contextualOpportunities: [
-        { topic: 'Tema repetido', objective: 'educar', format: 'Carrossel' },
-        { topic: 'Tema equilibrado', objective: 'engajar', format: 'Reel' }
+        { status: 'approved', topic: 'Tema repetido', objective: 'educar', format: 'Carrossel' },
+        { status: 'approved', topic: 'Tema equilibrado', objective: 'engajar', format: 'Reel' }
       ]
     });
 
@@ -59,13 +59,25 @@ describe('daily content package', () => {
     });
   });
 
+  it('excludes proposed and rejected contextual opportunities without approved provenance', () => {
+    const result = selectDailyOpportunity({
+      contextualOpportunities: [
+        { status: 'proposed', topic: 'Tema proposto', objective: 'educar', format: 'Carrossel' },
+        { status: 'rejected', topic: 'Tema rejeitado', objective: 'engajar', format: 'Reel' },
+        { status: 'approved', topic: 'Tema aprovado', objective: 'converter', format: 'Post' }
+      ]
+    });
+
+    expect(result).toMatchObject({ topic: 'Tema aprovado', reason: 'contextual-opportunity' });
+  });
+
   it('uses a measured slot when valid and marks the fallback explicitly otherwise', () => {
     const measured = selectDailyOpportunity({
-      contextualOpportunities: [{ topic: 'Tema medido', objective: 'educar', format: 'Carrossel' }],
+      contextualOpportunities: [{ status: 'approved', topic: 'Tema medido', objective: 'educar', format: 'Carrossel' }],
       audit: { calculated_metrics: { bestTimes: [{ weekday: 2, hour: 9, basis: 'measured' }] } }
     });
     const fallback = selectDailyOpportunity({
-      contextualOpportunities: [{ topic: 'Tema fallback', objective: 'educar', format: 'Carrossel' }],
+      contextualOpportunities: [{ status: 'approved', topic: 'Tema fallback', objective: 'educar', format: 'Carrossel' }],
       audit: { calculated_metrics: { bestTimes: [{ weekday: 2, hour: 9, basis: 'heuristic' }] } }
     });
 
