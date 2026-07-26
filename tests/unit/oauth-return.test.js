@@ -6,6 +6,7 @@ describe('safeReturnTo', () => {
     expect(safeReturnTo('/connections')).toBe('/connections');
     expect(safeReturnTo('/instagram/diagnostico')).toBe('/instagram/diagnostico');
     expect(safeReturnTo('/brand-kit')).toBe('/brand-kit');
+    expect(safeReturnTo('/paid-traffic')).toBe('/paid-traffic');
   });
 
   it('recusa destino externo disfarcado de caminho interno', () => {
