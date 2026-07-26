@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ pollinationsSearch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ pollinationsSearch: vi.fn(), lookup: vi.fn() }));
+const fetchMock = vi.fn();
 vi.mock('@/lib/ai/pollinations-search', () => ({ pollinationsSearch: mocks.pollinationsSearch }));
+vi.mock('node:dns/promises', () => ({ lookup: mocks.lookup, default: { lookup: mocks.lookup } }));
 
 import { needsResearch, buildResearchQuery, researchContext, ResearchUnavailableError } from '@/lib/ai/research';
 
@@ -68,6 +70,13 @@ describe('buildResearchQuery', () => {
 describe('researchContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.lookup.mockResolvedValue([{ address: '203.0.113.10', family: 4 }]);
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'text/html' },
+      text: async () => '<html><head><meta property="og:site_name" content="Publicador"><meta property="article:published_time" content="2026-07-20T10:00:00.000Z"><meta name="description" content="Resumo da pagina."></head></html>'
+    });
     process.env.POLLINATIONS_SECRET_KEY = 'test';
   });
 
@@ -84,6 +93,32 @@ describe('researchContext', () => {
     expect(out.cached).toBe(false);
     expect(out.cost).toBeGreaterThan(0);
     expect(mocks.pollinationsSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it('enriches a provider uri/title source with page evidence before returning it', async () => {
+    mocks.pollinationsSearch.mockResolvedValue({
+      summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search'
+    });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(fetchMock).toHaveBeenCalledWith('https://publisher.example.com/report', expect.objectContaining({ redirect: 'error', credentials: 'omit' }));
+    expect(out.sources).toEqual([expect.objectContaining({
+      url: 'https://publisher.example.com/report',
+      title: 'Titulo do provedor',
+      publisher: 'Publicador',
+      publishedAt: '2026-07-20T10:00:00.000Z',
+      summary: 'Resumo da pagina.'
+    })]);
+  });
+
+  it('rejects a provider uri/title source when page metadata cannot complete evidence', async () => {
+    fetchMock.mockResolvedValue({ ok: true, headers: { get: () => 'text/html' }, text: async () => '<html><head></head></html>' });
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search' });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toEqual([]);
   });
 
   it('summary vazio → lança ResearchUnavailableError', async () => {

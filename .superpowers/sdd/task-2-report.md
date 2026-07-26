@@ -50,3 +50,34 @@ The current `researchContext` provider/cache contract may return legacy sources
 without the required provenance metadata. Those records now correctly produce
 the explicit unavailable outcome until the upstream adapter supplies complete
 source fields; this task intentionally does not fabricate them.
+
+## Follow-up review P1 — adapter evidence enrichment
+
+### RED
+
+Added deterministic adapter tests for the real provider source shape
+`{ uri, title }`. Before the fix:
+
+```text
+npx vitest run tests/unit/research.test.js
+```
+
+Result: exit 1, 14 passed / 2 failed. `fetch` was never called for the provider
+link and incomplete page metadata was returned as a source instead of rejected.
+
+### GREEN
+
+```text
+npx vitest run tests/unit/research.test.js tests/unit/content-research.test.js tests/unit/generate.test.js
+```
+
+Result: exit 0 — 3 test files passed, 26 tests passed.
+
+`researchContext` now enriches up to five provider/cache links server-side,
+using public DNS resolution, private-address rejection, no credentials, manual
+redirect rejection, an HTML-only request, and a five-second timeout. It extracts
+publisher, publication date and summary from page metadata, records the
+consulted time, then passes the record through the existing strict source
+contract. Incomplete or unsafe links are omitted, so the wrapper returns its
+explicit unavailable state rather than fabricating evidence. Generated images
+remain outside this evidence-fetch path.
