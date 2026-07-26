@@ -47,8 +47,8 @@ describe('daily content package', () => {
         { status: 'posted_manually', scheduled_at: '2026-07-15T10:00:00.000Z', objective: 'educar', format: 'Carrossel' }
       ],
       contextualOpportunities: [
-        { status: 'approved', topic: 'Tema repetido', objective: 'educar', format: 'Carrossel' },
-        { status: 'approved', topic: 'Tema equilibrado', objective: 'engajar', format: 'Reel' }
+        { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Tema repetido', objective: 'educar', format: 'Carrossel' },
+        { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Tema equilibrado', objective: 'engajar', format: 'Reel' }
       ]
     });
 
@@ -66,7 +66,7 @@ describe('daily content package', () => {
         { status: 'proposed', provenance: { status: 'approved' }, topic: 'Tema proposto', objective: 'educar', format: 'Carrossel' },
         { status: 'rejected', provenance: { status: 'approved' }, topic: 'Tema rejeitado', objective: 'engajar', format: 'Reel' },
         { status: 'invalid', provenance: { status: 'approved' }, topic: 'Tema invalido', objective: 'converter', format: 'Post' },
-        { status: 'approved', topic: 'Tema aprovado', objective: 'converter', format: 'Post' }
+        { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Tema aprovado', objective: 'converter', format: 'Post' }
       ]
     });
 
@@ -89,9 +89,9 @@ describe('daily content package', () => {
     });
   });
 
-  it('excludes an audit-only opportunity without explicit approval', () => {
+  it('excludes an audit-only opportunity even when it is marked approved', () => {
     const [auditOpportunity] = buildLocalOpportunities({
-      audit: { ai_analysis: { opportunities: [{ title: 'Aumentar a frequencia de Reels' }] } }
+      audit: { ai_analysis: { opportunities: [{ title: 'Aumentar a frequencia de Reels', status: 'approved' }] } }
     });
 
     expect(selectDailyOpportunity({ opportunities: [auditOpportunity] })).toBeNull();
@@ -99,11 +99,11 @@ describe('daily content package', () => {
 
   it('uses a measured slot when valid and marks the fallback explicitly otherwise', () => {
     const measured = selectDailyOpportunity({
-      contextualOpportunities: [{ status: 'approved', topic: 'Tema medido', objective: 'educar', format: 'Carrossel' }],
+      contextualOpportunities: [{ status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Tema medido', objective: 'educar', format: 'Carrossel' }],
       audit: { calculated_metrics: { bestTimes: [{ weekday: 2, hour: 9, basis: 'measured' }] } }
     });
     const fallback = selectDailyOpportunity({
-      contextualOpportunities: [{ status: 'approved', topic: 'Tema fallback', objective: 'educar', format: 'Carrossel' }],
+      contextualOpportunities: [{ status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Tema fallback', objective: 'educar', format: 'Carrossel' }],
       audit: { calculated_metrics: { bestTimes: [{ weekday: 2, hour: 9, basis: 'heuristic' }] } }
     });
 
