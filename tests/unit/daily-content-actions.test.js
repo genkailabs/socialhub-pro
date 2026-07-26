@@ -160,7 +160,7 @@ describe('prepareDailyContent orchestration', () => {
       status: 'failed',
       claim_token: null,
       claim_expires_at: null,
-      cleanup_pending_paths: ['brand-1/orphan.png'],
+      cleanup_pending_paths: ['brand-1/daily/old-claim/ai-1721995200000-0.png'],
       cleanup_error: 'Falha anterior de storage.'
     };
     const deps = dependencies({ getPackageForDate: vi.fn().mockResolvedValue(failed) });
@@ -171,6 +171,37 @@ describe('prepareDailyContent orchestration', () => {
     expect(deps.cleanupMedia).toHaveBeenCalledWith({ paths: failed.cleanup_pending_paths });
     expect(deps.clearCleanupFailure).toHaveBeenCalledWith({ packageId: failed.id, paths: failed.cleanup_pending_paths });
     expect(deps.cleanupMedia.mock.invocationCallOrder[0]).toBeLessThan(deps.reservePackage.mock.invocationCallOrder[0]);
+  });
+
+  it('never sends a generic AI asset through daily orphan cleanup', async () => {
+    const genericPath = 'brand-1/ai-1721995200000-0.png';
+    const failed = {
+      ...DRAFT,
+      status: 'failed',
+      claim_token: null,
+      claim_expires_at: null,
+      cleanup_pending_paths: [genericPath],
+      cleanup_error: 'Falha anterior de storage.'
+    };
+    const deps = dependencies({ getPackageForDate: vi.fn().mockResolvedValue(failed) });
+    const service = createDailyContentService(deps);
+
+    await expect(service.prepare({ brandId: BRAND.id, contentDate: '2026-07-26' }))
+      .resolves.toMatchObject({ code: 'cleanup_pending' });
+
+    expect(deps.cleanupMedia).not.toHaveBeenCalled();
+    expect(deps.reservePackage).not.toHaveBeenCalled();
+  });
+
+  it('assigns the claimed daily namespace to generation', async () => {
+    const deps = dependencies();
+    const service = createDailyContentService(deps);
+
+    await service.prepare({ brandId: BRAND.id, contentDate: '2026-07-26' });
+
+    expect(deps.generateContent).toHaveBeenCalledWith(expect.objectContaining({
+      mediaNamespace: `daily/${DRAFT.claim_token}`
+    }));
   });
 
   it('records a failed outcome and does not generate factual news without verified research', async () => {
@@ -222,7 +253,7 @@ describe('prepareDailyContent orchestration', () => {
   });
 
   it('persists orphan paths and safe cleanup details when ready persistence fails', async () => {
-    const mediaPaths = ['brand-1/generated-0.png'];
+    const mediaPaths = ['brand-1/daily/claim-1/ai-1721995200000-0.png'];
     const deps = dependencies({
       generateContent: vi.fn().mockResolvedValue({
         generatedContent: { caption: 'Legenda pronta' },
@@ -251,6 +282,7 @@ describe('prepareDailyContent orchestration', () => {
       cleanupPendingPaths: mediaPaths,
       cleanupError: 'Não foi possível remover as mídias geradas.'
     }));
+    expect(deps.cleanupMedia).toHaveBeenCalledWith({ paths: mediaPaths });
   });
 });
 
@@ -440,7 +472,7 @@ describe('daily content package migration', () => {
     expect(sql).toMatch(/add column if not exists cleanup_error\s+text/i);
   });
 
-  it('allows daily AI media cleanup only for an authenticated owner brand root', () => {
+  it('allows cleanup only inside the daily claim namespace of an owned brand', () => {
     const sql = readFileSync(migrationPath, 'utf8');
     const policy = sql.match(
       /create policy\s+"daily_content_package_ai_media_delete"[\s\S]*?;/i
@@ -449,11 +481,14 @@ describe('daily content package migration', () => {
     expect(policy).toBeDefined();
     expect(policy).toMatch(/on\s+storage\.objects\s+for\s+delete\s+to\s+authenticated/i);
     expect(policy).toMatch(/bucket_id\s*=\s*'media'/i);
-    expect(policy).toMatch(/cardinality\s*\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\s*=\s*1/i);
+    expect(policy).toMatch(/cardinality\s*\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\s*=\s*3/i);
+    expect(policy).toMatch(/\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\[2\]\s*=\s*'daily'/i);
+    expect(policy).toMatch(/\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\[3\]\s*~/i);
+    expect(policy).toContain("(storage.foldername(name))[3] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'");
     expect(policy).toContain("storage.filename(name) ~ '^ai-[0-9]+-[0-9]+\\.(png|jpg)$'");
     expect(policy).toMatch(/from\s+public\.brands\s+b[\s\S]*b\.id::text\s*=\s*\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\[1\][\s\S]*b\.user_id\s*=\s*auth\.uid\(\)/i);
     expect(policy).not.toMatch(/for\s+(all|insert|update)/i);
-    expect(policy).not.toMatch(/foldername\s*\([^)]*\)\s*\)\[2\]/i);
+    expect(policy).not.toMatch(/cardinality\s*\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\s*=\s*1/i);
   });
 
   it('terminates both PL/pgSQL blocks with valid END statements', () => {

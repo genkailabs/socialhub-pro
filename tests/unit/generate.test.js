@@ -88,6 +88,29 @@ describe('generateCreative + pesquisa', () => {
     expect(mocks.deepseekChat).not.toHaveBeenCalled();
   });
 
+  it('writes generated media under an optional namespace', async () => {
+    mocks.needsResearch.mockReturnValue(false);
+    const upload = vi.fn().mockResolvedValue({ error: null });
+    const bucket = {
+      upload,
+      remove: vi.fn(),
+      getPublicUrl: vi.fn((path) => ({ data: { publicUrl: `https://cdn.example/${path}` } }))
+    };
+
+    const out = await generateCreative({
+      supabase: { storage: { from: vi.fn(() => bucket) } },
+      brandId: 'b1',
+      brandName: 'Marca',
+      brief: { topic: 'dicas' },
+      generateImages: true,
+      maxImages: 1,
+      mediaNamespace: 'daily/claim-1'
+    });
+
+    expect(upload.mock.calls[0][0]).toMatch(/^b1\/daily\/claim-1\/ai-\d+-0\.png$/);
+    expect(out.storagePaths).toEqual([upload.mock.calls[0][0]]);
+  });
+
   it('removes previously uploaded media when a later carousel upload fails', async () => {
     mocks.needsResearch.mockReturnValue(false);
     mocks.deepseekChat.mockResolvedValue({
@@ -115,6 +138,7 @@ describe('generateCreative + pesquisa', () => {
     })).rejects.toThrow('falha no segundo upload');
 
     expect(upload).toHaveBeenCalledTimes(2);
+    expect(upload.mock.calls[0][0]).toMatch(/^b1\/ai-\d+-0\.png$/);
     expect(remove).toHaveBeenCalledWith([upload.mock.calls[0][0]]);
   });
 

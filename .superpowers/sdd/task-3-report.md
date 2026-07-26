@@ -220,3 +220,48 @@ Result: exit 0 - 3 files passed, 34 tests passed.
   nested paths, other brands, and other operations remain outside the policy.
 - Durable preview assets were retained. The migration was not applied locally
   or remotely, and no deployment or publication was performed.
+
+## Strict daily media provenance correction
+
+The prior root-level `brand/ai-*` cleanup policy also matched durable AI Studio
+and Autopilot assets. Daily generation now has a separate provenance namespace;
+generic generation paths remain unchanged.
+
+### RED
+
+```text
+npx.cmd vitest run tests/unit/daily-content-actions.test.js tests/unit/generate.test.js
+```
+
+Result before implementation: exit 1 - 2 files failed, 4 tests failed and 30
+passed. Failures proved the optional namespace was ignored, daily orchestration
+did not pass its claim namespace, generic AI assets entered the daily cleanup
+adapter, and Storage RLS still targeted the root-level generic path.
+
+### GREEN
+
+Focused result: 2 files passed, 34 tests passed.
+
+Required regression:
+
+```text
+npx.cmd vitest run tests/unit/daily-content-actions.test.js tests/unit/ai-governance.test.js tests/unit/generate.test.js
+```
+
+Result: exit 0 - 3 files passed, 37 tests passed.
+
+Production integration: `npm.cmd run build` exited 0. Next.js compiled, type
+and lint checks completed, 26 static pages were generated, and the standalone
+package was prepared. Existing Sentry warnings remained non-fatal.
+
+### Corrected boundary
+
+- Generic `generateCreative` callers still write `<brand>/ai-*`.
+- Daily generation passes `daily/<claim>` and writes only
+  `<brand>/daily/<claim>/ai-<timestamp>-<index>.(png|jpg)`.
+- Retry and failure cleanup reject paths outside the owning brand's daily
+  generated-media namespace before calling Storage.
+- Storage `DELETE` requires bucket `media`, exactly three directories, owned
+  brand UUID, literal `daily`, canonical claim UUID, and the generated filename.
+- The migration was not applied locally or remotely. No deployment or
+  publication was performed.
