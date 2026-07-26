@@ -1,21 +1,14 @@
-# Configuração Meta Ads — SocialHub
+# Meta Ads: configuração segura
 
-Esta é a etapa externa necessária antes de habilitar a conexão real na janela `/paid-traffic`.
+Esta integração é somente leitura. Ela pede `ads_read` e `business_management`; nunca pede `ads_management` e não cria, pausa ou altera campanhas.
 
-## Pré-requisitos
+## Antes do teste real
 
-1. A marca deve ter um administrador com acesso à conta de anúncios no Business Manager.
-2. O app Meta deve ter o caso de uso/permissão `ads_read`; `ads_management` continua desativada nesta fase.
-3. O callback de produção precisa usar `APP_URL`; não cadastrar origem interna do Render.
-4. Testar primeiro com uma conta sandbox ou conta de anúncios controlada pela equipe.
+1. Cadastre em **Valid OAuth Redirect URIs** a URL pública exata: `APP_URL/api/meta/ads/callback`.
+2. No servidor, cadastre apenas `APP_URL`, `META_APP_ID`, `META_APP_SECRET` e `SUPABASE_SERVICE_ROLE_KEY` como variáveis privadas.
+3. Mantenha o app em modo de desenvolvimento e teste apenas com a conta administradora autorizada.
+4. Rotacione qualquer Client Token exposto antes de testar; ele não é usado nem deve ser enviado ao SocialHub.
 
-## Evidência obrigatória antes de liberar
+## Resultado esperado
 
-- `GET /me/adaccounts` retorna pelo menos uma conta permitida usando token de teste.
-- `GET /act_<id>/campaigns` retorna leitura para a conta escolhida.
-- O app passou pelo acesso/revisão Meta exigido para os usuários que usarão a integração.
-- O token e o App Secret não foram colocados em `.env.example`, documentação, banco de snapshots, logs ou front-end.
-
-## Limite desta entrega
-
-Enquanto estes itens não tiverem sido validados, a janela apresenta o estado de preparação e não inicia OAuth, não persiste tokens e não faz chamadas externas à Meta. A criação, pausa e retomada de campanhas permanecem fora da interface.
+Ao conectar uma única conta de anúncios, o SocialHub guarda o token apenas no banco protegido para servidor, lê até 30 dias de insights de campanha e mostra os dados em `/paid-traffic`. Se houver mais de uma conta, o fluxo para sem escolher uma conta automaticamente.
