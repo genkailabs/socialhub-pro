@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDailyContentService } from '@/lib/daily-content-data';
+import { createDailyContentService, markDailyContentReady } from '@/lib/daily-content-data';
 
 const NOW = new Date('2026-07-26T12:00:00.000Z');
 const USER = { id: 'user-1' };
@@ -15,7 +15,11 @@ const OPPORTUNITY = {
 };
 const DRAFT = {
   id: 'package-1', brand_id: BRAND.id, content_date: '2026-07-26', status: 'draft',
-  topic: OPPORTUNITY.topic, goal: OPPORTUNITY.objective, format: OPPORTUNITY.format
+  topic: OPPORTUNITY.topic, goal: OPPORTUNITY.objective, format: OPPORTUNITY.format,
+  claim_token: 'claim-1',
+  claim_heartbeat_at: '2026-07-26T12:00:00.000Z',
+  claim_expires_at: '2026-07-26T12:05:00.000Z',
+  cleanup_pending_paths: []
 };
 const READY = {
   ...DRAFT,
@@ -51,8 +55,14 @@ function dependencies(overrides = {}) {
     generateContent: vi.fn().mockResolvedValue({
       generatedContent: { caption: 'Legenda pronta' },
       mediaUrls: [],
+      mediaPaths: [],
       altText: 'Arte da marca'
     }),
+    createClaimToken: vi.fn(() => 'claim-1'),
+    startHeartbeat: vi.fn().mockResolvedValue({ stop: vi.fn().mockResolvedValue(true) }),
+    cleanupMedia: vi.fn().mockResolvedValue({ ok: true }),
+    clearCleanupFailure: vi.fn().mockResolvedValue(true),
+    recordCleanupFailure: vi.fn().mockResolvedValue(true),
     now: vi.fn(() => new Date(NOW)),
     ...overrides
   };
@@ -115,6 +125,54 @@ describe('prepareDailyContent orchestration', () => {
     expect(deps.generateContent).not.toHaveBeenCalled();
   });
 
+  it('recovers an expired draft with a new durable claim', async () => {
+    const staleDraft = {
+      ...DRAFT,
+      claim_token: 'abandoned-claim',
+      claim_expires_at: '2026-07-26T11:59:59.000Z'
+    };
+    const reclaimed = {
+      ...DRAFT,
+      claim_token: 'claim-2',
+      claim_heartbeat_at: NOW.toISOString(),
+      claim_expires_at: '2026-07-26T12:05:00.000Z'
+    };
+    const deps = dependencies({
+      getPackageForDate: vi.fn().mockResolvedValue(staleDraft),
+      createClaimToken: vi.fn(() => 'claim-2'),
+      reservePackage: vi.fn().mockResolvedValue({ claimed: true, package: reclaimed })
+    });
+    const service = createDailyContentService(deps);
+
+    await expect(service.prepare({ brandId: BRAND.id, contentDate: '2026-07-26' }))
+      .resolves.toEqual({ ok: true, package: expect.objectContaining({ status: 'ready' }) });
+
+    expect(deps.reservePackage).toHaveBeenCalledWith(expect.objectContaining({
+      existingPackage: staleDraft,
+      claimToken: 'claim-2'
+    }));
+    expect(deps.markReady).toHaveBeenCalledWith(expect.objectContaining({ claimToken: 'claim-2' }));
+  });
+
+  it('retries durable orphan cleanup before regenerating a failed package', async () => {
+    const failed = {
+      ...DRAFT,
+      status: 'failed',
+      claim_token: null,
+      claim_expires_at: null,
+      cleanup_pending_paths: ['brand-1/orphan.png'],
+      cleanup_error: 'Falha anterior de storage.'
+    };
+    const deps = dependencies({ getPackageForDate: vi.fn().mockResolvedValue(failed) });
+    const service = createDailyContentService(deps);
+
+    await service.prepare({ brandId: BRAND.id, contentDate: '2026-07-26' });
+
+    expect(deps.cleanupMedia).toHaveBeenCalledWith({ paths: failed.cleanup_pending_paths });
+    expect(deps.clearCleanupFailure).toHaveBeenCalledWith({ packageId: failed.id, paths: failed.cleanup_pending_paths });
+    expect(deps.cleanupMedia.mock.invocationCallOrder[0]).toBeLessThan(deps.reservePackage.mock.invocationCallOrder[0]);
+  });
+
   it('records a failed outcome and does not generate factual news without verified research', async () => {
     const news = { ...OPPORTUNITY, topic: 'Notícias de hoje', format: 'news' };
     const deps = dependencies({
@@ -161,6 +219,90 @@ describe('prepareDailyContent orchestration', () => {
       sources: verified.research.sources
     }));
     expect(publishApi).not.toHaveBeenCalled();
+  });
+
+  it('persists orphan paths and safe cleanup details when ready persistence fails', async () => {
+    const mediaPaths = ['brand-1/generated-0.png'];
+    const deps = dependencies({
+      generateContent: vi.fn().mockResolvedValue({
+        generatedContent: { caption: 'Legenda pronta' },
+        mediaUrls: ['https://cdn.example/generated-0.png'],
+        mediaPaths,
+        altText: 'Arte da marca'
+      }),
+      markReady: vi.fn().mockResolvedValue(null),
+      cleanupMedia: vi.fn().mockRejectedValue(new Error('storage internal details'))
+    });
+    const service = createDailyContentService(deps);
+
+    await expect(service.prepare({ brandId: BRAND.id })).resolves.toEqual({
+      error: 'O pacote mudou enquanto era gerado.',
+      code: 'state_conflict',
+      details: {
+        cleanup: {
+          pendingPaths: mediaPaths,
+          error: 'Não foi possível remover as mídias geradas.'
+        }
+      }
+    });
+
+    expect(deps.markFailed).toHaveBeenCalledWith(expect.objectContaining({
+      claimToken: DRAFT.claim_token,
+      cleanupPendingPaths: mediaPaths,
+      cleanupError: 'Não foi possível remover as mídias geradas.'
+    }));
+  });
+});
+
+describe('durable daily package claim ownership', () => {
+  it('prevents an original worker from completing after its stale claim was replaced', async () => {
+    const state = {
+      ...DRAFT,
+      claim_token: 'replacement-claim',
+      claim_expires_at: '2026-07-26T12:05:00.000Z'
+    };
+    let payload;
+    const conditions = [];
+    const builder = {
+      eq: vi.fn((column, value) => {
+        conditions.push([column, value]);
+        return builder;
+      }),
+      select: vi.fn(() => ({
+        maybeSingle: vi.fn().mockImplementation(async () => {
+          const matches = conditions.every(([column, value]) => state[column] === value);
+          if (!matches) return { data: null, error: null };
+          Object.assign(state, payload);
+          return { data: { ...state }, error: null };
+        })
+      }))
+    };
+    const supabase = {
+      from: vi.fn(() => ({
+        update: vi.fn((next) => {
+          payload = next;
+          return builder;
+        })
+      }))
+    };
+
+    const result = await markDailyContentReady({
+      supabase,
+      packageId: state.id,
+      claimToken: 'original-claim',
+      generatedContent: { caption: 'Conteúdo antigo' },
+      mediaUrls: ['https://cdn.example/old.png'],
+      mediaPaths: ['brand-1/old.png'],
+      altText: 'Arte antiga',
+      sources: [],
+      evidence: { kind: 'internal', source: 'approved-calendar' },
+      now: NOW
+    });
+
+    expect(result).toBeNull();
+    expect(state.status).toBe('draft');
+    expect(state.claim_token).toBe('replacement-claim');
+    expect(builder.eq).toHaveBeenCalledWith('claim_token', 'original-claim');
   });
 });
 
@@ -275,6 +417,27 @@ describe('daily content package migration', () => {
     expect(sql).toMatch(/old\.status\s*=\s*'ready'[\s\S]*new\.status\s*=\s*'approved'/i);
     expect(sql).toMatch(/old\.status\s*=\s*'approved'[\s\S]*new\.status\s*=\s*'scheduled'/i);
     expect(sql).toMatch(/create trigger\s+daily_content_packages_enforce_transition/i);
+  });
+
+  it('blocks semantically incomplete ready, approved, and scheduled rows in the trigger', () => {
+    const sql = readFileSync(migrationPath, 'utf8');
+
+    expect(sql).toMatch(/add column if not exists evidence\s+jsonb/i);
+    expect(sql).toMatch(/add column if not exists approved_by\s+uuid/i);
+    expect(sql).toMatch(/new\.status\s+in\s*\(\s*'ready'\s*,\s*'approved'\s*,\s*'scheduled'\s*\)[\s\S]*generated_content[\s\S]*media_urls[\s\S]*alt_text[\s\S]*evidence/i);
+    expect(sql).toMatch(/new\.status\s+in\s*\(\s*'approved'\s*,\s*'scheduled'\s*\)[\s\S]*approved_at[\s\S]*approved_by[\s\S]*auth\.uid\(\)/i);
+    expect(sql).toMatch(/new\.status\s*=\s*'scheduled'[\s\S]*scheduled_at\s*<=\s*now\(\)/i);
+    expect(sql).toMatch(/before insert or update on public\.daily_content_packages/i);
+  });
+
+  it('adds durable claim heartbeat and orphan cleanup state additively', () => {
+    const sql = readFileSync(migrationPath, 'utf8');
+
+    expect(sql).toMatch(/add column if not exists claim_token\s+uuid/i);
+    expect(sql).toMatch(/add column if not exists claim_heartbeat_at\s+timestamptz/i);
+    expect(sql).toMatch(/add column if not exists claim_expires_at\s+timestamptz/i);
+    expect(sql).toMatch(/add column if not exists cleanup_pending_paths\s+text\[\]/i);
+    expect(sql).toMatch(/add column if not exists cleanup_error\s+text/i);
   });
 
   it('terminates both PL/pgSQL blocks with valid END statements', () => {

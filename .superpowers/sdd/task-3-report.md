@@ -143,3 +143,47 @@ Sentry and webpack cache-size warnings remained non-fatal.
   constraint or fails visibly if preexisting data violates it.
 - The migration was not applied locally or remotely. No publish/deploy action
   was performed.
+
+## Second blocking re-review corrections
+
+### RED
+
+```text
+npx.cmd vitest run tests/unit/daily-content-actions.test.js tests/unit/generate.test.js
+```
+
+Result before implementation: exit 1 — 2 files failed, 7 tests failed and 23
+passed. The failures demonstrated absent stale-claim recovery, absent durable
+orphan retry, persistence failure without cleanup state, an original worker
+overwriting a replacement claim, incomplete SQL business preconditions, absent
+additive claim/cleanup columns, and silent storage cleanup errors.
+
+### GREEN
+
+Focused result: 2 files passed, 30 tests passed.
+
+Required regression:
+
+```text
+npx.cmd vitest run tests/unit/daily-content-actions.test.js tests/unit/ai-governance.test.js tests/unit/generate.test.js
+```
+
+Result: exit 0 — 3 files passed, 33 tests passed.
+
+`npm.cmd run build`: exit 0; Next.js compiled, type/lint checks completed, 26
+static pages were generated, and the standalone package was prepared.
+
+### Final invariants
+
+- The database trigger rejects incomplete `ready` content/evidence, missing or
+  mismatched approval audit fields, and non-future scheduled transitions.
+- Claims use a UUID owner, heartbeat and expiry. Live claims are never
+  reclaimed; expired claims are atomically replaced. Ready/failure writes are
+  conditional on the current claim token, so the original worker cannot
+  overwrite its replacement.
+- Successful generated media now includes storage paths. Any later persistence
+  failure triggers cleanup; failed cleanup paths and a safe error are stored on
+  the package and must be cleaned before regeneration.
+- Storage removal response errors are surfaced rather than ignored.
+- No posts/publication integration was added. The migration was not applied
+  locally or remotely, and no deployment was performed.

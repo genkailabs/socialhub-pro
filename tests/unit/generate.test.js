@@ -117,4 +117,36 @@ describe('generateCreative + pesquisa', () => {
     expect(upload).toHaveBeenCalledTimes(2);
     expect(remove).toHaveBeenCalledWith([upload.mock.calls[0][0]]);
   });
+
+  it('surfaces cleanup failures with safe durable orphan metadata', async () => {
+    mocks.needsResearch.mockReturnValue(false);
+    mocks.deepseekChat.mockResolvedValue({
+      content: JSON.stringify({
+        template: 'tips_carousel', headline: 'Dicas', caption: 'Legenda',
+        bullets: ['Primeira'], hashtags: ['#dicas']
+      }),
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+      model: 'deepseek-v4-flash'
+    });
+    const upload = vi.fn()
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: { message: 'falha no segundo upload' } });
+    const remove = vi.fn().mockResolvedValue({ error: { message: 'raw bucket permission detail' } });
+    const bucket = {
+      upload,
+      remove,
+      getPublicUrl: vi.fn((path) => ({ data: { publicUrl: `https://cdn.example/${path}` } }))
+    };
+    const supabase = { storage: { from: vi.fn(() => bucket) } };
+
+    await expect(generateCreative({
+      supabase, brandId: 'b1', brandName: 'Marca', brief: { topic: 'dicas' },
+      generateImages: true, maxImages: 2
+    })).rejects.toMatchObject({
+      cleanupPendingPaths: [expect.stringContaining('b1/ai-')],
+      cleanupError: 'Não foi possível remover as mídias geradas.'
+    });
+
+    expect(remove).toHaveBeenCalledTimes(1);
+  });
 });
