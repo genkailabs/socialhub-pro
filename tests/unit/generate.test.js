@@ -62,6 +62,21 @@ describe('generateCreative + pesquisa', () => {
     expect(out.research).toMatchObject({ summary: 'atual', cost: 0.01, cached: false });
   });
 
+  it('uses handed verified research without a second provider fetch', async () => {
+    mocks.needsResearch.mockReturnValue(true);
+    const verifiedResearch = {
+      summary: 'Fatos verificados.',
+      sources: [{ url: 'https://example.com/fato', title: 'Fato', publisher: 'Example', publishedAt: '2026-07-20T10:00:00.000Z', consultedAt: '2026-07-26T10:00:00.000Z', summary: 'Resumo.' }],
+      images: []
+    };
+
+    const out = await generateCreative({ supabase: {}, brandId: 'b1', brandName: 'Marca', brief: { topic: 'IA hoje', format: 'news' }, verifiedResearch, generateImages: false });
+
+    expect(mocks.researchContext).not.toHaveBeenCalled();
+    expect(mocks.buildContentPrompt).toHaveBeenCalledWith(expect.objectContaining({ research: verifiedResearch }));
+    expect(out.research).toBe(verifiedResearch);
+  });
+
   it('pesquisa falha: propaga erro e não chama o DeepSeek', async () => {
     mocks.needsResearch.mockReturnValue(true);
     mocks.researchContext.mockRejectedValue(new ResearchUnavailableError());
