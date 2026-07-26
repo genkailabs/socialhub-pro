@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Mascot } from './Mascot';
+import { useConducting } from '@/components/journey/JourneyProvider';
 
 /*
  * O mascote Hub explicando uma tela.
@@ -20,6 +21,9 @@ export function MascotTip({ id, title, lines = [], cta, variant = 'inline', mood
   const defaultOpen = variant === 'inline';
   const [open, setOpen] = useState(defaultOpen);
   const [hydrated, setHydrated] = useState(false);
+  // Durante a jornada guiada o mascote fala pela janela do agente. Aqui ele se
+  // cala para não haver dois Hubs dizendo coisas diferentes na mesma tela.
+  const conducting = useConducting();
 
   useEffect(() => {
     let stored = null;
@@ -40,6 +44,8 @@ export function MascotTip({ id, title, lines = [], cta, variant = 'inline', mood
       // sem persistência: a escolha vale só nesta navegação.
     }
   }
+
+  if (conducting) return null;
 
   // Antes de ler o localStorage a bolha flutuante não aparece, para não
   // piscar na tela de quem já fechou.

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Check, ArrowRight, ChevronLeft, ChevronRight, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Mascot } from './Mascot';
+import { useConducting } from '@/components/journey/JourneyProvider';
 
 // Stepper do fluxo de conteúdo (redesign 2026-07): 5 nós circulares ligados por
 // uma linha de progresso — com o mascote Hub caminhando até a etapa em foco e
@@ -60,7 +61,12 @@ export function FlowStepper({ pipeline }) {
   const allDone = pipeline ? pipeline.currentIndex === -1 : false;
   const homeIndex = pipeline ? (allDone ? STEPS.length - 1 : pipeline.currentIndex) : 0;
   const [focus, setFocus] = useState(homeIndex);
+  const conducting = useConducting();
 
+  // Durante a jornada guiada quem fala é a janela do agente. Dois guias na mesma
+  // tela, cada um apontando para um passo diferente, confundem mais do que
+  // ajudam.
+  if (conducting) return null;
   if (!pipeline) return null;
   const { done, currentIndex, counts } = pipeline;
 

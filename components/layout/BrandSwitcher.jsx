@@ -5,8 +5,10 @@ import { switchBrand } from '@/app/(app)/brand-actions';
 import { BrandBadge } from '@/components/workspace/BrandBadge';
 import { NewBrandModal } from '@/components/workspace/NewBrandModal';
 import { DeleteBrandModal } from '@/components/workspace/DeleteBrandModal';
+import { useConducting } from '@/components/journey/JourneyProvider';
 
 export function BrandSwitcher({ brands = [], activeId }) {
+  const conducting = useConducting();
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -49,10 +51,19 @@ export function BrandSwitcher({ brands = [], activeId }) {
             </div>
           ))}
           <div className="my-1 h-px bg-line" />
-          <button onClick={() => { setOpen(false); setModal(true); }}
-            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-accent transition-colors hover:bg-accent-tint">
-            <Plus className="h-3.5 w-3.5" /> Nova marca
-          </button>
+          {/* Durante a jornada guiada a marca nasce dentro do agente, que já a
+              marca como "em condução". Criar por fora deixaria a pessoa com uma
+              marca vazia e nenhum guia. Trocar de marca continua livre. */}
+          {conducting ? (
+            <p className="px-2.5 py-2 text-[11px] leading-snug text-faint">
+              O Hub está configurando sua marca. Você cria outras quando ele terminar.
+            </p>
+          ) : (
+            <button onClick={() => { setOpen(false); setModal(true); }}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-accent transition-colors hover:bg-accent-tint">
+              <Plus className="h-3.5 w-3.5" /> Nova marca
+            </button>
+          )}
         </div>
       )}
 

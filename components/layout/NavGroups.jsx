@@ -1,14 +1,24 @@
 'use client';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NAV_GROUPS } from '@/data/nav';
 import { cn } from '@/lib/utils';
+import { useConducting } from '@/components/journey/JourneyProvider';
 
 // Lista de navegação compartilhada pelo Sidebar (desktop) e pelo MobileNav
 // (gaveta abaixo de 768px). Fonte única — muda num lugar, muda nos dois.
 // `collapsed`: sidebar recolhida (76px) — esconde labels/headers, só ícones.
+// Enquanto o agente conduz o primeiro uso, os itens continuam VISÍVEIS e viram
+// texto inerte — sumir com o menu apagaria a memória espacial e pareceria
+// defeito. Trocar <Link> por <span>, em vez de usar pointer-events-none, é o
+// que faz teclado e leitor de tela respeitarem a trava.
+//
+// A trava vem do contexto e não de prop: Sidebar e MobileNav renderizam este
+// componente em lugares diferentes, e uma fonte só evita as duas divergirem.
 export function NavGroups({ canAccessAICosts = false, onNavigate, collapsed = false }) {
   const pathname = usePathname();
+  const locked = useConducting();
   return (
     <nav className={cn('flex flex-col gap-5 pb-4', collapsed ? 'px-2' : 'px-3')}>
       {NAV_GROUPS.map((group, gi) => (
@@ -46,6 +56,23 @@ export function NavGroups({ canAccessAICosts = false, onNavigate, collapsed = fa
                 );
               }
               const active = pathname === item.href;
+              if (locked) {
+                return (
+                  <span
+                    key={item.href}
+                    aria-disabled="true"
+                    tabIndex={-1}
+                    title="Disponível quando o Hub terminar de configurar sua marca"
+                    className={cn(
+                      'flex cursor-not-allowed items-center gap-2.5 rounded-lg py-2 text-[13px] font-medium text-faint opacity-60',
+                      collapsed ? 'justify-center px-0' : 'px-3'
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+                    {!collapsed && <span>{item.label}</span>}
+                  </span>
+                );
+              }
               return (
                 <Link
                   key={item.href}

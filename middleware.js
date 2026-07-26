@@ -6,7 +6,14 @@ import { createServerClient } from '@supabase/ssr';
 const PUBLIC = ['/login', '/auth', '/approve', '/api'];
 
 export async function middleware(request) {
-  let response = NextResponse.next({ request });
+  // O layout do grupo (app) precisa saber qual rota está sendo pedida para
+  // decidir o gate da jornada guiada, e Server Components não têm acesso ao
+  // pathname. O middleware é o único ponto que o conhece a tempo — mas não
+  // decide nada aqui: resolver a jornada no edge custaria caro em toda request.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-pathname', request.nextUrl.pathname);
+
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,

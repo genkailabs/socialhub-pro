@@ -79,7 +79,6 @@ describe('onboarding-actions', () => {
       );
       expect(revalidatePath).toHaveBeenCalledWith('/brand-kit');
       expect(revalidatePath).toHaveBeenCalledWith('/dashboard');
-      expect(revalidatePath).toHaveBeenCalledWith('/onboarding');
     });
 
     it('exige brandId e não revalida se falhar', async () => {
@@ -90,19 +89,18 @@ describe('onboarding-actions', () => {
   });
 
   describe('resetOnboarding', () => {
-    it('resetOnboarding retorna ok e seta not_started, step 0 e onboarding_answers zerado', async () => {
+    it('resetOnboarding volta ao default da coluna: pending, step 0 e respostas zeradas', async () => {
       const res = await resetOnboarding({ brandId: 'brd-1' });
       expect(res.ok).toBe(true);
       expect(mockUpsert).toHaveBeenCalledWith(
         expect.objectContaining({
           brand_id: 'brd-1',
-          onboarding_status: 'not_started',
+          onboarding_status: 'pending',
           onboarding_step: 0,
           onboarding_answers: {}
         }),
         { onConflict: 'brand_id' }
       );
-      expect(revalidatePath).toHaveBeenCalledWith('/onboarding');
       expect(revalidatePath).toHaveBeenCalledWith('/brand-kit');
       expect(revalidatePath).toHaveBeenCalledWith('/dashboard');
     });

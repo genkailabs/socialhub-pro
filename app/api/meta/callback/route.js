@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { exchangeCodeForToken, exchangeForLongLivedToken, discoverPages } from '@/lib/meta/graph';
 import { getBrandInstagramMetrics } from '@/lib/metrics-data';
+import { safeReturnTo, OAUTH_RETURN_DEFAULT } from '@/lib/oauth-return';
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
@@ -13,12 +14,15 @@ export async function GET(request) {
   if (error) return back(`Falha na autorização: ${error}`);
   if (!code) return back('Código de autorização não recebido da Meta.');
 
-  // Decodifica state → brand_id + uid
-  let brandId = null, uid = null;
+  // Decodifica state → brand_id + uid + para onde voltar
+  let brandId = null, uid = null, returnTo = null;
   try {
     const s = JSON.parse(Buffer.from(searchParams.get('state') || '', 'base64').toString('utf8'));
-    brandId = s.brand_id; uid = s.uid;
+    brandId = s.brand_id; uid = s.uid; returnTo = safeReturnTo(s.rt);
   } catch { /* state inválido tratado abaixo */ }
+
+  // Revalidado mesmo vindo do state: o state é opaco, não assinado.
+  const destino = returnTo || OAUTH_RETURN_DEFAULT;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -85,7 +89,7 @@ export async function GET(request) {
       sync = result?.ok ? 'success' : 'warning';
     }
 
-    return NextResponse.redirect(`${appUrl}/connections?status=success&platform=${connected}&username=${encodeURIComponent(uname)}&sync=${sync}`);
+    return NextResponse.redirect(`${appUrl}${destino}?status=success&platform=${connected}&username=${encodeURIComponent(uname)}&sync=${sync}`);
   } catch (e) {
     return back(e.message || 'Erro interno ao processar autorização.');
   }

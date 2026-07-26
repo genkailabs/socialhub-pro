@@ -2,11 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
-import { isOnboardingComplete } from '@/lib/onboarding-helpers';
-import { GuidedOnboardingWizard } from '@/components/onboarding/guided/GuidedOnboardingWizard';
+import { JourneyProvider } from '@/components/journey/JourneyProvider';
+import { AgentWindow } from '@/components/journey/AgentWindow';
 import { usePathname } from 'next/navigation';
 
-export function AppShell({ children, brands = [], activeId, activeKit = null, connectedPlatforms = {}, canAccessAICosts = false, accountEmail = '' }) {
+export function AppShell({ children, brands = [], activeId, journey = null, canAccessAICosts = false, accountEmail = '' }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const isComposer = pathname === '/composer';
@@ -25,37 +25,29 @@ export function AppShell({ children, brands = [], activeId, activeKit = null, co
   }
 
   const activeBrand = brands.find((b) => b.id === activeId);
-  const needsOnboarding = activeId && activeKit && !isOnboardingComplete(activeKit);
 
-  if (needsOnboarding) {
-    return (
-      <div className="app-glow min-h-screen bg-app overflow-auto p-4 sm:p-6 lg:p-8">
-        <GuidedOnboardingWizard
-          brandId={activeId}
-          brandName={activeBrand?.name || 'Sua Marca'}
-          kit={activeKit}
-          connectedPlatforms={connectedPlatforms}
-        />
-      </div>
-    );
-  }
-
+  // Durante a jornada guiada o app continua inteiro na tela: o agente flutua por
+  // cima e conduz, mas quem trabalha são as telas reais. Quem trava a navegação
+  // é o gate no layout do servidor — aqui só se desenha o estado.
   return (
-    <div className="app-glow flex h-screen">
-      <Sidebar collapsed={collapsed} canAccessAICosts={canAccessAICosts} accountEmail={accountEmail} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar
-          brands={brands}
-          activeId={activeId}
-          canAccessAICosts={canAccessAICosts}
-          accountEmail={accountEmail}
-          onToggleSidebar={toggleSidebar}
-          collapsed={collapsed}
-        />
-        <main className={`min-h-0 flex-1 bg-app ${isComposer ? 'overflow-hidden' : 'overflow-auto'}`}>
-          <div className={isComposer ? 'h-full w-full' : 'mx-auto w-full max-w-[1500px] space-y-7 p-4 sm:p-6 lg:p-8'}>{children}</div>
-        </main>
+    <JourneyProvider journey={journey}>
+      <div className="app-glow flex h-screen">
+        <Sidebar collapsed={collapsed} canAccessAICosts={canAccessAICosts} accountEmail={accountEmail} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar
+            brands={brands}
+            activeId={activeId}
+            canAccessAICosts={canAccessAICosts}
+            accountEmail={accountEmail}
+            onToggleSidebar={toggleSidebar}
+            collapsed={collapsed}
+          />
+          <main className={`min-h-0 flex-1 bg-app ${isComposer ? 'overflow-hidden' : 'overflow-auto'}`}>
+            <div className={isComposer ? 'h-full w-full' : 'mx-auto w-full max-w-[1500px] space-y-7 p-4 sm:p-6 lg:p-8'}>{children}</div>
+          </main>
+        </div>
+        <AgentWindow journey={journey} brandId={activeId} brandName={activeBrand?.name || 'Sua marca'} />
       </div>
-    </div>
+    </JourneyProvider>
   );
 }
