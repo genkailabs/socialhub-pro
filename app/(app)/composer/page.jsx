@@ -11,6 +11,7 @@ import { getBrandKit } from '@/lib/brand-kit-data';
 import { createClient } from '@/lib/supabase/server';
 import { getDailyContentPackage } from '@/lib/daily-content-data';
 import { dailyPackageToComposerDraft } from '@/lib/daily-content-composer';
+import { dailyContentDateInSaoPaulo } from '@/lib/daily-content-date';
 
 // Só o que o prompt de arte externa usa — nada de DNA bruto no cliente.
 function publicBrandKit(kit) {
@@ -40,7 +41,7 @@ export default async function ComposerPage({ searchParams }) {
       ? await getComposerPost(active.id, requestedPostId)
       : await getLatestComposerDraft(active.id)
     : null;
-  const contentDate = new Date().toISOString().slice(0, 10);
+  const contentDate = dailyContentDateInSaoPaulo();
   let dailyPackage = null;
   let dailyUnavailableMessage = '';
   if (active) {

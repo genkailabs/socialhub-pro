@@ -1,5 +1,5 @@
 import React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const actions = vi.hoisted(() => ({
@@ -9,8 +9,17 @@ const actions = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/daily-content-actions', () => actions);
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({ storage: { from: () => ({ remove: vi.fn() }) } })
+}));
+vi.mock('@/lib/posts-media', () => ({ uploadTempMedia: vi.fn(), removeTempMedia: vi.fn() }));
+vi.mock('@/lib/posts-actions', () => ({
+  publishNow: vi.fn(), saveDraft: vi.fn(), schedulePost: vi.fn(), deleteComposerDraft: vi.fn()
+}));
 
 import { DailyContentBrief, dailyPackageToComposerDraft } from '@/components/composer/DailyContentBrief';
+import { VisualComposer } from '@/components/composer/VisualComposer';
+import { dailyContentDateInSaoPaulo } from '@/lib/daily-content-date';
 
 const readyPackage = {
   id: 'package-1',
@@ -30,6 +39,10 @@ const readyPackage = {
   recommended_schedule: { weekday: 1, time: '12:00', source: 'measured' },
   sources: [{ title: 'Relatorio oficial', publisher: 'Meta', url: 'https://about.meta.com/report' }]
 };
+
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+});
 
 afterEach(() => {
   cleanup();
@@ -129,5 +142,53 @@ describe('DailyContentBrief', () => {
     expect(draft.editor_state.hashtags).toBe('#planejamento #marketing');
     expect(draft.editor_state.altText).toBe(readyPackage.alt_text);
     expect(draft.editor_state.doc.post.media.url).toBe(readyPackage.media_urls[0]);
+  });
+
+  it('apresenta um pacote interno com a proveniencia aprovada mesmo sem link externo', () => {
+    render(<DailyContentBrief
+      brandId="brand-1"
+      contentDate="2026-07-26"
+      package={{ ...readyPackage, sources: [], evidence: { kind: 'internal', source: 'approved-context' } }}
+    />);
+
+    expect(screen.getByText(/contexto aprovado/i)).toBeTruthy();
+    expect(screen.getByText(/approved-context/i)).toBeTruthy();
+  });
+
+  it('explica pelo Hub por que o tema foi selecionado', () => {
+    render(<DailyContentBrief brandId="brand-1" contentDate="2026-07-26" package={readyPackage} />);
+
+    expect(screen.getByText(new RegExp(`O Hub selecionou este tema porque ${readyPackage.reason}`, 'i'))).toBeTruthy();
+  });
+
+  it('mantem a decisao acessivel antes de uma legenda longa e revela o restante sob demanda', () => {
+    const longCaption = `${'Introducao '.repeat(70)}TRECHO FINAL DA LEGENDA`;
+    render(<DailyContentBrief brandId="brand-1" contentDate="2026-07-26" package={{ ...readyPackage, generated_content: { ...readyPackage.generated_content, caption: longCaption } }} />);
+
+    const reveal = screen.getByRole('button', { name: /ler legenda completa/i });
+    const approve = screen.getByRole('button', { name: 'Aprovar' });
+    expect(reveal.compareDocumentPosition(approve) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/TRECHO FINAL DA LEGENDA/)).toBeNull();
+    fireEvent.click(reveal);
+    expect(screen.getByText(/TRECHO FINAL DA LEGENDA/)).toBeTruthy();
+  });
+
+  it('renderiza uma unica mensagem acessivel quando a consulta do pacote esta indisponivel', () => {
+    render(<DailyContentBrief brandId="brand-1" contentDate="2026-07-26" package={null} unavailableMessage="A consulta falhou." />);
+
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
+  it('identifica o pacote injetado como conteudo ainda nao salvo no Composer', () => {
+    const draft = dailyPackageToComposerDraft(readyPackage);
+    render(<VisualComposer brandId="brand-1" brandName="Marca" initialDraft={draft} />);
+
+    expect(screen.getByText('Conteúdo do dia carregado')).toBeTruthy();
+    expect(screen.queryByText('Rascunho salvo')).toBeNull();
+  });
+
+  it('calcula a data diaria no fuso de Sao Paulo, inclusive perto da meia-noite UTC', () => {
+    expect(dailyContentDateInSaoPaulo(new Date('2026-07-27T01:30:00.000Z'))).toBe('2026-07-26');
+    expect(dailyContentDateInSaoPaulo(new Date('2026-07-27T03:30:00.000Z'))).toBe('2026-07-27');
   });
 });

@@ -6,6 +6,8 @@ import { approveDailyContent, prepareDailyContent, scheduleDailyContent } from '
 
 export { dailyPackageToComposerDraft } from '@/lib/daily-content-composer';
 
+const CAPTION_PREVIEW_LIMIT = 320;
+
 function asText(value) {
   if (Array.isArray(value)) return value.map(String).filter(Boolean).join(' ');
   return typeof value === 'string' ? value.trim() : '';
@@ -31,23 +33,36 @@ function unavailableCopy(pkg, unavailableMessage) {
   return 'Ainda não há um pacote preparado para hoje. O Hub só prepara conteúdo quando há contexto aprovado e evidência suficiente.';
 }
 
+function internalEvidenceLabel(evidence) {
+  if (!evidence || evidence.kind !== 'internal') return null;
+  return evidence.source || 'approved-context';
+}
+
 export function DailyContentBrief({ brandId, contentDate, package: initialPackage = null, unavailableMessage = '' }) {
   const [pkg, setPkg] = useState(initialPackage);
   const [busy, setBusy] = useState('');
-  const [error, setError] = useState(unavailableMessage || '');
+  const [error, setError] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [captionExpanded, setCaptionExpanded] = useState(false);
 
   useEffect(() => {
     setPkg(initialPackage);
-    setError(unavailableMessage || '');
+    setError('');
+    setCaptionExpanded(false);
   }, [initialPackage, unavailableMessage]);
 
   const ready = pkg?.status === 'ready';
   const approved = pkg?.status === 'approved';
   const scheduled = pkg?.status === 'scheduled';
   const generated = pkg?.generated_content && typeof pkg.generated_content === 'object' ? pkg.generated_content : {};
+  const caption = asText(generated.caption || generated.legenda);
+  const hasLongCaption = caption.length > CAPTION_PREVIEW_LIMIT;
+  const visibleCaption = hasLongCaption && !captionExpanded
+    ? `${caption.slice(0, CAPTION_PREVIEW_LIMIT).trimEnd()}…`
+    : caption;
   const hashtags = asText(generated.hashtags);
   const sources = useMemo(() => Array.isArray(pkg?.sources) ? pkg.sources.filter((source) => source?.url) : [], [pkg]);
+  const internalEvidence = internalEvidenceLabel(pkg?.evidence);
 
   async function prepare() {
     setBusy('prepare');
@@ -105,7 +120,7 @@ export function DailyContentBrief({ brandId, contentDate, package: initialPackag
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Decisão editorial</p>
             <h1 id="daily-content-title" className="mt-1 text-xl font-extrabold tracking-tight text-ink">Conteúdo de hoje</h1>
-            <p role={pkg?.status === 'failed' || unavailableMessage ? 'alert' : undefined} className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">{unavailableCopy(pkg, unavailableMessage)}</p>
+            <p role={pkg?.status === 'failed' || unavailableMessage ? 'alert' : undefined} className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">{pkg?.status === 'failed' || unavailableMessage ? `O Hub não preparou este conteúdo: ${unavailableCopy(pkg, unavailableMessage)}` : unavailableCopy(pkg, unavailableMessage)}</p>
           </div>
         </div>
         {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -124,6 +139,7 @@ export function DailyContentBrief({ brandId, contentDate, package: initialPackag
           <h1 id="daily-content-title" className="mt-1 text-xl font-extrabold tracking-tight text-ink">Conteúdo de hoje</h1>
           <h2 className="mt-2 text-base font-bold text-ink">{pkg.topic}</h2>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{pkg.reason}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-2">O Hub selecionou este tema porque {pkg.reason}</p>
         </div>
         <span className="inline-flex w-fit rounded-full bg-accent-tint px-3 py-1 text-xs font-bold text-accent">{scheduled ? 'Agendado' : approved ? 'Aprovado' : 'Pronto para revisar'}</span>
       </div>
@@ -132,7 +148,8 @@ export function DailyContentBrief({ brandId, contentDate, package: initialPackag
         <div className="space-y-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Legenda</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink">{asText(generated.caption || generated.legenda) || 'Legenda não disponível.'}</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink">{visibleCaption || 'Legenda não disponível.'}</p>
+            {hasLongCaption && <button type="button" aria-expanded={captionExpanded} onClick={() => setCaptionExpanded((value) => !value)} className="mt-2 text-sm font-bold text-accent underline-offset-2 hover:underline">{captionExpanded ? 'Mostrar resumo da legenda' : 'Ler legenda completa'}</button>}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div><p className="text-xs font-bold uppercase tracking-wide text-muted">Hashtags</p><p className="mt-1 text-sm text-ink">{hashtags || 'Não informado.'}</p></div>
@@ -140,6 +157,7 @@ export function DailyContentBrief({ brandId, contentDate, package: initialPackag
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-sm text-ink-2"><CalendarClock className="h-4 w-4 text-accent" />{scheduleLabel(pkg.recommended_schedule)}</div>
           {sources.length > 0 && <div><p className="text-xs font-bold uppercase tracking-wide text-muted">Fontes verificadas</p><ul className="mt-2 space-y-1.5">{sources.map((source) => <li key={source.url}><a className="inline-flex items-center gap-1 text-sm font-semibold text-accent underline-offset-2 hover:underline" href={source.url} target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" />{sourceLabel(source)}</a></li>)}</ul></div>}
+          {internalEvidence && <div className="rounded-lg bg-surface-2 px-3 py-2"><p className="text-xs font-bold uppercase tracking-wide text-muted">Contexto aprovado</p><p className="mt-1 text-sm text-ink">{internalEvidence}</p></div>}
         </div>
         <figure className="overflow-hidden rounded-xl border border-line bg-surface-2">
           {pkg.media_urls?.[0] ? <img className="aspect-square h-auto w-full object-cover" src={pkg.media_urls[0]} alt={pkg.alt_text || 'Arte gerada para o conteúdo de hoje'} /> : <div className="grid aspect-square place-items-center text-muted"><ImageIcon className="h-8 w-8" /></div>}

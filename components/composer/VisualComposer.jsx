@@ -154,7 +154,9 @@ function targetIsActive(state, target) {
 
 function baseState(initialDraft) {
   const restored = initialDraft?.editor_state;
-  const lifecycleStatus = initialDraft?.status === 'scheduled' ? 'Agendado' : initialDraft ? 'Rascunho salvo' : 'Rascunho';
+  const lifecycleStatus = initialDraft?.isEphemeral
+    ? 'Conteúdo do dia carregado'
+    : initialDraft?.status === 'scheduled' ? 'Agendado' : initialDraft ? 'Rascunho salvo' : 'Rascunho';
   return {
     theme: 'light', format: 'post', ratio: '1:1', doc: makeComposerDocument(),
     aiArt: EMPTY_AI_ART,
