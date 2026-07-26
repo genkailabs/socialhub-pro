@@ -1,9 +1,9 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { Mascot } from '@/components/onboarding/Mascot';
-import { leaveJourney } from '@/lib/journey-actions';
+import { leaveJourney, refreshJourney } from '@/lib/journey-actions';
 import { JOURNEY_COPY } from './journey-copy';
 import { StepBrand } from './steps/StepBrand';
 import { StepConnect } from './steps/StepConnect';
@@ -33,6 +33,7 @@ const BODIES = {
  */
 export function AgentWindow({ journey, brandId, brandName }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -80,7 +81,19 @@ export function AgentWindow({ journey, brandId, brandName }) {
     }
   }
 
-  function advance() {
+  // Concluído um passo, duas coisas precisam acontecer — e faltavam as duas.
+  //
+  // 1. invalidar o layout, senão a etapa continua a antiga (o cache do payload
+  //    do layout sobrevive a um router.refresh());
+  // 2. LEVAR a pessoa para a tela do próximo passo. O gate do servidor só
+  //    reposiciona quando há navegação; parada na mesma rota, ela ficava
+  //    olhando a tela anterior até apertar F5.
+  async function advance() {
+    await refreshJourney();
+    const proximo = journey.currentIndex >= 0 ? journey.steps[journey.currentIndex + 1] : null;
+    if (proximo && proximo.route !== pathname) {
+      router.push(proximo.route);
+    }
     router.refresh();
   }
 

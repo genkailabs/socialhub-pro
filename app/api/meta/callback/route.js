@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { exchangeCodeForToken, exchangeForLongLivedToken, discoverPages } from '@/lib/meta/graph';
 import { getBrandInstagramMetrics } from '@/lib/metrics-data';
@@ -76,6 +77,11 @@ export async function GET(request) {
 
     const { error: upErr } = await supabase.from('social_tokens').upsert(rows, { onConflict: 'brand_id,platform' });
     if (upErr) throw new Error(`Erro ao salvar token: ${upErr.message}`);
+
+    // Conectar é um fato da jornada guiada, e quem resolve a jornada é o layout
+    // do grupo (app). Sem invalidar o layout aqui, quem volta do OAuth continua
+    // vendo o passo "conectar o Instagram" até apertar F5.
+    revalidatePath('/', 'layout');
 
     const connected = igAccount ? 'instagram' : 'facebook';
     const uname = igAccount ? (igAccount.username || igAccount.name) : page.name;
