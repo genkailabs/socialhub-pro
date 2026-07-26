@@ -189,3 +189,25 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Diálogo (components/ui/Modal.jsx). O fundo só escurece; o painel sobe um
+   pouco para o olho saber de onde ele veio. Curto de propósito: é um formulário
+   que o usuário pediu, não uma revelação. */
+@keyframes modal-panel-in {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-modal-backdrop {
+  animation: agent-fade .16s ease-out both;
+}
+
+.animate-modal-panel {
+  animation: modal-panel-in .18s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-modal-panel {
+    animation: agent-fade .16s ease-out both;
+  }
+}

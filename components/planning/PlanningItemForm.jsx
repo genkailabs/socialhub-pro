@@ -12,7 +12,7 @@ const EMPTY_VALUES = {
 
 const INPUT_CLASS = 'mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition focus:border-accent';
 
-export function PlanningItemForm({ item, onCancel, onSave, onRestoreVersion, busy }) {
+export function PlanningItemForm({ item, onCancel, onSave, onRestoreVersion, busy, titleId }) {
   const [values, setValues] = useState({ ...EMPTY_VALUES, ...(item || {}) });
   const [versionId, setVersionId] = useState('');
 
@@ -32,15 +32,19 @@ export function PlanningItemForm({ item, onCancel, onSave, onRestoreVersion, bus
 
   const versions = item?.versions || [];
   return (
-    <form onSubmit={submit} className="rounded-2xl border border-accent/25 bg-accent/[0.03] p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div><h3 className="text-sm font-bold text-ink">{item?.id ? 'Editar ideia' : 'Adicionar ideia'}</h3><p className="mt-0.5 text-xs text-muted">Edição manual não usa IA.</p></div>
-        <button type="button" aria-label="Fechar formulário" onClick={onCancel} className="rounded-lg p-1.5 text-muted hover:bg-line hover:text-ink"><X className="h-4 w-4" aria-hidden="true" /></button>
+    // Estrutura de diálogo: cabeçalho e rodapé fixos, só os campos rolam. Numa
+    // janela baixa o botão "Salvar" precisa continuar alcançável sem rolar até
+    // o fim do formulário.
+    <form onSubmit={submit} className="flex max-h-[85vh] flex-col">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-4">
+        <div><h3 id={titleId} className="text-sm font-bold text-ink">{item?.id ? 'Editar ideia' : 'Adicionar ideia'}</h3><p className="mt-0.5 text-xs text-muted">Edição manual não usa IA.</p></div>
+        <button type="button" aria-label="Fechar formulário" onClick={onCancel} className="rounded-lg p-1.5 text-muted transition-colors hover:bg-line hover:text-ink"><X className="h-4 w-4" aria-hidden="true" /></button>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
+      <div className="grid gap-3 md:grid-cols-2">
         <label className="text-xs font-semibold text-ink">Data<input required type="date" value={values.date || ''} onChange={(e) => update('date', e.target.value)} className={INPUT_CLASS} /></label>
-        <label className="text-xs font-semibold text-ink">HorÃ¡rio sugerido<input type="time" value={values.suggested_time || ''} onChange={(e) => update('suggested_time', e.target.value)} className={INPUT_CLASS} /></label>
+        <label className="text-xs font-semibold text-ink">Horário sugerido<input type="time" value={values.suggested_time || ''} onChange={(e) => update('suggested_time', e.target.value)} className={INPUT_CLASS} /><span className="mt-1 block text-[11px] font-normal text-muted">Mudou só a data? O melhor horário do novo dia é recalculado.</span></label>
         <label className="text-xs font-semibold text-ink">Formato<select value={values.format || 'image'} onChange={(e) => update('format', e.target.value)} className={INPUT_CLASS}>{plannableFormats().map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}</select></label>
         <label className="text-xs font-semibold text-ink md:col-span-2">Título<input required value={values.title || ''} onChange={(e) => update('title', e.target.value)} className={INPUT_CLASS} /></label>
         <label className="text-xs font-semibold text-ink">Tema<input value={values.topic || ''} onChange={(e) => update('topic', e.target.value)} className={INPUT_CLASS} /></label>
@@ -54,13 +58,15 @@ export function PlanningItemForm({ item, onCancel, onSave, onRestoreVersion, bus
       </div>
 
       {versions.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-end gap-2 rounded-xl bg-surface p-3">
+        <div className="mt-4 flex flex-wrap items-end gap-2 rounded-xl bg-surface-2 p-3">
           <label className="flex-1 text-xs font-semibold text-ink">Restaurar versão<select value={versionId} onChange={(e) => setVersionId(e.target.value)} className={INPUT_CLASS}><option value="">Selecione uma versão</option>{versions.map((version) => <option key={version.id} value={version.id}>Versão {version.version_number}</option>)}</select></label>
           <Button type="button" variant="ghost" size="sm" disabled={!versionId || busy} onClick={() => onRestoreVersion(versionId)}><History className="h-3.5 w-3.5" aria-hidden="true" />Restaurar</Button>
         </div>
       )}
 
-      <div className="mt-4 flex justify-end gap-2"><Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button><Button type="submit" disabled={busy}><Save className="h-4 w-4" aria-hidden="true" />{busy ? 'Salvando...' : 'Salvar ideia'}</Button></div>
+      </div>
+
+      <div className="flex shrink-0 justify-end gap-2 border-t border-line px-5 py-4"><Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button><Button type="submit" disabled={busy}><Save className="h-4 w-4" aria-hidden="true" />{busy ? 'Salvando...' : 'Salvar ideia'}</Button></div>
     </form>
   );
 }

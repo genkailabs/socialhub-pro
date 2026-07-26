@@ -10,6 +10,7 @@ import { formatLabel } from '@/lib/content-production';
 import { availablePlanningItemActions, itemDetails } from '@/components/planning/PlanningSummary';
 import { PLANNING_COLUMNS, columnForPlanningItem, groupPlanningItemsByColumn } from '@/lib/planning-status';
 import { planningColumnDragState, planningDropAction, planningDropTargets } from '@/lib/planning-board';
+import { planTimeHasPassed } from '@/lib/planning-times';
 import { cn } from '@/lib/utils';
 
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -70,6 +71,14 @@ function PlanningItemCard({ item, busy, dragging, movable, onApprove, onEdit, on
   const primaryAction = ['approve', 'produce', 'viewContent'].some((action) => actions.includes(action));
   const secondaryActions = ['edit', 'replace', 'remove'].filter((action) => actions.includes(action));
   const creditActions = [actions.includes('produce') && 'Gerar conteúdo', actions.includes('replace') && 'Trocar'].filter(Boolean);
+  // Só avisa em card que o usuário ainda pode reagendar: em "Pronto"/publicado o
+  // horário passado é história, não pendência. A conta depende do relógio, então
+  // só roda depois de montar — no servidor daria hidratação divergente.
+  const reagendavel = actions.includes('edit');
+  const [vencido, setVencido] = useState(false);
+  useEffect(() => {
+    setVencido(reagendavel && planTimeHasPassed(item.date, item.suggested_time));
+  }, [reagendavel, item.date, item.suggested_time]);
 
   return (
     <article
@@ -93,8 +102,12 @@ function PlanningItemCard({ item, busy, dragging, movable, onApprove, onEdit, on
       <CardHeader item={item} />
       {/* `flex` (não `inline-flex`): como <p> inline-level, esta linha colava no
           botão "Ver detalhes" logo abaixo, sem espaço entre os dois textos. */}
-      <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-accent">
+      {/* O horário mostrado é o que está gravado — inclusive quando o usuário o
+          escolheu à mão. Se já passou, o card diz; trocar em silêncio fazia a
+          edição parecer que não pegou. */}
+      <p className={cn('mt-2 flex flex-wrap items-center gap-1 text-[11px] font-semibold', vencido ? 'text-warning' : 'text-accent')}>
         <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />Melhor horario: {horarioSugerido(item.suggested_time)}
+        {vencido && <span className="font-normal text-muted">— já passou, edite para reagendar</span>}
       </p>
 
       <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="mt-2.5 flex items-center gap-1 text-xs font-semibold text-accent hover:text-accent-ink">Ver detalhes {expanded ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}</button>

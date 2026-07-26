@@ -13,6 +13,7 @@ import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PlanningItemForm } from '@/components/planning/PlanningItemForm';
 import { PlanningSummary } from '@/components/planning/PlanningSummary';
 import { CreditHint, dataCurta, PlanningBoard } from '@/components/planning/PlanningBoard';
+import { Modal } from '@/components/ui/Modal';
 import { normalizePlanningItemStatus } from '@/lib/planning-status';
 import { remainingPlanSlots } from '@/lib/strategy-plan';
 
@@ -67,14 +68,20 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
     if (!plan?.id) { setMessage({ type: 'warn', text: 'Gere o planejamento uma vez antes de adicionar uma ideia manual.' }); return; }
     setFormItem(null); setShowForm(true);
   }
+  function fecharForm() { setShowForm(false); setFormItem(null); }
   async function saveItem(values) {
     const result = await run('form', () => formItem?.id ? updatePlanItem({ itemId: formItem.id, patch: values }) : createPlanItem({ planId: plan.id, values }));
-    if (result) { setShowForm(false); setFormItem(null); }
+    if (!result) return;
+    fecharForm();
+    // O servidor pode ter mexido no horário (data nova, ou horário perto demais
+    // de agora). Quando mexe, ele diz — trocar calado foi o que fez a edição
+    // parecer quebrada.
+    if (result.notice) setMessage({ type: 'warn', text: result.notice });
   }
   async function restoreVersion(versionId) {
     if (!formItem?.id || !confirm('Restaurar esta versão e substituir as alterações atuais?')) return;
     const result = await run('form', () => restorePlanItemVersion({ itemId: formItem.id, versionId }));
-    if (result) { setShowForm(false); setFormItem(null); }
+    if (result) fecharForm();
   }
   async function replace(item) {
     const instruction = window.prompt('Como você quer mudar esta ideia? (opcional)');
@@ -138,7 +145,12 @@ export function PlanningPanel({ brandId, weekStart, plan, hasStrategy, postsPerW
 
     <div role="group" className="flex flex-wrap items-center gap-2" aria-label="Ações do planejamento"><Button variant="outline" onClick={approveAll} disabled={!ideaCount || busy === 'approve-all'}>Aprovar todas as ideias</Button><span className="inline-flex items-center gap-1.5"><Button onClick={produceAll} disabled={!approvedCount || busy === 'produce-all'}><Wand2 className="h-4 w-4" aria-hidden="true" />Gerar conteúdos aprovados</Button><CreditHint /></span><Button variant="ghost" onClick={addIdea}><Pencil className="h-4 w-4" aria-hidden="true" />Adicionar ideia</Button>{ideaCount > 0 && <span className="inline-flex items-center gap-1.5"><Button variant="outline" onClick={replanejar} disabled={generatingPlan}><Sparkles className="h-4 w-4" aria-hidden="true" />Replanejar</Button><CreditHint /></span>}</div>
 
-    {showForm && <PlanningItemForm item={formItem} busy={busy === 'form'} onCancel={() => { setShowForm(false); setFormItem(null); }} onSave={saveItem} onRestoreVersion={restoreVersion} />}
+    {/* O formulário abre como diálogo: antes ele nascia aqui no meio da página e
+        quem clicava em "Editar" num card lá embaixo no quadro não via nada
+        acontecer. */}
+    <Modal open={showForm} onClose={fecharForm} labelledBy="planning-item-form-title">
+      <PlanningItemForm item={formItem} busy={busy === 'form'} titleId="planning-item-form-title" onCancel={fecharForm} onSave={saveItem} onRestoreVersion={restoreVersion} />
+    </Modal>
     {generatingPlan && <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft"><LoadingIndicator compact label="Montando seu planejamento" description="Organizando temas, formatos e a sequência da semana." /></div>}
     {busy && busy !== 'form' && <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft"><LoadingIndicator compact label="Atualizando o planejamento" description="Só um instante." /></div>}
     {message && <p role="status" className={`flex items-center gap-1.5 text-xs font-semibold ${message.type === 'error' ? 'text-danger' : message.type === 'warn' ? 'text-warning' : 'text-success'}`}><AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />{message.text}</p>}

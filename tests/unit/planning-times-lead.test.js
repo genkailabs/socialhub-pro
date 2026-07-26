@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   earliestTimeFor, isDatePlannable, suggestedTimeForDate, resolveSuggestedTime,
-  scheduleIsoFromPlanning, todayInSaoPaulo, FALLBACK_PLANNING_SLOTS, MIN_LEAD_MINUTES
+  scheduleIsoFromPlanning, planTimeAfterEdit, planTimeHasPassed, todayInSaoPaulo,
+  FALLBACK_PLANNING_SLOTS, MIN_LEAD_MINUTES
 } from '@/lib/planning-times';
 
 // O caso real reportado: terca-feira, 16:31 em Sao Paulo. Nenhum slot padrao
@@ -85,6 +86,67 @@ describe('resolveSuggestedTime', () => {
   it('devolve null quando nao ha horario possivel', () => {
     const quase = new Date('2026-07-22T02:40:00.000Z');
     expect(resolveSuggestedTime({ date: HOJE, aiTime: '23:59', now: quase })).toBeNull();
+  });
+});
+
+// A escolha do usuario e diferente do palpite da IA: ela so e trocada quando nao
+// cabe, e a troca precisa vir com motivo para a tela poder avisar.
+describe('planTimeAfterEdit', () => {
+  it('mantem o horario escolhido a mao quando ele ainda cabe', () => {
+    expect(planTimeAfterEdit({ date: HOJE, time: '20:00', now: TERCA_1631 }))
+      .toEqual({ time: '20:00', adjusted: false, reason: null });
+  });
+
+  it('mantem horario de madrugada em data futura — escolha do usuario manda', () => {
+    expect(planTimeAfterEdit({ date: AMANHA, time: '05:30', now: TERCA_1631 }))
+      .toEqual({ time: '05:30', adjusted: false, reason: null });
+  });
+
+  it('ajusta e explica quando o horario esta perto demais de agora', () => {
+    const resultado = planTimeAfterEdit({ date: HOJE, time: '16:45', now: TERCA_1631 });
+    expect(resultado.adjusted).toBe(true);
+    expect(resultado.reason).toBe('too-soon');
+    expect(resultado.time >= '18:00').toBe(true);
+  });
+
+  it('recalcula o melhor horario a partir de hoje quando a data muda', () => {
+    const resultado = planTimeAfterEdit({ date: AMANHA, time: '20:00', recalculate: true, now: TERCA_1631 });
+    expect(resultado).toEqual({ time: '18:00', adjusted: true, reason: 'date-changed' });
+  });
+
+  it('preenche o horario quando o campo veio vazio', () => {
+    const resultado = planTimeAfterEdit({ date: AMANHA, time: '', now: TERCA_1631 });
+    expect(resultado.adjusted).toBe(true);
+    expect(resultado.reason).toBe('invalid');
+    expect(resultado.time).toBe('18:00');
+  });
+
+  it('avisa quando o dia nao comporta mais nada', () => {
+    const quase = new Date('2026-07-22T02:40:00.000Z');
+    expect(planTimeAfterEdit({ date: HOJE, time: '23:59', now: quase }))
+      .toEqual({ time: null, adjusted: true, reason: 'day-full' });
+  });
+});
+
+describe('planTimeHasPassed', () => {
+  it('marca horario de hoje que ja passou', () => {
+    expect(planTimeHasPassed(HOJE, '12:00', TERCA_1631)).toBe(true);
+  });
+
+  it('nao marca horario de hoje ainda por vir', () => {
+    expect(planTimeHasPassed(HOJE, '20:00', TERCA_1631)).toBe(false);
+  });
+
+  it('nao marca data futura', () => {
+    expect(planTimeHasPassed(AMANHA, '06:00', TERCA_1631)).toBe(false);
+  });
+
+  it('marca data que ja passou', () => {
+    expect(planTimeHasPassed('2026-07-20', '23:00', TERCA_1631)).toBe(true);
+  });
+
+  it('sem horario valido nao ha o que marcar', () => {
+    expect(planTimeHasPassed(HOJE, null, TERCA_1631)).toBe(false);
   });
 });
 

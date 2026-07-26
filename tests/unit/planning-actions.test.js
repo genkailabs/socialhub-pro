@@ -54,6 +54,20 @@ describe('setPlanItemStatus', () => {
   });
 });
 
+// Terça, 12:00 em São Paulo. Datas e horários abaixo são lidos contra este
+// relógio: sem fixá-lo, as regras de "a partir de hoje" tornariam os testes
+// dependentes do dia em que rodam.
+const AGORA = new Date('2026-07-21T15:00:00.000Z');
+const HOJE = '2026-07-21';
+const AMANHA = '2026-07-22';
+
+// O item lido antes de escrever, quando a edição toca data ou horário.
+function itemNoBanco(row) {
+  return {
+    select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: row, error: null }) })) }))
+  };
+}
+
 describe('updatePlanItem', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -70,10 +84,74 @@ describe('updatePlanItem', () => {
     expect(update).toHaveBeenCalledWith({ title: 'Novo título' });
     expect(mocks.runSkill).not.toHaveBeenCalled();
   });
+
+  describe('data e horário', () => {
+    beforeEach(() => { vi.clearAllMocks(); vi.useFakeTimers(); vi.setSystemTime(AGORA); });
+    afterEach(() => vi.useRealTimers());
+
+    function supabaseComItem(row) {
+      const update = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }));
+      const supabase = {
+        auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
+        from: vi.fn(() => ({ ...itemNoBanco(row), update }))
+      };
+      mocks.createClient.mockResolvedValue(supabase);
+      return update;
+    }
+
+    // O bug reportado: o usuário salvava um horário e o quadro seguia mostrando
+    // outro. A escrita precisa gravar exatamente o que ele escolheu.
+    it('grava o horário escolhido sem mexer, quando ele ainda cabe', async () => {
+      const update = supabaseComItem({ date: HOJE, suggested_time: '20:00', position: 0 });
+
+      await expect(updatePlanItem({ itemId: 'item-1', patch: { date: HOJE, suggested_time: '19:00' } }))
+        .resolves.toEqual({ ok: true });
+      expect(update).toHaveBeenCalledWith({ date: HOJE, suggested_time: '19:00' });
+    });
+
+    it('ajusta o horário perto demais de agora e avisa qual ficou', async () => {
+      const update = supabaseComItem({ date: HOJE, suggested_time: '20:00', position: 0 });
+
+      const res = await updatePlanItem({ itemId: 'item-1', patch: { date: HOJE, suggested_time: '12:30' } });
+      expect(res.ok).toBe(true);
+      expect(res.notice).toContain('12:30');
+      expect(res.suggestedTime >= '13:00').toBe(true);
+      expect(update.mock.calls[0][0].suggested_time).toBe(res.suggestedTime);
+    });
+
+    // Pedido do dono: mudar a data recalcula o melhor horário do novo dia,
+    // contando a partir de hoje.
+    it('recalcula o melhor horário quando só a data muda', async () => {
+      const update = supabaseComItem({ date: HOJE, suggested_time: '20:00', position: 0 });
+
+      const res = await updatePlanItem({ itemId: 'item-1', patch: { date: AMANHA, suggested_time: '20:00' } });
+      expect(res.ok).toBe(true);
+      expect(res.suggestedTime).toBe('18:00'); // quarta, slot padrão
+      expect(res.notice).toContain('18:00');
+      expect(update).toHaveBeenCalledWith({ date: AMANHA, suggested_time: '18:00' });
+    });
+
+    it('respeita a data e o horário novos quando o usuário muda os dois', async () => {
+      const update = supabaseComItem({ date: HOJE, suggested_time: '20:00', position: 0 });
+
+      await expect(updatePlanItem({ itemId: 'item-1', patch: { date: AMANHA, suggested_time: '07:15' } }))
+        .resolves.toEqual({ ok: true });
+      expect(update).toHaveBeenCalledWith({ date: AMANHA, suggested_time: '07:15' });
+    });
+
+    it('recusa data que já passou', async () => {
+      const update = supabaseComItem({ date: HOJE, suggested_time: '20:00', position: 0 });
+
+      const res = await updatePlanItem({ itemId: 'item-1', patch: { date: '2026-07-19', suggested_time: '20:00' } });
+      expect(res.error).toContain('já passou');
+      expect(update).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('createPlanItem', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); vi.useFakeTimers(); vi.setSystemTime(AGORA); });
+  afterEach(() => vi.useRealTimers());
 
   it('cria uma ideia manual apenas com os campos permitidos e sem chamar IA', async () => {
     const insert = vi.fn(() => ({ select: () => ({ maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'item-2' }, error: null }) }) }));
@@ -89,7 +167,7 @@ describe('createPlanItem', () => {
     const res = await createPlanItem({
       planId: 'plan-1',
       values: {
-        date: '2026-07-20', title: 'Tema manual', topic: 'Tema manual', format: 'reel',
+        date: AMANHA, suggested_time: '18:00', title: 'Tema manual', topic: 'Tema manual', format: 'reel',
         pillar: 'Educação', objective: 'Ensinar', summary: 'Resumo', hook: 'Gancho',
         cta: 'Comente', estimated_duration: '30 segundos', status: 'ready', regeneration_count: 99
       }
@@ -101,7 +179,29 @@ describe('createPlanItem', () => {
     }));
     expect(insert.mock.calls[0][0]).not.toHaveProperty('status', 'ready');
     expect(insert.mock.calls[0][0]).not.toHaveProperty('regeneration_count', 99);
+    expect(insert.mock.calls[0][0].suggested_time).toBe('18:00');
     expect(mocks.runSkill).not.toHaveBeenCalled();
+  });
+
+  it('recusa ideia manual em data que já passou', async () => {
+    mocks.createClient.mockResolvedValue({});
+    const res = await createPlanItem({ planId: 'plan-1', values: { date: '2026-07-19', title: 'Tarde demais', format: 'image' } });
+    expect(res.error).toContain('já passou');
+    expect(mocks.createClient).not.toHaveBeenCalled();
+  });
+
+  it('preenche o horário do dia quando o campo vem vazio, e conta que preencheu', async () => {
+    const insert = vi.fn(() => ({ select: () => ({ maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'item-3' }, error: null }) }) }));
+    mocks.createClient.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
+      from: vi.fn(() => ({ insert }))
+    });
+
+    const res = await createPlanItem({ planId: 'plan-1', values: { date: AMANHA, title: 'Sem horário', format: 'image' } });
+    expect(res.ok).toBe(true);
+    expect(res.suggestedTime).toBe('18:00');
+    expect(res.notice).toContain('18:00');
+    expect(insert.mock.calls[0][0].suggested_time).toBe('18:00');
   });
 });
 
