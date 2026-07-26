@@ -63,8 +63,9 @@ describe('daily content package', () => {
   it('excludes proposed and rejected contextual opportunities without approved provenance', () => {
     const result = selectDailyOpportunity({
       contextualOpportunities: [
-        { status: 'proposed', topic: 'Tema proposto', objective: 'educar', format: 'Carrossel' },
-        { status: 'rejected', topic: 'Tema rejeitado', objective: 'engajar', format: 'Reel' },
+        { status: 'proposed', provenance: { status: 'approved' }, topic: 'Tema proposto', objective: 'educar', format: 'Carrossel' },
+        { status: 'rejected', provenance: { status: 'approved' }, topic: 'Tema rejeitado', objective: 'engajar', format: 'Reel' },
+        { status: 'invalid', provenance: { status: 'approved' }, topic: 'Tema invalido', objective: 'converter', format: 'Post' },
         { status: 'approved', topic: 'Tema aprovado', objective: 'converter', format: 'Post' }
       ]
     });
