@@ -173,3 +173,23 @@ CREATE POLICY "daily_content_packages_owner_all"
         AND b.user_id = auth.uid()
     )
   );
+
+-- Permite limpar somente os assets duráveis criados pelo gerador diário.
+-- O caminho deve ser <brand_uuid>/ai-<timestamp>-<index>.<png|jpg>, sem
+-- subdiretórios, e a marca precisa pertencer ao usuário autenticado.
+DROP POLICY IF EXISTS "daily_content_package_ai_media_delete" ON storage.objects;
+CREATE POLICY "daily_content_package_ai_media_delete"
+  ON storage.objects
+  FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'media'
+    AND cardinality(storage.foldername(name)) = 1
+    AND storage.filename(name) ~ '^ai-[0-9]+-[0-9]+\.(png|jpg)$'
+    AND EXISTS (
+      SELECT 1
+      FROM public.brands b
+      WHERE b.id::text = (storage.foldername(name))[1]
+        AND b.user_id = auth.uid()
+    )
+  );

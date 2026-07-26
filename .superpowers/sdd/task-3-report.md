@@ -187,3 +187,36 @@ static pages were generated, and the standalone package was prepared.
 - Storage removal response errors are surfaced rather than ignored.
 - No posts/publication integration was added. The migration was not applied
   locally or remotely, and no deployment was performed.
+
+## Final Storage RLS correction
+
+### RED
+
+```text
+npx.cmd vitest run tests/unit/daily-content-actions.test.js -t "allows daily AI media cleanup"
+```
+
+Result before implementation: exit 1 - the deterministic migration test failed
+because `daily_content_package_ai_media_delete` was absent.
+
+### GREEN
+
+Focused result: 1 test passed (23 skipped by the name filter).
+
+Required regression:
+
+```text
+npx.cmd vitest run tests/unit/daily-content-actions.test.js tests/unit/ai-governance.test.js tests/unit/generate.test.js
+```
+
+Result: exit 0 - 3 files passed, 34 tests passed.
+
+### Policy boundary
+
+- The additive policy grants authenticated `DELETE` only in bucket `media`.
+- The object must be exactly one directory deep, whose directory equals an
+  owned brand UUID.
+- The filename must match `ai-<timestamp>-<index>.(png|jpg)`; arbitrary media,
+  nested paths, other brands, and other operations remain outside the policy.
+- Durable preview assets were retained. The migration was not applied locally
+  or remotely, and no deployment or publication was performed.

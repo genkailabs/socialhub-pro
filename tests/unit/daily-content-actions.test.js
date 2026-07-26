@@ -440,6 +440,22 @@ describe('daily content package migration', () => {
     expect(sql).toMatch(/add column if not exists cleanup_error\s+text/i);
   });
 
+  it('allows daily AI media cleanup only for an authenticated owner brand root', () => {
+    const sql = readFileSync(migrationPath, 'utf8');
+    const policy = sql.match(
+      /create policy\s+"daily_content_package_ai_media_delete"[\s\S]*?;/i
+    )?.[0];
+
+    expect(policy).toBeDefined();
+    expect(policy).toMatch(/on\s+storage\.objects\s+for\s+delete\s+to\s+authenticated/i);
+    expect(policy).toMatch(/bucket_id\s*=\s*'media'/i);
+    expect(policy).toMatch(/cardinality\s*\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\s*=\s*1/i);
+    expect(policy).toContain("storage.filename(name) ~ '^ai-[0-9]+-[0-9]+\\.(png|jpg)$'");
+    expect(policy).toMatch(/from\s+public\.brands\s+b[\s\S]*b\.id::text\s*=\s*\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\[1\][\s\S]*b\.user_id\s*=\s*auth\.uid\(\)/i);
+    expect(policy).not.toMatch(/for\s+(all|insert|update)/i);
+    expect(policy).not.toMatch(/foldername\s*\([^)]*\)\s*\)\[2\]/i);
+  });
+
   it('terminates both PL/pgSQL blocks with valid END statements', () => {
     const sql = readFileSync(migrationPath, 'utf8');
 
