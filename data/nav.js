@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Stethoscope, Compass, CalendarRange, PenLine, Sparkles,
-  CalendarDays, CheckSquare, BarChart3, Coins, Plug
+  CalendarDays, CheckSquare, BarChart3, Coins, Plug, ChartNoAxesCombined
 } from 'lucide-react';
 
 // Navegação agrupada por fluxo de trabalho (redesign 2026-07):
@@ -24,6 +24,7 @@ export const NAV_GROUPS = [
   ]},
   { label: 'Analisar', items: [
     { href: '/metrics', label: 'Relatorios', icon: BarChart3 },
+    { href: '/paid-traffic', label: 'Trafego pago', icon: ChartNoAxesCombined },
     { href: '/ai-costs', label: 'Custos da IA', icon: Coins, adminOnly: true }
   ]},
   { isolated: true, items: [

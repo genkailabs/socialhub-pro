@@ -1,0 +1,7 @@
+import Link from 'next/link';
+import { formatPaidMetric } from '@/components/paid-traffic/PaidTrafficKpis';
+
+export function CampaignTable({ campaigns = [], currency }) {
+  if (!campaigns.length) return <div className="rounded-2xl border border-line bg-surface p-6 text-sm text-muted">Ainda não há campanhas sincronizadas neste período.</div>;
+  return <div className="overflow-hidden rounded-2xl border border-line bg-surface"><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-surface-2 text-[11px] uppercase tracking-wide text-faint"><tr><th className="px-4 py-3">Campanha</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Investimento</th><th className="px-4 py-3">Resultados</th><th className="px-4 py-3">CTR</th></tr></thead><tbody>{campaigns.map((campaign) => <tr key={`${campaign.metaObjectId}-${campaign.dateStart}`} className="border-t border-line"><td className="px-4 py-3 font-semibold text-ink"><Link href={`/paid-traffic/${encodeURIComponent(campaign.metaObjectId)}`}>{campaign.name || 'Campanha sem nome'}</Link></td><td className="px-4 py-3 text-muted">{campaign.effectiveStatus || '—'}</td><td className="px-4 py-3 font-mono text-ink">{formatPaidMetric(campaign.spend, 'currency', currency)}</td><td className="px-4 py-3 font-mono text-ink">{formatPaidMetric(campaign.results, 'number')}</td><td className="px-4 py-3 font-mono text-ink">{formatPaidMetric(campaign.ctr, 'percent')}</td></tr>)}</tbody></table></div></div>;
+}
