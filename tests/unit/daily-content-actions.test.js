@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDailyContentService, markDailyContentReady } from '@/lib/daily-content-data';
+import {
+  createDailyContentService,
+  markDailyContentReady,
+  recordDailyContentCleanupFailure
+} from '@/lib/daily-content-data';
 
 const NOW = new Date('2026-07-26T12:00:00.000Z');
 const USER = { id: 'user-1' };
@@ -61,6 +65,8 @@ function dependencies(overrides = {}) {
     createClaimToken: vi.fn(() => 'claim-1'),
     startHeartbeat: vi.fn().mockResolvedValue({ stop: vi.fn().mockResolvedValue(true) }),
     cleanupMedia: vi.fn().mockResolvedValue({ ok: true }),
+    getCleanupJobs: vi.fn().mockResolvedValue([]),
+    clearCleanupJobs: vi.fn().mockResolvedValue(true),
     clearCleanupFailure: vi.fn().mockResolvedValue(true),
     recordCleanupFailure: vi.fn().mockResolvedValue(true),
     now: vi.fn(() => new Date(NOW)),
@@ -284,6 +290,52 @@ describe('prepareDailyContent orchestration', () => {
     }));
     expect(deps.cleanupMedia).toHaveBeenCalledWith({ paths: mediaPaths });
   });
+
+  it('persists an owner-scoped orphan job when claim loss races with deletion failure', async () => {
+    const mediaPaths = ['brand-1/daily/claim-1/ai-1721995200000-0.png'];
+    const deps = dependencies({
+      generateContent: vi.fn().mockResolvedValue({
+        generatedContent: { caption: 'Legenda antiga' },
+        mediaUrls: ['https://cdn.example/generated-0.png'],
+        mediaPaths,
+        altText: 'Arte antiga'
+      }),
+      startHeartbeat: vi.fn().mockResolvedValue({ stop: vi.fn().mockResolvedValue(false) }),
+      cleanupMedia: vi.fn().mockRejectedValue(new Error('storage unavailable')),
+      markFailed: vi.fn().mockResolvedValue(null)
+    });
+    const service = createDailyContentService(deps);
+
+    await expect(service.prepare({ brandId: BRAND.id })).resolves.toMatchObject({
+      code: 'state_conflict',
+      details: { cleanup: { pendingPaths: mediaPaths } }
+    });
+
+    expect(deps.recordCleanupFailure).toHaveBeenCalledWith({
+      brandId: BRAND.id,
+      paths: mediaPaths,
+      error: 'Não foi possível remover as mídias geradas.'
+    });
+    expect(deps.markFailed).toHaveBeenCalledWith(expect.objectContaining({
+      packageId: DRAFT.id,
+      claimToken: DRAFT.claim_token
+    }));
+  });
+
+  it('retries owner-scoped orphan jobs before a future daily generation', async () => {
+    const paths = ['brand-1/daily/old-claim/ai-1721995200000-0.png'];
+    const deps = dependencies({
+      getCleanupJobs: vi.fn().mockResolvedValue(paths.map((storage_path) => ({ storage_path })))
+    });
+    const service = createDailyContentService(deps);
+
+    await service.prepare({ brandId: BRAND.id, contentDate: '2026-07-27' });
+
+    expect(deps.cleanupMedia).toHaveBeenCalledWith({ paths });
+    expect(deps.clearCleanupJobs).toHaveBeenCalledWith({ brandId: BRAND.id, paths });
+    expect(deps.cleanupMedia.mock.invocationCallOrder[0])
+      .toBeLessThan(deps.reservePackage.mock.invocationCallOrder[0]);
+  });
 });
 
 describe('durable daily package claim ownership', () => {
@@ -335,6 +387,42 @@ describe('durable daily package claim ownership', () => {
     expect(state.status).toBe('draft');
     expect(state.claim_token).toBe('replacement-claim');
     expect(builder.eq).toHaveBeenCalledWith('claim_token', 'original-claim');
+  });
+
+  it('deduplicates safe daily orphan paths without package status or claim filters', async () => {
+    const brandId = '11111111-1111-4111-8111-111111111111';
+    const path = `${brandId}/daily/22222222-2222-4222-8222-222222222222/ai-1721995200000-0.png`;
+    const select = vi.fn().mockResolvedValue({ data: [{ id: 'job-1' }], error: null });
+    const upsert = vi.fn(() => ({ select }));
+    const supabase = { from: vi.fn(() => ({ upsert })) };
+
+    await expect(recordDailyContentCleanupFailure({
+      supabase,
+      brandId,
+      paths: [path, path],
+      error: 'storage unavailable',
+      now: NOW
+    })).resolves.toBe(true);
+
+    expect(supabase.from).toHaveBeenCalledWith('daily_content_cleanup_jobs');
+    expect(upsert).toHaveBeenCalledWith([
+      expect.objectContaining({ brand_id: brandId, storage_path: path })
+    ], { onConflict: 'brand_id,storage_path' });
+  });
+
+  it('rejects generic or cross-brand paths before creating an orphan job', async () => {
+    const brandId = '11111111-1111-4111-8111-111111111111';
+    const supabase = { from: vi.fn() };
+
+    await expect(recordDailyContentCleanupFailure({
+      supabase,
+      brandId,
+      paths: [`${brandId}/ai-1721995200000-0.png`],
+      error: 'storage unavailable',
+      now: NOW
+    })).rejects.toThrow(/daily cleanup path/i);
+
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 });
 
@@ -420,6 +508,7 @@ describe('daily package state machine', () => {
 
 describe('daily content package migration', () => {
   const migrationPath = resolve(process.cwd(), 'supabase/migrations/20260726000200_daily_content_packages.sql');
+  const cleanupMigrationPath = resolve(process.cwd(), 'supabase/migrations/20260726000300_daily_content_cleanup_jobs.sql');
 
   it('enforces one package per brand/day and owner-only RLS without public access or sensitive fields', () => {
     const sql = readFileSync(migrationPath, 'utf8');
@@ -509,6 +598,19 @@ describe('daily content package migration', () => {
     expect(policy).toMatch(/from\s+public\.brands\s+b[\s\S]*b\.id::text\s*=\s*\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\[1\][\s\S]*b\.user_id\s*=\s*auth\.uid\(\)/i);
     expect(policy).not.toMatch(/for\s+(all|insert|update)/i);
     expect(policy).not.toMatch(/cardinality\s*\(\s*storage\.foldername\s*\(\s*name\s*\)\s*\)\s*=\s*1/i);
+  });
+
+  it('stores owner-scoped, deduplicated cleanup jobs restricted to daily generated assets', () => {
+    const sql = readFileSync(cleanupMigrationPath, 'utf8');
+
+    expect(sql).toMatch(/create table if not exists public\.daily_content_cleanup_jobs/i);
+    expect(sql).toMatch(/unique\s*\(\s*brand_id\s*,\s*storage_path\s*\)/i);
+    expect(sql).toMatch(/storage_path[\s\S]*brand_id::text[\s\S]*\/daily\//i);
+    expect(sql).toMatch(/ai-\[0-9\]\+\-\[0-9\]\+/i);
+    expect(sql).toMatch(/enable row level security/i);
+    expect(sql).toMatch(/to authenticated/i);
+    expect(sql).toMatch(/brands\s+b[\s\S]*b\.id\s*=\s*daily_content_cleanup_jobs\.brand_id[\s\S]*b\.user_id\s*=\s*auth\.uid\(\)/i);
+    expect(sql).not.toMatch(/to\s+(anon|public)/i);
   });
 
   it('terminates both PL/pgSQL blocks with valid END statements', () => {
