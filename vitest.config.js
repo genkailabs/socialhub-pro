@@ -9,5 +9,8 @@ export default defineConfig({
       'server-only': fileURLToPath(new URL('./tests/stubs/server-only.js', import.meta.url))
     }
   },
+  // Mesmo runtime de JSX que o Next usa: componentes não precisam importar React
+  // só para os testes rodarem.
+  esbuild: { jsx: 'automatic' },
   test: { environment: 'jsdom', include: ['tests/unit/**/*.test.js', 'tests/unit/**/*.test.jsx'] }
 });
