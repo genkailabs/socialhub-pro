@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { buildAuthUrl } from '@/lib/meta/graph';
 import { requestedAdsScopes } from '@/lib/meta/ads-scopes';
 import { safeReturnTo } from '@/lib/oauth-return';
+import { ADS_OAUTH_STATE_COOKIE, ADS_OAUTH_STATE_TTL_SECONDS, createAdsOAuthState } from '@/lib/meta/ads-oauth-state';
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
@@ -17,12 +18,17 @@ export async function GET(request) {
   if (!brand) return NextResponse.redirect(`${appUrl}/paid-traffic?error=${encodeURIComponent('Marca inválida ou sem permissão.')}`);
   const appId = process.env.META_APP_ID;
   if (!appId) return NextResponse.redirect(`${appUrl}/paid-traffic?error=${encodeURIComponent('Integração Meta não configurada no servidor.')}`);
-  const state = Buffer.from(JSON.stringify({ brand_id: brandId, uid: user.id, t: Date.now(), rt: returnTo })).toString('base64');
+  const { state, cookieValue } = createAdsOAuthState({ brandId, userId: user.id, returnTo });
   const authUrl = buildAuthUrl({
     appId,
     redirectUri: `${appUrl}/api/meta/ads/callback`,
     state,
     scopes: requestedAdsScopes().join(',')
   });
-  return NextResponse.redirect(authUrl);
+  const response = NextResponse.redirect(authUrl);
+  response.cookies.set(ADS_OAUTH_STATE_COOKIE, cookieValue, {
+    httpOnly: true, maxAge: ADS_OAUTH_STATE_TTL_SECONDS, sameSite: 'lax',
+    secure: appUrl.startsWith('https://'), path: '/'
+  });
+  return response;
 }

@@ -1,4 +1,4 @@
--- Dados de trafego pago ficam separados da analitica organica.
+-- Paid traffic is read-only and remains separate from organic analytics.
 CREATE TABLE IF NOT EXISTS public.meta_ad_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   brand_id UUID NOT NULL REFERENCES public.brands(id) ON DELETE CASCADE,
@@ -27,26 +27,25 @@ CREATE TABLE IF NOT EXISTS public.meta_ads_snapshots (
   CONSTRAINT meta_ads_snapshots_unique UNIQUE (ad_account_id, level, meta_object_id, snapshot_date, range_start, range_end)
 );
 
-CREATE TABLE IF NOT EXISTS public.meta_ads_operations (
+-- Token is server-only: RLS is enabled without browser policies.
+CREATE TABLE IF NOT EXISTS public.meta_ads_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   brand_id UUID NOT NULL REFERENCES public.brands(id) ON DELETE CASCADE,
-  ad_account_id UUID NOT NULL REFERENCES public.meta_ad_accounts(id) ON DELETE CASCADE,
-  operation TEXT NOT NULL CHECK (operation IN ('create_campaign', 'pause_campaign', 'resume_campaign')),
-  requested_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  approval_status TEXT NOT NULL CHECK (approval_status IN ('draft', 'approved', 'sent', 'succeeded', 'failed', 'rejected')) DEFAULT 'draft',
-  request_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-  response_payload JSONB,
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  access_token TEXT NOT NULL,
+  token_expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT meta_ads_tokens_brand_key UNIQUE (brand_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_meta_ad_accounts_brand ON public.meta_ad_accounts (brand_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_meta_ads_snapshots_brand_range ON public.meta_ads_snapshots (brand_id, range_start, range_end);
-CREATE INDEX IF NOT EXISTS idx_meta_ads_operations_brand_created ON public.meta_ads_operations (brand_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_meta_ads_tokens_brand ON public.meta_ads_tokens (brand_id);
 
 ALTER TABLE public.meta_ad_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.meta_ads_snapshots ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.meta_ads_operations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meta_ads_tokens ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "meta_ad_accounts_owner" ON public.meta_ad_accounts FOR ALL USING (
   EXISTS (SELECT 1 FROM public.brands WHERE brands.id = meta_ad_accounts.brand_id AND brands.user_id = auth.uid())
@@ -57,9 +56,4 @@ CREATE POLICY "meta_ads_snapshots_owner" ON public.meta_ads_snapshots FOR ALL US
   EXISTS (SELECT 1 FROM public.brands WHERE brands.id = meta_ads_snapshots.brand_id AND brands.user_id = auth.uid())
 ) WITH CHECK (
   EXISTS (SELECT 1 FROM public.brands WHERE brands.id = meta_ads_snapshots.brand_id AND brands.user_id = auth.uid())
-);
-CREATE POLICY "meta_ads_operations_owner" ON public.meta_ads_operations FOR ALL USING (
-  EXISTS (SELECT 1 FROM public.brands WHERE brands.id = meta_ads_operations.brand_id AND brands.user_id = auth.uid())
-) WITH CHECK (
-  EXISTS (SELECT 1 FROM public.brands WHERE brands.id = meta_ads_operations.brand_id AND brands.user_id = auth.uid())
 );
