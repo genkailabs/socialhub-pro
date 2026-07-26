@@ -128,9 +128,64 @@
   animation: mascot-pulse 1.8s ease-in-out infinite;
 }
 
+/* Janela do agente condutor (components/journey/AgentWindow.jsx).
+   A flutuação é mais lenta e mais ampla que a do mascote: o mascote respira
+   dentro da janela, a janela paira sobre a tela. Períodos diferentes (7s x 2,6s)
+   evitam que os dois batam no mesmo compasso e virem um pulo só. */
+@keyframes agent-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Entrada: sobe e assenta. ease-out-expo — desacelera forte no fim, sem quique. */
+@keyframes agent-enter {
+  from { opacity: 0; transform: translateY(18px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-agent-float {
+  animation: agent-float 7s ease-in-out infinite;
+}
+
+/* Elevação da janela do agente.
+   shadow-lift (0 4px 16px -8px) é sombra de cartão parado dentro do fluxo: no
+   escuro, preto sobre um fundo quase preto (#0A0A0B) não separa nada — o card
+   media 1.16:1 contra a página e parecia colado. Um elemento que paira no meio
+   da tela precisa de queda maior e de uma borda que se veja nos dois temas. */
+.agent-window {
+  border-color: rgb(var(--c-line-strong));
+  box-shadow:
+    0 2px 6px rgb(var(--c-shadow) / .10),
+    0 24px 56px -16px rgb(var(--c-shadow) / .34);
+}
+
+.dark .agent-window {
+  /* No escuro a sombra some no fundo; quem separa é um halo claro por cima da
+     borda, do mesmo jeito que superfícies elevadas se comportam no escuro. */
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .06),
+    0 24px 64px -12px rgb(var(--c-shadow) / .70);
+}
+
+.animate-agent-enter {
+  animation: agent-enter .5s cubic-bezier(.16, 1, .3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-mascot-bob,
-  .animate-mascot-pulse {
+  .animate-mascot-pulse,
+  .animate-agent-float {
     animation: none;
   }
+
+  /* A entrada vira só o fade: quem pediu menos movimento ainda precisa
+     perceber que algo novo apareceu na tela. */
+  .animate-agent-enter {
+    animation: agent-fade .2s ease-out both;
+  }
+}
+
+@keyframes agent-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

@@ -88,13 +88,15 @@ export function AgentWindow({ journey, brandId, brandName }) {
   const copy = JOURNEY_COPY[step?.id] || JOURNEY_COPY.brand;
   const Body = BODIES[step?.id];
 
+  // Recolhida ela sai do centro e vira uma pílula no canto: no centro atrapalha
+  // exatamente quem pediu para ela sair da frente.
   if (collapsed) {
     return (
-      <div className="fixed bottom-5 right-5 z-[45]">
+      <div className="animate-agent-enter fixed bottom-5 right-5 z-[45]">
         <button
           type="button"
           onClick={toggle}
-          className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-4 text-[12px] font-semibold text-ink shadow-lift transition-colors hover:border-accent/40"
+          className="agent-window animate-agent-float inline-flex items-center gap-2 rounded-full border bg-surface py-1.5 pl-1.5 pr-4 text-[12px] font-semibold text-ink transition-colors hover:border-accent/40"
         >
           <Mascot mood="guide" className="h-8 w-7 shrink-0" />
           Passo {journey.stepNumber} de {journey.totalSteps}
@@ -103,13 +105,19 @@ export function AgentWindow({ journey, brandId, brandName }) {
     );
   }
 
+  // Centralizada, e não ancorada num canto: no primeiro uso a decisão é uma só,
+  // e ela merece o centro do olhar. O container cobre a tela inteira só para
+  // centralizar — pointer-events-none devolve o clique ao app atrás, então o
+  // fundo continua visível E utilizável. Quem trava a navegação é o gate no
+  // servidor, não uma cortina.
   return (
-    <div
-      role="dialog"
-      aria-label="Hub conduzindo a configuração"
-      className="fixed inset-x-0 bottom-0 z-[45] sm:inset-x-auto sm:bottom-5 sm:right-5 sm:w-[380px]"
-    >
-      <div className="max-h-[75vh] overflow-auto rounded-t-3xl border border-line bg-surface p-4 shadow-lift sm:rounded-3xl">
+    <div className="pointer-events-none fixed inset-0 z-[45] grid place-items-center p-4">
+      <div
+        role="dialog"
+        aria-label="Hub conduzindo a configuração"
+        className="animate-agent-enter pointer-events-auto w-full max-w-[420px]"
+      >
+        <div className="agent-window animate-agent-float max-h-[78vh] overflow-auto rounded-3xl border bg-surface p-5">
         <div className="flex items-start gap-3">
           <Mascot mood="guide" className="h-[54px] w-11 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -167,6 +175,7 @@ export function AgentWindow({ journey, brandId, brandName }) {
             Prefiro explorar sozinho
           </button>
         )}
+        </div>
       </div>
     </div>
   );
