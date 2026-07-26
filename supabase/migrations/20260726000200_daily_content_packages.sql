@@ -114,7 +114,28 @@ BEGIN
   END IF;
 
   IF NEW.status IS NOT DISTINCT FROM OLD.status THEN
-    RETURN NEW;
+    IF OLD.status = 'draft'
+      AND (to_jsonb(NEW) - ARRAY[
+        'claim_token', 'claim_heartbeat_at', 'claim_expires_at',
+        'generation_started_at', 'updated_at'
+      ]::text[]) IS NOT DISTINCT FROM (to_jsonb(OLD) - ARRAY[
+        'claim_token', 'claim_heartbeat_at', 'claim_expires_at',
+        'generation_started_at', 'updated_at'
+      ]::text[]) THEN
+      RETURN NEW;
+    END IF;
+
+    IF OLD.status = 'failed'
+      AND (to_jsonb(NEW) - ARRAY[
+        'cleanup_pending_paths', 'cleanup_error', 'updated_at'
+      ]::text[]) IS NOT DISTINCT FROM (to_jsonb(OLD) - ARRAY[
+        'cleanup_pending_paths', 'cleanup_error', 'updated_at'
+      ]::text[]) THEN
+      RETURN NEW;
+    END IF;
+
+    RAISE EXCEPTION 'same-status daily content package update changes protected fields'
+      USING ERRCODE = '23514';
   END IF;
 
   IF OLD.status = 'draft' AND NEW.status IN ('ready', 'failed')

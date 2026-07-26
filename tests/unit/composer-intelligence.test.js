@@ -1,12 +1,48 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({ createClient: vi.fn() }));
+vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
+
 import {
   buildLocalOpportunities,
   buildWeeklyMemory,
   filterCurrentWeekPublishedPosts,
   filterUsablePlanItems,
+  getComposerContext,
   getStrategyObjective,
   getRecommendedSlots
 } from '@/lib/composer-intelligence';
+import { selectDailyOpportunity } from '@/lib/daily-content-package';
+
+function fakeSupabase(fixtures) {
+  return {
+    from(table) {
+      const filters = [];
+      const query = {
+        select() { return query; },
+        eq(column, value) { filters.push(['eq', column, value]); return query; },
+        in(column, value) { filters.push(['in', column, value]); return query; },
+        gte() { return query; },
+        lte() { return query; },
+        lt() { return query; },
+        order() { return query; },
+        limit() { return query; },
+        then(resolve, reject) {
+          const data = typeof fixtures[table] === 'function'
+            ? fixtures[table](filters)
+            : fixtures[table] || [];
+          return Promise.resolve({ data, error: null }).then(resolve, reject);
+        }
+      };
+      return query;
+    }
+  };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.clearAllMocks();
+});
 
 describe('buildLocalOpportunities', () => {
   it('prioriza temas planejados e mantem a opcao de sugestao local', () => {
@@ -108,5 +144,73 @@ describe('getRecommendedSlots', () => {
 
     expect(result.hasMetricSignal).toBe(false);
     expect(result.recommendedSlots.length).toBeGreaterThan(0);
+  });
+});
+
+describe('getComposerContext daily selection integration', () => {
+  it('returns real weekly posts and approved plan items so selection rejects duplicates and prioritizes the calendar', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
+    mocks.createClient.mockResolvedValue(fakeSupabase({
+      posts: [
+        { id: 'post-1', status: 'published', scheduled_at: '2026-07-14T10:00:00.000Z', title: 'Tema repetido', format: 'carousel' }
+      ],
+      content_strategies: [{ id: 'strategy-1', status: 'approved', objectives: { main: 'educar' } }],
+      editorial_plans: [{ id: 'plan-1', status: 'approved' }],
+      editorial_plan_items: (filters) => {
+        const linkedPostIds = filters.find(([kind, column]) => kind === 'in' && column === 'post_id')?.[2];
+        if (linkedPostIds) {
+          return [{ post_id: 'post-1', objective: 'educar', format: 'carousel', topic: 'Tema repetido' }];
+        }
+        return [
+          { id: 'item-1', status: 'approved', date: '2026-07-15', topic: 'Tema repetido', objective: 'educar', format: 'Carrossel' },
+          { id: 'item-2', status: 'approved', date: '2026-07-16', topic: 'Tema seguro do plano', objective: 'converter', format: 'Post' }
+        ];
+      },
+      brand_dna_versions: [{ id: 'dna-1', status: 'approved', content: {} }]
+    }));
+
+    const context = await getComposerContext({ brandId: 'brand-1', brand: { niche: 'saude' } });
+    const selected = selectDailyOpportunity({ ...context, now: new Date() });
+
+    expect(context.recentPosts).toEqual([
+      expect.objectContaining({ id: 'post-1', objective: 'educar', format: 'carousel' })
+    ]);
+    expect(context.planItems.map((item) => item.id)).toEqual(['item-1', 'item-2']);
+    expect(selected).toMatchObject({
+      topic: 'Tema seguro do plano',
+      objective: 'converter',
+      format: 'Post',
+      reason: 'approved-calendar',
+      avoidReasons: ['topic-published-this-week']
+    });
+  });
+
+  it('uses linked objectives and real formats to balance contextual opportunities when the calendar is exhausted', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
+    mocks.createClient.mockResolvedValue(fakeSupabase({
+      posts: [
+        { id: 'post-1', status: 'published', scheduled_at: '2026-07-14T10:00:00.000Z', title: 'Outro tema', format: 'carousel' }
+      ],
+      content_strategies: [{ id: 'strategy-1', status: 'approved', objectives: { main: 'educar' } }],
+      editorial_plans: [{ id: 'plan-1', status: 'approved' }],
+      editorial_plan_items: (filters) => filters.some(([kind, column]) => kind === 'in' && column === 'post_id')
+        ? [{ post_id: 'post-1', objective: 'educar', format: 'carousel', topic: 'Outro tema' }]
+        : [],
+      brand_dna_versions: [{ id: 'dna-1', status: 'approved', content: {} }]
+    }));
+
+    const context = await getComposerContext({ brandId: 'brand-1', brand: { niche: 'saude' } });
+    const selected = selectDailyOpportunity({
+      ...context,
+      contextualOpportunities: [
+        { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Mais educacao', objective: 'educar', format: 'Carrossel' },
+        { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Hora de converter', objective: 'converter', format: 'Post' }
+      ],
+      now: new Date()
+    });
+
+    expect(selected).toMatchObject({ topic: 'Hora de converter', objective: 'converter', format: 'Post' });
   });
 });

@@ -472,6 +472,26 @@ describe('daily content package migration', () => {
     expect(sql).toMatch(/add column if not exists cleanup_error\s+text/i);
   });
 
+  it('protects same-status rows and permits only draft claim or failed cleanup bookkeeping', () => {
+    const sql = readFileSync(migrationPath, 'utf8');
+    const start = sql.search(/if new\.status is not distinct from old\.status then/i);
+    const end = sql.search(/if old\.status = 'draft' and new\.status in/i);
+    const sameStatus = start >= 0 && end > start ? sql.slice(start, end) : '';
+
+    expect(sameStatus).not.toMatch(/if new\.status is not distinct from old\.status then\s+return new\s*;/i);
+    expect(sameStatus).toMatch(/old\.status\s*=\s*'draft'/i);
+    expect(sameStatus).toMatch(/claim_token/i);
+    expect(sameStatus).toMatch(/claim_heartbeat_at/i);
+    expect(sameStatus).toMatch(/claim_expires_at/i);
+    expect(sameStatus).toMatch(/old\.status\s*=\s*'failed'/i);
+    expect(sameStatus).toMatch(/cleanup_pending_paths/i);
+    expect(sameStatus).toMatch(/cleanup_error/i);
+    expect(sameStatus).toMatch(/raise exception/i);
+    expect(sameStatus).toMatch(/to_jsonb\s*\(\s*new\s*\)/i);
+    expect(sameStatus).toMatch(/to_jsonb\s*\(\s*old\s*\)/i);
+    expect(sameStatus).not.toMatch(/generated_content|media_urls|evidence|scheduled_at|approved_at|topic|goal|format|reason/i);
+  });
+
   it('allows cleanup only inside the daily claim namespace of an owned brand', () => {
     const sql = readFileSync(migrationPath, 'utf8');
     const policy = sql.match(

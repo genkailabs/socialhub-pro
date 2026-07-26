@@ -30,13 +30,37 @@ describe('daily content package', () => {
       now: new Date('2026-07-15T12:00:00.000Z'),
       planItems: [
         { status: 'approved', date: '2026-07-15', topic: 'Tema ja publicado', objective: 'educar', format: 'Carrossel' },
-        { status: 'approved', date: '2026-07-16', topic: 'Tema seguro', objective: 'engajar', format: 'Reel' }
+        { status: 'approved', date: '2026-07-16', topic: 'Tema seguro', objective: 'engajar', format: 'Post' }
       ],
       posts: [{ status: 'published', scheduled_at: '2026-07-14T10:00:00.000Z', title: 'Tema ja publicado' }]
     });
 
     expect(result).toMatchObject({ topic: 'Tema seguro', reason: 'approved-calendar' });
     expect(result.avoidReasons).toContain('topic-published-this-week');
+  });
+
+  it('skips a planned Reel because the daily generator only delivers static media', () => {
+    const result = selectDailyOpportunity({
+      now: new Date('2026-07-15T12:00:00.000Z'),
+      planItems: [
+        { status: 'approved', date: '2026-07-15', topic: 'Roteiro em video', objective: 'engajar', format: 'Reel' },
+        { status: 'approved', date: '2026-07-16', topic: 'Arte estatica segura', objective: 'educar', format: 'Carrossel' }
+      ]
+    });
+
+    expect(result).toMatchObject({ topic: 'Arte estatica segura', format: 'Carrossel' });
+    expect(result.avoidReasons).toContain('format-requires-video');
+  });
+
+  it('reports no daily opportunity instead of faking a Reel from a static image', () => {
+    const result = selectDailyOpportunity({
+      now: new Date('2026-07-15T12:00:00.000Z'),
+      planItems: [
+        { status: 'approved', date: '2026-07-15', topic: 'Somente Reel', objective: 'engajar', format: 'Reel' }
+      ]
+    });
+
+    expect(result).toBeNull();
   });
 
   it('breaks contextual ties with the least-represented objective and format', () => {
@@ -48,16 +72,31 @@ describe('daily content package', () => {
       ],
       contextualOpportunities: [
         { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Tema repetido', objective: 'educar', format: 'Carrossel' },
-        { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Tema equilibrado', objective: 'engajar', format: 'Reel' }
+        { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Tema equilibrado', objective: 'engajar', format: 'Post' }
       ]
     });
 
     expect(result).toMatchObject({
       topic: 'Tema equilibrado',
       objective: 'engajar',
-      format: 'Reel',
+      format: 'Post',
       reason: 'contextual-opportunity'
     });
+  });
+
+  it('balances persisted carousel aliases against the normalized daily format', () => {
+    const result = selectDailyOpportunity({
+      now: new Date('2026-07-15T12:00:00.000Z'),
+      recentPosts: [
+        { status: 'published', scheduled_at: '2026-07-14T10:00:00.000Z', objective: 'converter', format: 'carousel' }
+      ],
+      contextualOpportunities: [
+        { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Outro carrossel', objective: 'converter', format: 'Carrossel' },
+        { status: 'approved', provenance: { source: 'content-strategy' }, topic: 'Imagem unica', objective: 'converter', format: 'image' }
+      ]
+    });
+
+    expect(result).toMatchObject({ topic: 'Imagem unica', format: 'Post' });
   });
 
   it('excludes proposed and rejected contextual opportunities without approved provenance', () => {
@@ -84,7 +123,7 @@ describe('daily content package', () => {
     expect(result).toMatchObject({
       topic: opportunity.topic,
       objective: opportunity.goal,
-      format: opportunity.format,
+      format: 'Post',
       reason: 'contextual-opportunity'
     });
   });

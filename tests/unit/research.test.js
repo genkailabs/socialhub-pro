@@ -152,6 +152,16 @@ describe('researchContext', () => {
     expect(mocks.httpsRequest).not.toHaveBeenCalled();
   });
 
+  it('semantically rejects a hexadecimal IPv4-mapped IPv6 resolution before pinned connect', async () => {
+    mocks.lookup.mockResolvedValue([{ address: '::ffff:7f00:1', family: 6 }]);
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search' });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toEqual([]);
+    expect(mocks.httpsRequest).not.toHaveBeenCalled();
+  });
+
   it('rejects redirects before reading page metadata', async () => {
     respondWith({ statusCode: 302, headers: { location: 'https://elsewhere.example.com', 'content-type': 'text/html' } });
     mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search' });

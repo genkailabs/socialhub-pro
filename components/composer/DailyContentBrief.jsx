@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, Check, ExternalLink, Image as ImageIcon, Pencil, Sparkles } from 'lucide-react';
 import { approveDailyContent, prepareDailyContent, scheduleDailyContent } from '@/lib/daily-content-actions';
+import { dailyPackageToComposerDraft } from '@/lib/daily-content-composer';
 
 export { dailyPackageToComposerDraft } from '@/lib/daily-content-composer';
 
@@ -35,7 +36,21 @@ function unavailableCopy(pkg, unavailableMessage) {
 
 function internalEvidenceLabel(evidence) {
   if (!evidence || evidence.kind !== 'internal') return null;
-  return evidence.source || 'approved-context';
+  return reasonExplanation(evidence.source || 'approved-context');
+}
+
+function reasonExplanation(reason) {
+  const explanations = {
+    'approved-calendar': 'faz parte do calendário editorial aprovado para esta semana.',
+    'contextual-opportunity': 'equilibra a estratégia aprovada com o contexto da marca e os conteúdos recentes.',
+    'approved-context': 'foi selecionado a partir do contexto editorial aprovado da marca.',
+    'approved-strategy-and-brand-dna': 'combina a estratégia aprovada com o DNA da marca.'
+  };
+  const value = asText(reason);
+  const looksLikeInternalCode = /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(value);
+  return explanations[value]
+    || (looksLikeInternalCode ? 'foi selecionado a partir do contexto aprovado da marca.' : value)
+    || 'foi selecionado a partir do contexto aprovado da marca.';
 }
 
 export function DailyContentBrief({ brandId, contentDate, package: initialPackage = null, unavailableMessage = '' }) {
@@ -63,6 +78,8 @@ export function DailyContentBrief({ brandId, contentDate, package: initialPackag
   const hashtags = asText(generated.hashtags);
   const sources = useMemo(() => Array.isArray(pkg?.sources) ? pkg.sources.filter((source) => source?.url) : [], [pkg]);
   const internalEvidence = internalEvidenceLabel(pkg?.evidence);
+  const reason = reasonExplanation(pkg?.reason);
+  const composerCompatible = Boolean(dailyPackageToComposerDraft(pkg));
 
   async function prepare() {
     setBusy('prepare');
@@ -138,8 +155,8 @@ export function DailyContentBrief({ brandId, contentDate, package: initialPackag
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Decisão editorial · hoje</p>
           <h1 id="daily-content-title" className="mt-1 text-xl font-extrabold tracking-tight text-ink">Conteúdo de hoje</h1>
           <h2 className="mt-2 text-base font-bold text-ink">{pkg.topic}</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{pkg.reason}</p>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-2">O Hub selecionou este tema porque {pkg.reason}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{reason}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-2">O Hub selecionou este tema porque {reason}</p>
         </div>
         <span className="inline-flex w-fit rounded-full bg-accent-tint px-3 py-1 text-xs font-bold text-accent">{scheduled ? 'Agendado' : approved ? 'Aprovado' : 'Pronto para revisar'}</span>
       </div>
@@ -165,19 +182,20 @@ export function DailyContentBrief({ brandId, contentDate, package: initialPackag
         </figure>
       </div>
 
+      {!composerCompatible && <p role="note" className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{/reel|video/i.test(asText(pkg.format)) ? 'Reels precisam de um vídeo real. O Hub não transforma esta arte estática em um Reel falso.' : 'Esta arte diária não é compatível com o formato informado e não será carregada no Composer.'}</p>}
       {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {approved && <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700"><Check className="h-4 w-4" />Aprovado; escolha quando agendar.</p>}
       {scheduled && <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700"><Check className="h-4 w-4" />Agendado sem publicar agora.</p>}
 
       <div className="mt-5 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-end">
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={approve} disabled={!ready || busy === 'approve'} className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Check className="h-4 w-4" />{busy === 'approve' ? 'Aprovando…' : 'Aprovar'}</button>
-          <a href={`/composer?daily=${encodeURIComponent(pkg.id)}`} className="inline-flex items-center gap-2 rounded-lg border border-line px-4 py-2.5 text-sm font-bold text-ink"><Pencil className="h-4 w-4" />Editar</a>
+          <button type="button" onClick={approve} disabled={!ready || !composerCompatible || busy === 'approve'} className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Check className="h-4 w-4" />{busy === 'approve' ? 'Aprovando…' : 'Aprovar'}</button>
+          {composerCompatible && <a href={`/composer?daily=${encodeURIComponent(pkg.id)}`} className="inline-flex items-center gap-2 rounded-lg border border-line px-4 py-2.5 text-sm font-bold text-ink"><Pencil className="h-4 w-4" />Editar</a>}
         </div>
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-bold text-muted sm:max-w-xs">Data e hora
           <input aria-label="Data e hora" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink" />
         </label>
-        <button type="button" onClick={schedule} disabled={!approved || busy === 'schedule'} className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-2.5 text-sm font-bold text-ink disabled:opacity-50"><CalendarClock className="h-4 w-4" />{busy === 'schedule' ? 'Agendando…' : 'Agendar'}</button>
+        <button type="button" onClick={schedule} disabled={!approved || !composerCompatible || busy === 'schedule'} className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-2.5 text-sm font-bold text-ink disabled:opacity-50"><CalendarClock className="h-4 w-4" />{busy === 'schedule' ? 'Agendando…' : 'Agendar'}</button>
       </div>
     </section>
   );

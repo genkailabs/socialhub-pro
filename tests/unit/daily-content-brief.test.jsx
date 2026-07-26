@@ -144,6 +144,23 @@ describe('DailyContentBrief', () => {
     expect(draft.editor_state.doc.post.media.url).toBe(readyPackage.media_urls[0]);
   });
 
+  it('never hydrates a static daily image as Reel media', () => {
+    const draft = dailyPackageToComposerDraft({ ...readyPackage, format: 'Reel' });
+
+    expect(draft).toBeNull();
+  });
+
+  it('explains that a static daily asset cannot be edited as a fake Reel', () => {
+    render(<DailyContentBrief
+      brandId="brand-1"
+      contentDate="2026-07-26"
+      package={{ ...readyPackage, format: 'Reel' }}
+    />);
+
+    expect(screen.getByText(/reels precisam de um v.deo real/i)).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Editar' })).toBeNull();
+  });
+
   it('apresenta um pacote interno com a proveniencia aprovada mesmo sem link externo', () => {
     render(<DailyContentBrief
       brandId="brand-1"
@@ -152,13 +169,29 @@ describe('DailyContentBrief', () => {
     />);
 
     expect(screen.getByText(/contexto aprovado/i)).toBeTruthy();
-    expect(screen.getByText(/approved-context/i)).toBeTruthy();
+    expect(screen.getByText(/contexto editorial aprovado da marca/i)).toBeTruthy();
+    expect(document.body.textContent).not.toContain('approved-context');
   });
 
   it('explica pelo Hub por que o tema foi selecionado', () => {
     render(<DailyContentBrief brandId="brand-1" contentDate="2026-07-26" package={readyPackage} />);
 
     expect(screen.getByText(new RegExp(`O Hub selecionou este tema porque ${readyPackage.reason}`, 'i'))).toBeTruthy();
+  });
+
+  it.each([
+    ['approved-calendar', /calend.rio editorial aprovado/i],
+    ['contextual-opportunity', /estrat.gia aprovada.*contexto da marca/i],
+    ['unmapped-internal-code', /contexto aprovado da marca/i]
+  ])('translates stored reason code %s into a human Hub explanation', (reason, explanation) => {
+    const { container } = render(<DailyContentBrief
+      brandId="brand-1"
+      contentDate="2026-07-26"
+      package={{ ...readyPackage, reason, evidence: { kind: 'internal', source: reason } }}
+    />);
+
+    expect(screen.getAllByText(explanation).length).toBeGreaterThan(0);
+    expect(container.textContent).not.toContain(reason);
   });
 
   it('mantem a decisao acessivel antes de uma legenda longa e revela o restante sob demanda', () => {
