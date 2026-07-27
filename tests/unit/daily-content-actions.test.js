@@ -507,8 +507,8 @@ describe('daily package state machine', () => {
 });
 
 describe('daily content package migration', () => {
-  const migrationPath = resolve(process.cwd(), 'supabase/migrations/20260726000200_daily_content_packages.sql');
-  const cleanupMigrationPath = resolve(process.cwd(), 'supabase/migrations/20260726000300_daily_content_cleanup_jobs.sql');
+  const migrationPath = resolve(process.cwd(), 'supabase/migrations/20260726000300_daily_content_packages.sql');
+  const cleanupMigrationPath = resolve(process.cwd(), 'supabase/migrations/20260726000400_daily_content_cleanup_jobs.sql');
 
   it('enforces one package per brand/day and owner-only RLS without public access or sensitive fields', () => {
     const sql = readFileSync(migrationPath, 'utf8');
