@@ -1,19 +1,14 @@
 import { Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { VisualComposer } from '@/components/composer/VisualComposer';
-import { DailyContentBrief } from '@/components/composer/DailyContentBrief';
 import { MascotTip } from '@/components/onboarding/MascotTip';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listConnectedPlatforms } from '@/lib/social-tokens-data';
 import { getComposerPost, getLatestComposerDraft } from '@/lib/posts-data';
 import { getBrandKit } from '@/lib/brand-kit-data';
-import { createClient } from '@/lib/supabase/server';
-import { getDailyContentPackage } from '@/lib/daily-content-data';
-import { dailyPackageToComposerDraft } from '@/lib/daily-content-composer';
-import { dailyContentDateInSaoPaulo } from '@/lib/daily-content-date';
 
-// Só o que o prompt de arte externa usa — nada de DNA bruto no cliente.
+// Só o que a montagem da arte usa — nada de DNA bruto no cliente.
 function publicBrandKit(kit) {
   if (!kit) return null;
   return {
@@ -41,26 +36,6 @@ export default async function ComposerPage({ searchParams }) {
       ? await getComposerPost(active.id, requestedPostId)
       : await getLatestComposerDraft(active.id)
     : null;
-  const contentDate = dailyContentDateInSaoPaulo();
-  let dailyPackage = null;
-  let dailyUnavailableMessage = '';
-  if (active) {
-    try {
-      dailyPackage = await getDailyContentPackage({
-        supabase: await createClient(),
-        brandId: active.id,
-        contentDate
-      });
-    } catch {
-      // Falha de leitura nunca vira um falso "pronto". O painel informa a
-      // indisponibilidade e deixa a ação devolver seu erro autenticado.
-      dailyUnavailableMessage = 'Não foi possível consultar o conteúdo de hoje agora.';
-    }
-  }
-  const requestedDailyId = typeof searchParams?.daily === 'string' ? searchParams.daily : null;
-  const dailyDraft = requestedDailyId && dailyPackage?.id === requestedDailyId
-    ? dailyPackageToComposerDraft(dailyPackage)
-    : null;
 
   return (
     <div>
@@ -68,20 +43,12 @@ export default async function ComposerPage({ searchParams }) {
         <div className="p-8"><EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState></div>
       ) : (
         <>
-          <div className="px-4 pt-4 md:px-6">
-            <DailyContentBrief
-              brandId={active.id}
-              contentDate={contentDate}
-              package={dailyPackage}
-              unavailableMessage={dailyUnavailableMessage}
-            />
-          </div>
           <VisualComposer
             brandId={active.id}
             brandName={connected.instagram?.platform_username || active.name}
             brandLabel={active.name}
             brandKit={publicBrandKit(brandKit)}
-            initialDraft={dailyDraft || initialDraft}
+            initialDraft={initialDraft}
           />
           {/* Composer não tem cabeçalho: o mascote fica numa bolha fixa, fechada por padrão. */}
           <MascotTip
@@ -89,8 +56,8 @@ export default async function ComposerPage({ searchParams }) {
             id="composer"
             title="Composer: onde o post vira arte."
             lines={[
+              'Abra Layouts e o Hub monta a peça com a estrutura e o estilo da sua marca.',
               'Mídia, texto e formas no canvas — a edição é não destrutiva, dá para voltar.',
-              'Feed, Story e Reel são formatos do mesmo post; troque no topo.',
               'Ao terminar, salve: o post vai para o Calendário, onde você escolhe a data.'
             ]}
             cta={{ label: 'Abrir Calendário', href: '/calendar' }}

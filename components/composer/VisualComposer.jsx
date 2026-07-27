@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, ChevronUp, Copy, Eye, EyeOff, Film, GripVertical,
   Image as ImageIcon, Italic, Layers3, LayoutTemplate, Lock, MapPin, Maximize2,
   MessageSquareText, Minus, MoreHorizontal, Redo2,
-  Save, Search, Send, Settings2, Shapes, Smartphone, Smile, Sparkles, Trash2, Type,
+  Save, Search, Send, Settings2, Shapes, Smartphone, Smile, Trash2, Type,
   Undo2, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -29,8 +29,6 @@ import {
 } from '@/data/emoji-catalog';
 import { GRAPHIC_TYPES, isTextLayer, layerBoxStyle, layerLineBgStyle } from '@/lib/composer-layer-style';
 import { clampTrim, getReelState } from '@/lib/composer-reel';
-import { aspectWarning, validateExternalArtFile } from '@/lib/composer-ai-prompt';
-import { ExternalArtPanel } from './ExternalArtPanel';
 import { LayoutsPanel } from './LayoutsPanel';
 import { ArrowGraphic, IconGraphic, LineGraphic, ShapeGraphic } from './ElementGraphics';
 import { ReelTimeline } from './ReelTimeline';
@@ -57,12 +55,6 @@ const LAYER_DRAG_TYPE = 'application/x-socialhub-layer';
 
 // Arte trazida do Gemini: entra como mídia comum, só com nome próprio para o
 // usuário reconhecer a origem no painel de arquivo (PRD §9).
-const EXTERNAL_ART_NAME = 'Imagem gerada externamente';
-const EMPTY_AI_ART = {
-  open: false, stage: 'form', fields: {}, prompt: '', promptEdited: false,
-  mediaName: '', mediaPath: null
-};
-
 function emojiPreset(emoji) {
   return { type: 'sticker', text: emoji, fs: 44, w: 62, h: 62, fill: 'transparent' };
 }
@@ -161,7 +153,6 @@ function baseState(initialDraft) {
     : initialDraft?.status === 'scheduled' ? 'Agendado' : initialDraft ? 'Rascunho salvo' : 'Rascunho';
   return {
     theme: 'light', format: 'post', ratio: '1:1', doc: makeComposerDocument(),
-    aiArt: EMPTY_AI_ART,
     caption: '', hashtags: '', firstComment: '', altText: '', location: '', tags: '',
     hideLikes: false, showFeed: true,
     schedDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10), schedTime: '20:00',
@@ -186,7 +177,6 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   const [toast, setToast] = useState('');
   const [uploading, setUploading] = useState(null);
   const [mediaError, setMediaError] = useState('');
-  const [aiArtWarning, setAiArtWarning] = useState('');
   const [guides, setGuides] = useState([]);
   const [scale, setScale] = useState(1);
   const [playing, setPlaying] = useState(false);
@@ -229,7 +219,6 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
       ? recentEmojis
       : EMOJI_CATEGORIES.find((category) => category.id === emojiCategory)?.emojis || [];
   const selectedIsText = !!selected && isTextLayer(selected);
-  const aiArt = state.aiArt || EMPTY_AI_ART;
 
   const flash = useCallback((message) => {
     setToast(message);
@@ -508,55 +497,6 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
         uploadSequenceRef.current.delete(targetKey);
       }
       window.clearInterval(fake);
-      window.setTimeout(() => setUploading(null), 350);
-    }
-  }
-
-  function patchAiArt(patch) {
-    setState((current) => ({ ...current, aiArt: { ...(current.aiArt || EMPTY_AI_ART), ...patch } }));
-  }
-
-  // Arte baixada do Gemini: mesmo caminho de upload temporário das outras
-  // mídias. No Reel, que só aceita vídeo no canvas, a imagem vira a capa.
-  async function uploadExternalArt(file) {
-    const check = validateExternalArtFile(file);
-    if (!check.ok) {
-      setMediaError(check.error);
-      return;
-    }
-    const target = activeTarget(stateRef.current);
-    const isReel = target.format === 'reel';
-    setBusy('ai-art');
-    setMediaError('');
-    setAiArtWarning('');
-    setUploading(10);
-    const fake = window.setInterval(() => setUploading((value) => Math.min(90, (value || 0) + 20)), 180);
-    try {
-      const dimensions = await readFileDimensions(file, 'image');
-      const supabase = createClient();
-      const uploaded = await uploadTempMedia(supabase, brandId, file);
-      if (isReel) {
-        patchReel({ cover: { mode: 'upload', url: uploaded.publicUrl, path: uploaded.path, name: EXTERNAL_ART_NAME, timeMs: 0 } });
-      } else {
-        const previous = surfaceForTarget(stateRef.current.doc, target)?.media;
-        await pickMedia(uploaded.publicUrl, 'image', {
-          path: uploaded.path,
-          name: EXTERNAL_ART_NAME,
-          size: file.size,
-          type: file.type,
-          ...dimensions
-        }, target);
-        if (previous) await removeTempMedia(supabase, [previous.path || previous.url]);
-      }
-      setAiArtWarning(aspectWarning(dimensions, target.format, target.ratio));
-      patchAiArt({ mediaName: file.name, mediaPath: uploaded.path });
-      setUploading(100);
-      flash(isReel ? 'Arte enviada como capa do Reel' : 'Arte gerada adicionada ao canvas');
-    } catch (error) {
-      setMediaError(error.message || 'Não foi possível enviar a arte gerada.');
-    } finally {
-      window.clearInterval(fake);
-      setBusy('');
       window.setTimeout(() => setUploading(null), 350);
     }
   }
@@ -1041,21 +981,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
             onApplySurfaces={applyLayoutSurfaces}
             onToast={flash}
           />}
-          {tool === 'midia' && aiArt.open && <ExternalArtPanel
-            value={aiArt}
-            onChange={(next) => setState((current) => ({ ...current, aiArt: next }))}
-            onBack={() => patchAiArt({ open: false })}
-            onUpload={uploadExternalArt}
-            brandKit={brandKit}
-            brandName={brandLabel || brandName}
-            format={state.format}
-            ratio={state.ratio}
-            busy={busy === 'ai-art'}
-            error={mediaError}
-            warning={aiArtWarning}
-            progress={uploading}
-          />}
-          {tool === 'midia' && !aiArt.open && <>
+          {tool === 'midia' && <>
             {!surface.media ? (
               <label className={styles.upload} aria-label="Importar mídia"><Upload size={22} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small><input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} /></label>
             ) : (
@@ -1092,19 +1018,10 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
                 />}
               </>
             )}
-            <button
-              type="button"
-              className={`${styles.button} ${styles.outline}`}
-              style={{ width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-              onClick={() => { setAiArtWarning(''); setMediaError(''); patchAiArt({ open: true }); }}
-            >
-              <Sparkles size={14} /> Criar com IA externa
-            </button>
             {state.format === 'reel' && <p style={{ fontSize: 10.5, color: 'var(--vc-faint)', marginTop: 6, lineHeight: 1.45 }}>
               No Reel o canvas é vídeo: a arte gerada entra como capa.
             </p>}
             {uploading != null && <div className={styles.progress}><span style={{ width: `${uploading}%` }} /></div>}
-            {aiArtWarning && <div className={styles.error} style={{ color: 'var(--vc-text)', background: 'var(--vc-hover)' }}>{aiArtWarning}</div>}
             {mediaError && <div className={styles.error}>{mediaError}</div>}
           </>}
           {tool === 'texto' && <>
