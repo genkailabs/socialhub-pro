@@ -52,6 +52,33 @@ describe('parseSpec', () => {
   it('erro em JSON inválido', () => {
     expect(() => parseSpec('não é json')).toThrow();
   });
+
+  // §8: a falha precisa ser identificável para a interface trocar a mensagem
+  // técnica pela amigável e guardar o diagnóstico no bloco de detalhes.
+  it('marca a falha com código e amostra do que veio', () => {
+    try {
+      parseSpec('não é json');
+      throw new Error('deveria ter lançado');
+    } catch (error) {
+      expect(error.code).toBe('AI_INVALID_JSON');
+      expect(error.reason).toBe('parse');
+      expect(error.sample).toContain('não é json');
+    }
+  });
+
+  it('recusa JSON válido que não é uma spec de conteúdo', () => {
+    // Sem esta checagem, "{}" virava uma peça com o título "Sem título" e o
+    // usuário recebia uma arte vazia como se tivesse dado certo.
+    try {
+      parseSpec('{"ok":true}');
+      throw new Error('deveria ter lançado');
+    } catch (error) {
+      expect(error.code).toBe('AI_INVALID_JSON');
+      expect(error.reason).toBe('schema');
+    }
+    expect(parseSpec('{"headline":"Tem conteúdo"}').headline).toBe('Tem conteúdo');
+    expect(parseSpec('{"bullets":["a"]}').bullets).toEqual(['a']);
+  });
 });
 
 describe('estimateCostUsd', () => {

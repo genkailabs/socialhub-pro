@@ -11,3 +11,190 @@
 .layerActions{display:flex;gap:1px}.layerActions button:disabled{opacity:.3;cursor:default}
 .layerRow{grid-template-columns:auto auto 1fr auto;cursor:pointer}.layerGrip{width:12px;color:var(--vc-faint);display:grid;place-items:center;cursor:grab}.layerRow:active .layerGrip{cursor:grabbing}.layerDragging{opacity:.45}.layerDropTarget{box-shadow:inset 0 2px 0 var(--vc-accent)}.layerMediaRow{border-top:1px solid var(--vc-border);margin-top:6px;padding-top:10px}.layerBadge{font-size:9.5px;font-weight:700;letter-spacing:.4px;color:var(--vc-faint);text-transform:uppercase}
 .timeline{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:min(620px,94%);background:var(--vc-panel);border:1px solid var(--vc-border);border-radius:12px;padding:8px 12px;font-size:10px}.timelineEmpty{color:var(--vc-faint);text-align:center;margin:4px 0}.timelineHead{display:flex;align-items:center;gap:8px}.timelineHead input[type=range]{flex:1;min-width:0}.timelineClock{font:10px ui-monospace,monospace;color:var(--vc-sub);white-space:nowrap}.timelineTracks{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;max-height:104px;overflow:auto}.timelineTrack{display:grid;grid-template-columns:62px 1fr;align-items:center;gap:8px;color:var(--vc-sub)}.timelineTrackName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.timelineBar{position:relative;height:14px;border-radius:5px;background:var(--vc-track);overflow:hidden}.timelineClip{position:absolute;top:0;bottom:0;background:var(--vc-accentSoft);border-left:2px solid var(--vc-accent);border-right:2px solid var(--vc-accent)}.timelineMuted{opacity:.45}.timelinePlayhead{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--vc-danger)}.timelineTrim{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}.timelineTrim label{display:grid;grid-template-columns:34px 1fr 34px;align-items:center;gap:6px;color:var(--vc-sub)}.timelineTrim em{font-style:normal;font:10px ui-monospace,monospace;color:var(--vc-faint);text-align:right}.hint{font-size:10.5px;line-height:1.45;color:var(--vc-faint);margin:6px 0}.coverPreview{width:100%;border-radius:10px;border:1px solid var(--vc-border);display:block;margin-bottom:8px}.coverProfile{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--vc-faint);font-size:10px}.coverProfileThumb{width:44px;height:44px;flex:none;border-radius:8px;border:1px solid var(--vc-border);background:var(--vc-input) center/cover no-repeat}
+
+/* ---- Redesign do Composer -------------------------------------------------
+   O handoff veio dark-only com azul #3b82f6. Aqui ele é remapeado para os
+   tokens --vc-* que já existem, porque o PRD proíbe mexer no par claro/escuro:
+   estrutura, hierarquia e medidas são do handoff; a cor continua sendo a
+   identidade do produto. */
+.chip{display:inline-flex;align-items:center;gap:5px}
+.panel{display:flex;flex-direction:column;padding:0;width:300px}
+.panelScroll,.panelBody{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 16px 16px}
+.panelHead{padding:14px 16px 12px;margin-bottom:0;border-bottom:1px solid var(--vc-border)}
+.panelHead span{display:grid;gap:2px;min-width:0}
+.panelHead strong{font-size:14.5px;font-weight:750;letter-spacing:-.15px}
+.panelHead small{font-size:11px;font-weight:400;color:var(--vc-faint);white-space:normal;line-height:1.35}
+.panelFooter{position:relative;flex:none;border-top:1px solid var(--vc-border);padding:12px 16px 14px;background:var(--vc-panel)}
+.panelFooterLinks{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px}
+.generateButton{width:100%;height:44px;border-radius:12px;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px}
+.caretOpen{transform:rotate(180deg)}
+.genMenu{position:absolute;left:16px;right:16px;bottom:calc(100% - 8px);z-index:30;display:grid;gap:2px;padding:6px;border:1px solid var(--vc-border);border-radius:13px;background:var(--vc-card);box-shadow:0 18px 40px rgba(0,0,0,.28)}
+.genMenu button{display:flex;align-items:flex-start;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:9px;background:transparent;text-align:left;color:var(--vc-text)}
+.genMenu button:hover{background:var(--vc-hover)}
+.genMenu button span{display:grid;gap:2px;min-width:0}
+.genMenu strong{font-size:12.5px;font-weight:650}
+.genMenu em{font-style:normal;font-size:11px;color:var(--vc-sub);line-height:1.35}
+.fieldLabel{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--vc-sub);margin:10px 0 5px}
+.fieldHint{font-size:10.5px;color:var(--vc-faint)}
+.textareaShort{min-height:62px}
+.linkButton,.linkButtonMuted{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;padding:4px 0;font:inherit;font-size:11.5px;font-weight:600;color:var(--vc-accentText);cursor:pointer}
+.linkButtonMuted{color:var(--vc-faint);font-weight:400}
+.linkButton:disabled,.linkButtonMuted:disabled{opacity:.4;cursor:default}
+.panelHintText{font-size:11.5px;line-height:1.5;color:var(--vc-faint);margin:8px 0 0}
+.chipGrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.chip2,.chipActive{flex:none;border:1px solid var(--vc-border);border-radius:99px;padding:6px 11px;background:transparent;color:var(--vc-sub);font:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+.chip2:hover{background:var(--vc-hover);color:var(--vc-text)}
+.chipActive{border-color:var(--vc-accent);background:var(--vc-accentSoft);color:var(--vc-accentText)}
+.styleList{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.styleItem{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--vc-border);border-radius:9px;background:var(--vc-input);color:var(--vc-text);font:inherit;font-size:12px;font-weight:600;text-align:left;cursor:pointer;min-width:0;overflow:hidden}
+.styleItem:hover{border-color:var(--vc-accent)}
+.styleItemActive{border-color:var(--vc-accent);background:var(--vc-accentSoft);color:var(--vc-accentText)}
+.styleSwatch{width:18px;height:18px;flex:none;border-radius:5px}
+
+/* Toolbar do canvas (§6 do handoff, §9 do PRD) */
+.canvasToolbar{flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 16px;background:var(--vc-panel);border-bottom:1px solid var(--vc-border)}
+.tbGroup{display:flex;align-items:center;gap:2px;flex:none}
+.tbButton{width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:var(--vc-sub);display:grid;place-items:center;cursor:pointer}
+.tbButton:hover:not(:disabled){background:var(--vc-hover);color:var(--vc-text)}
+.tbButton:disabled{opacity:.3;color:var(--vc-faint);cursor:not-allowed}
+.tbDisabled{opacity:.55}
+.tbDivider{width:1px;height:20px;flex:none;background:var(--vc-border)}
+.tbZoom{min-width:46px;text-align:center;font-size:11.5px;font-weight:600;color:var(--vc-sub)}
+.tbTextButton{border:0;background:transparent;border-radius:8px;padding:6px 9px;font:inherit;font-size:11.5px;font-weight:600;color:var(--vc-accentText);cursor:pointer}
+.tbTextButton:hover{background:var(--vc-hover)}
+.tbAlignWrap{position:relative;display:inline-flex}
+.tbPopover{position:absolute;left:0;top:calc(100% + 6px);z-index:40;display:grid;gap:1px;min-width:132px;padding:5px;border:1px solid var(--vc-border);border-radius:10px;background:var(--vc-card);box-shadow:0 18px 40px rgba(0,0,0,.28)}
+.tbPopover button{border:0;background:transparent;border-radius:7px;padding:7px 9px;font:inherit;font-size:12px;color:var(--vc-text);text-align:left;cursor:pointer}
+.tbPopover button:hover{background:var(--vc-hover)}
+.tbSpacer{flex:1}
+.tbHint{font-size:11.5px;color:var(--vc-faint);white-space:nowrap}
+.tbSelection{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:99px;background:var(--vc-accentSoft);color:var(--vc-accentText);white-space:nowrap}
+.barDivider{width:1px;height:22px;flex:none;background:var(--vc-border);margin:0 4px}
+.barLabel{font-size:10px;font-weight:750;letter-spacing:.8px;color:var(--vc-faint)}
+.ratioChips{display:flex;gap:5px;flex:none}
+
+/* Estado vazio (§7 do handoff) */
+.emptyOverlay{position:absolute;inset:0;z-index:20;display:grid;place-items:center;padding:32px 20px;background:var(--vc-bg)}
+.emptyCard{width:min(100%,460px);max-height:100%;overflow:auto;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;padding:34px 28px;border:1px dashed var(--vc-border);border-radius:16px;background:var(--vc-panel)}
+.emptyBadge{width:52px;height:52px;flex:none;border-radius:14px;display:grid;place-items:center;background:var(--vc-accentSoft);color:var(--vc-accentText)}
+.emptyCard h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-.4px}
+.emptyCard p{margin:0;max-width:330px;font-size:13px;line-height:1.5;color:var(--vc-sub);text-wrap:pretty}
+.emptyActions{display:grid;gap:8px;width:min(100%,280px)}
+.emptyActions button{display:flex;align-items:center;gap:6px;justify-content:center}
+.emptyRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.emptyPrimary{height:42px;font-size:13.5px}
+.emptyCard small{font-size:11.5px;color:var(--vc-faint)}
+
+/* Painel direito unificado: Brand Kit + Prévia + Camadas (§13-§15) */
+.rightPanel{width:326px;display:flex;flex-direction:column;gap:0;padding:0}
+.rightPanel.layersPanel{width:326px}
+.brandKitBar{flex:none;display:flex;align-items:center;gap:9px;height:54px;padding:0 12px;border-bottom:1px solid var(--vc-border)}
+.brandKitLogo{width:30px;height:30px;flex:none;border-radius:8px;display:grid;place-items:center;background:var(--vc-accent);color:#fff;font-size:11.5px;font-weight:800}
+.brandKitInfo{flex:1;min-width:0;display:grid;gap:1px}
+.brandKitInfo strong{font-size:12.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brandKitInfo small{font-size:11px;color:var(--vc-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brandKitDots{display:flex;gap:3px;flex:none}
+.brandKitDots i{width:13px;height:13px;border-radius:4px;display:block}
+.panelSection{flex:none;padding:12px;border-bottom:1px solid var(--vc-border)}
+.panelSection:last-child{flex:1;min-height:0;overflow-y:auto;border-bottom:0}
+.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.sectionHead .rightTitle{margin:0}
+.previewMode{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--vc-faint)}
+.previewNote{margin:8px 0 0;font-size:10.5px;line-height:1.45;color:var(--vc-faint)}
+
+/* Prévia do Instagram (§14): fiel ao enquadramento, não um clone do app */
+.igCard{border:1px solid var(--vc-border);border-radius:13px;background:var(--vc-card);overflow:hidden}
+.igHead{display:flex;align-items:center;gap:8px;padding:9px 10px}
+.igAvatar{width:30px;height:30px;flex:none;border-radius:50%;padding:2px;background:linear-gradient(135deg,#f0a03c,#e0483c,#a13cd6)}
+.igAvatar i{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:var(--vc-input);color:var(--vc-sub);font-style:normal;font-size:10px;font-weight:700}
+.igName{flex:1;min-width:0;display:grid}
+.igName strong{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.igName small{font-size:10.5px;color:var(--vc-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Mesmo fundo do canvas: sem isso a peça sem foto aparecia branca na prévia e
+   clara no editor — deixava de ser "fiel ao enquadramento". */
+.igMedia{position:relative;width:100%;background:#202024;overflow:hidden}
+.layerName{display:grid;gap:1px;line-height:1.25}
+.layerName b,.layerName small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.layerName b{font-weight:inherit}
+.layerName small{font-size:10px;color:var(--vc-faint)}
+.layerSelected .layerName{color:var(--vc-accentText);font-weight:600}
+.igActions{display:flex;align-items:center;gap:14px;padding:9px 11px 4px;color:var(--vc-text)}
+.igCaption{padding:0 11px 11px;font-size:12.5px;line-height:1.4}
+.igCaption p{margin:4px 0 0}
+.igLikes{font-size:12.5px;font-weight:600}
+.igTags{color:var(--vc-accentText)}
+.igCaption small{display:block;margin-top:6px;font-size:11px;color:var(--vc-faint)}
+
+/* Camadas vazias (§15) */
+.layersEmpty{display:grid;gap:3px;padding:16px 12px;text-align:center;border:1px dashed var(--vc-border);border-radius:12px}
+.layersEmpty strong{font-size:12.5px;font-weight:500;color:var(--vc-sub)}
+.layersEmpty span{font-size:11.5px;color:var(--vc-faint)}
+.layerShortcuts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px}
+.layerShortcuts button{display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border:1px solid var(--vc-border);border-radius:9px;background:var(--vc-input);color:var(--vc-sub);font:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+.layerShortcuts button:hover{border-color:var(--vc-accent);color:var(--vc-accentText)}
+
+/* Geração com IA (§10, §11) */
+.genModal{width:min(470px,100%);background:var(--vc-card);border:1px solid var(--vc-border);border-radius:16px;padding:24px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.genHead{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.genBadge{width:38px;height:38px;flex:none;border-radius:11px;display:grid;place-items:center;background:var(--vc-accentSoft);color:var(--vc-accentText)}
+.genBadgeError{background:color-mix(in srgb,var(--vc-danger) 12%,transparent);color:var(--vc-danger)}
+.genModal h2{margin:0 0 3px;font-size:16.5px;font-weight:700;letter-spacing:-.2px}
+.genModal p{margin:0;font-size:12px;color:var(--vc-sub);line-height:1.45}
+.genTrack{height:5px;border-radius:5px;background:var(--vc-track);overflow:hidden}
+.genTrack span{display:block;height:100%;background:var(--vc-accent);transition:width .3s ease-out}
+.genMeta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--vc-faint);margin:7px 0 14px}
+.genSteps{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.genSteps li{display:flex;align-items:center;gap:11px;padding:8px 9px;border-radius:9px;font-size:12.5px}
+.gen_done{color:var(--vc-sub)}
+.gen_done svg{color:var(--vc-success)}
+.gen_active{background:var(--vc-accentSoft);color:var(--vc-text);font-weight:600}
+.gen_active svg{color:var(--vc-accentText)}
+.gen_idle{color:var(--vc-faint)}
+.genDot{width:15px;height:15px;flex:none;border-radius:50%;border:1.5px solid var(--vc-border)}
+.genSpin{animation:vcSpin 1.1s linear infinite}
+@keyframes vcSpin{to{transform:rotate(360deg)}}
+.genDisclosure{display:flex;align-items:center;gap:5px;margin-top:14px;border:0;background:transparent;padding:0;font:inherit;font-size:12px;color:var(--vc-faint);cursor:pointer}
+.genDetail{margin:9px 0 0;padding:10px;border:1px solid var(--vc-border);border-radius:9px;background:var(--vc-input);font:11px/1.5 ui-monospace,monospace;color:var(--vc-sub);white-space:pre-wrap;word-break:break-word;max-height:150px;overflow:auto}
+
+/* Biblioteca de layouts (§12) */
+.libraryScrim{position:absolute;inset:0;z-index:60;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--vc-bg) 78%,transparent)}
+.library{width:min(980px,100%);max-height:100%;display:flex;flex-direction:column;border:1px solid var(--vc-border);border-radius:16px;background:var(--vc-panel);box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:hidden}
+.libHead{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--vc-border)}
+.libHead h2{margin:0;font-size:16px;font-weight:700;letter-spacing:-.2px}
+.libHead p{margin:2px 0 0;font-size:11.5px;color:var(--vc-faint)}
+.libHead>div:first-child{flex:1;min-width:0}
+.libSearch{display:flex;align-items:center;gap:7px;width:240px;height:34px;padding:0 10px;border:1px solid var(--vc-border);border-radius:9px;background:var(--vc-input);color:var(--vc-faint)}
+.libSearch input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--vc-text);font:inherit;font-size:12px}
+.libFilters{display:flex;flex-wrap:wrap;gap:6px;padding:12px 18px;border-bottom:1px solid var(--vc-border)}
+.libFilters button{flex:none;border:1px solid var(--vc-border);border-radius:99px;padding:5px 11px;background:transparent;color:var(--vc-sub);font:inherit;font-size:11.5px;font-weight:600;text-transform:capitalize;cursor:pointer}
+.libFilters button:hover{background:var(--vc-hover);color:var(--vc-text)}
+.libFilters .libFilterActive{border-color:var(--vc-accent);background:var(--vc-accentSoft);color:var(--vc-accentText)}
+.libGrid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:16px 18px}
+.libCard{display:flex;flex-direction:column;border:1px solid var(--vc-border);border-radius:12px;background:var(--vc-card);overflow:hidden}
+.libCard:hover{border-color:var(--vc-accent)}
+.libCardApply{position:relative;border:0;padding:0;background:transparent;cursor:pointer;display:block}
+.libThumb{position:relative;display:block;width:100%;aspect-ratio:1;background:var(--vc-input);overflow:hidden}
+.libThumb span{position:absolute;border-radius:2px}
+.libBlock_media{background:color-mix(in srgb,var(--vc-text) 14%,transparent)}
+.libBlock_veil{background:color-mix(in srgb,var(--vc-text) 22%,transparent)}
+.libBlock_strong{background:color-mix(in srgb,var(--vc-text) 45%,transparent)}
+.libBlock_soft{background:color-mix(in srgb,var(--vc-text) 24%,transparent)}
+.libBlock_accent{background:var(--vc-accent)}
+.libBadge{position:absolute;right:6px;top:6px;padding:2px 6px;border:1px solid var(--vc-accent);border-radius:5px;background:var(--vc-accentSoft);color:var(--vc-accentText);font-size:9.5px;font-weight:700;letter-spacing:.5px}
+.libCardFoot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 9px;border-top:1px solid var(--vc-border)}
+.libName{flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.libCategory{font-size:11px;color:var(--vc-faint);text-transform:capitalize}
+.libCardActions{display:flex;gap:2px}
+.libCardActions button{border:0;background:transparent;color:var(--vc-faint);padding:2px;cursor:pointer}
+.libCardActions button:hover{color:var(--vc-text)}
+.libRename{flex:1;min-width:0;border:1px solid var(--vc-accent);border-radius:6px;background:var(--vc-input);color:var(--vc-text);font:inherit;font-size:12px;padding:3px 6px;outline:0}
+.libEmpty{grid-column:1/-1;text-align:center;font-size:12px;color:var(--vc-faint);padding:26px 0}
+.libFoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-top:1px solid var(--vc-border);font-size:11.5px;color:var(--vc-faint)}
+.libFoot button{display:inline-flex;align-items:center;gap:6px}
+
+/* Responsividade (§16): painéis encolhem, controles nunca somem */
+@media(max-width:1600px){.libGrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1450px){.panel{width:286px}.rightPanel,.rightPanel.layersPanel{width:296px}}
+@media(max-width:1250px){.rightPanel,.rightPanel.layersPanel{width:300px}.libGrid{grid-template-columns:repeat(2,1fr)}.libSearch{width:170px}}
+@media(max-width:900px){.rightPanel,.rightPanel.layersPanel{width:286px}.canvasToolbar{padding:6px 10px}}
+@media(max-width:680px){.rightPanel,.rightPanel.layersPanel{width:calc(100% - 58px)}.libGrid{grid-template-columns:1fr}.libHead{flex-wrap:wrap}.libSearch{width:100%;order:3}}

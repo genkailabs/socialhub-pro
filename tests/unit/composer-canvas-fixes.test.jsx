@@ -46,7 +46,8 @@ function dataTransfer(store = {}) {
 }
 
 function rowOf(label) {
-  const panel = screen.getByText('CAMADAS').closest('aside');
+  // Camadas e prévia agora dividem o mesmo <aside>; a lista é a <section>.
+  const panel = screen.getByText('CAMADAS').closest('section');
   return within(panel).getByText(label).closest('div[draggable]');
 }
 
@@ -130,6 +131,6 @@ describe('Composer — arrastar da biblioteca para o canvas (§2.7)', () => {
       clientX: 120,
       clientY: 90
     });
-    expect(screen.getByText('Adicione textos, formas ou figurinhas ao canvas.')).toBeTruthy();
+    expect(screen.getByText('Nenhum elemento adicionado')).toBeTruthy();
   });
 });
