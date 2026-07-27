@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowUpRight, Bold, Check, ChevronDown,
   ChevronLeft, ChevronRight, ChevronUp, Copy, Eye, EyeOff, Film, GripVertical,
-  Image as ImageIcon, Italic, Layers3, Lock, MapPin, Maximize2,
+  Image as ImageIcon, Italic, Layers3, LayoutTemplate, Lock, MapPin, Maximize2,
   MessageSquareText, Minus, MoreHorizontal, Redo2,
   Save, Search, Send, Settings2, Shapes, Smartphone, Smile, Sparkles, Trash2, Type,
   Undo2, Unlock, Upload, UserRoundPlus, X
@@ -31,6 +31,7 @@ import { GRAPHIC_TYPES, isTextLayer, layerBoxStyle, layerLineBgStyle } from '@/l
 import { clampTrim, getReelState } from '@/lib/composer-reel';
 import { aspectWarning, validateExternalArtFile } from '@/lib/composer-ai-prompt';
 import { ExternalArtPanel } from './ExternalArtPanel';
+import { LayoutsPanel } from './LayoutsPanel';
 import { ArrowGraphic, IconGraphic, LineGraphic, ShapeGraphic } from './ElementGraphics';
 import { ReelTimeline } from './ReelTimeline';
 import { ReelVideoPanel } from './ReelVideoPanel';
@@ -44,7 +45,8 @@ const FORMAT_META = {
   reel: ['Reel', 'Vídeo vertical']
 };
 const TOOLS = [
-  ['formato', Maximize2, 'Formato'], ['midia', ImageIcon, 'Mídia'], ['texto', Type, 'Texto'],
+  ['formato', Maximize2, 'Formato'], ['layouts', LayoutTemplate, 'Layouts'],
+  ['midia', ImageIcon, 'Mídia'], ['texto', Type, 'Texto'],
   ['elementos', Shapes, 'Elementos'], ['legenda', MessageSquareText, 'Legenda'],
   ['config', Settings2, 'Config.'], ['publicar', Send, 'Publicar']
 ];
@@ -384,6 +386,38 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
 
   function updateField(key, value) {
     setState((current) => ({ ...current, [key]: value }));
+  }
+
+  // A geração automática (PRD §16) entrega a peça já montada AQUI, não como
+  // imagem: as camadas entram no documento e continuam editáveis. A mídia atual
+  // é preservada — quem escolheu a foto foi o usuário.
+  function applyLayoutSurfaces(surfaces = []) {
+    if (!surfaces.length) return;
+    mutateDoc((doc, current) => {
+      if (current.format === 'carrossel') {
+        const built = surfaces.slice(0, 10).map((item, index) => ({
+          ...item,
+          media: item.media || doc.carrossel.slides[index]?.media || null
+        }));
+        // Carrossel exige no mínimo dois slides; uma peça só não pode zerar o
+        // documento do usuário.
+        doc.carrossel.slides = built.length >= 2
+          ? built
+          : [...built, ...doc.carrossel.slides.slice(built.length)];
+        doc.carrossel.active = 0;
+        return;
+      }
+      const target = getSurface(doc, current.format);
+      const [built] = surfaces;
+      target.layers = built.layers;
+      // Só reenquadra quando a peça foi montada COM a mídia: sem isso, montar
+      // uma arte sem foto zerava o enquadramento que o usuário tinha ajustado.
+      if (built.media) {
+        target.media = built.media;
+        target.bg = built.bg;
+      }
+    });
+    setState((current) => ({ ...current, sel: null, editing: null }));
   }
 
   function setRatio(ratio) {
@@ -996,6 +1030,17 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
             {Object.entries(FORMAT_META).map(([id, meta]) => <button key={id} className={`${styles.formatCard} ${state.format === id ? styles.activeCard : ''}`} onClick={() => setFormat(id)}><strong>{meta[0]}</strong><span>{meta[1]}</span></button>)}
             {Object.keys(COMPOSER_FORMATS[state.format].ratios).length > 1 && <><div className={styles.sectionLabel}>PROPORÇÃO</div><div className={styles.segment}>{Object.keys(COMPOSER_FORMATS[state.format].ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => setRatio(ratio)}>{ratio}</button>)}</div></>}
           </>}
+          {tool === 'layouts' && <LayoutsPanel
+            brandId={brandId}
+            brandName={brandName}
+            format={state.format}
+            ratio={state.ratio}
+            canvas={[cw, ch]}
+            surface={surface}
+            caption={state.caption}
+            onApplySurfaces={applyLayoutSurfaces}
+            onToast={flash}
+          />}
           {tool === 'midia' && aiArt.open && <ExternalArtPanel
             value={aiArt}
             onChange={(next) => setState((current) => ({ ...current, aiArt: next }))}
