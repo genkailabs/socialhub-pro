@@ -53,6 +53,21 @@ describe('generateCreative + pesquisa', () => {
     expect(mocks.deepseekChat.mock.calls[1][0]).toMatchObject({ temperature: 0.2, maxTokens: 1800 });
   });
 
+  // finish_reason "length" = resposta cortada no teto, nao malformada. O retry
+  // precisa de mais espaco (nao de outro pedido de formatacao) ou reproduz o corte.
+  it('resposta cortada no teto: retry pede mais tokens em vez de so reforcar o formato', async () => {
+    mocks.needsResearch.mockReturnValue(false);
+    mocks.deepseekChat
+      .mockResolvedValueOnce({ content: '{"headline":"cortou aqui', usage: {}, model: 'deepseek-v4-flash', finishReason: 'length' })
+      .mockResolvedValueOnce({ content: SPEC, usage: { prompt_tokens: 12, completion_tokens: 6 }, model: 'deepseek-v4-flash' });
+
+    const out = await generateCreative({ supabase: {}, brandId: 'b1', brandName: 'Marca', brief: { topic: 'dicas' }, generateImages: false });
+
+    expect(out.spec.caption).toBe('legenda');
+    expect(mocks.deepseekChat).toHaveBeenCalledTimes(2);
+    expect(mocks.deepseekChat.mock.calls[1][0]).toMatchObject({ user: 'u', temperature: 0.9, maxTokens: 3200 });
+  });
+
   it('com pesquisa: injeta research no prompt e devolve no retorno', async () => {
     mocks.needsResearch.mockReturnValue(true);
     mocks.researchContext.mockResolvedValue({ summary: 'atual', sources: [{ uri: 'https://x', title: 'X' }], usage: { prompt_tokens: 20, completion_tokens: 8 }, model: 'tavily-search', cost: 0.01, cached: false });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { makeComposerDocument } from '@/lib/composer-editor';
 
 const mocks = vi.hoisted(() => ({
@@ -44,7 +44,7 @@ beforeEach(() => {
 });
 
 function openMediaPanel() {
-  fireEvent.click(screen.getByRole('button', { name: /m.dia/i }));
+  fireEvent.click(within(screen.getByLabelText('Ferramentas do Composer')).getByRole('button', { name: /m.dia/i }));
 }
 
 describe('Composer temporary media panel', () => {

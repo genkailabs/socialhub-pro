@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const mocks = vi.hoisted(() => ({ uploadTempMedia: vi.fn(), removeTempMedia: vi.fn(), saveDraft: vi.fn() }));
 
@@ -49,7 +49,7 @@ async function renderReelWithVideo() {
   render(<VisualComposer brandId="brand-1" brandName="Marca" />);
   fireEvent.click(screen.getAllByRole('button', { name: 'Reel' })[0]);
   // Importação mora no painel Mídia; o canvas vazio não abre mais o seletor.
-  fireEvent.click(screen.getByRole('button', { name: /Mídia|Midia/ }));
+  fireEvent.click(within(screen.getByLabelText('Ferramentas do Composer')).getByRole('button', { name: /Mídia|Midia/ }));
   const input = screen.getByLabelText('Importar mídia').querySelector('input[type="file"]');
   fireEvent.change(input, { target: { files: [new File(['v'], 'reel.mp4', { type: 'video/mp4' })] } });
   const box = await screen.findByTestId('canvas-media');
@@ -59,7 +59,7 @@ async function renderReelWithVideo() {
   Object.defineProperty(element, 'videoHeight', { configurable: true, value: 1920 });
   fireEvent.loadedMetadata(element);
   // Fecha o painel para o teste seguir do mesmo estado de antes (rail sem painel).
-  fireEvent.click(screen.getByRole('button', { name: /Mídia|Midia/ }));
+  fireEvent.click(within(screen.getByLabelText('Ferramentas do Composer')).getByRole('button', { name: /Mídia|Midia/ }));
   return element;
 }
 

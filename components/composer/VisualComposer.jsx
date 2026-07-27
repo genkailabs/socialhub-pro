@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, ArrowUpRight, Bold, Check, ChevronDown,
-  ChevronLeft, ChevronRight, ChevronUp, Copy, Eye, EyeOff, Film, GripVertical,
-  Image as ImageIcon, Italic, Layers3, LayoutTemplate, Lock, MapPin, Maximize2,
-  MessageSquareText, Minus, MoreHorizontal, Redo2,
-  Save, Search, Send, Settings2, Shapes, Smartphone, Smile, Trash2, Type,
-  Undo2, Unlock, Upload, UserRoundPlus, X
+  AlignCenter, AlignLeft, AlignRight, ArrowUpRight, Bold, Bookmark, Check, ChevronDown,
+  ChevronLeft, ChevronRight, ChevronUp, Copy, Eye, EyeOff, Film, GripVertical, Heart,
+  Image as ImageIcon, Italic, Layers3, LayoutGrid, LayoutTemplate, Lock, MapPin, Maximize2,
+  MessageSquareText, Minus, MoreHorizontal, Palette, Plus, Redo2,
+  Save, Search, Send, Settings2, Shapes, SlidersHorizontal, Smartphone, Smile, Sparkles,
+  Square, Trash2, Type, Undo2, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
@@ -29,7 +29,15 @@ import {
 } from '@/data/emoji-catalog';
 import { GRAPHIC_TYPES, isTextLayer, layerBoxStyle, layerLineBgStyle } from '@/lib/composer-layer-style';
 import { clampTrim, getReelState } from '@/lib/composer-reel';
-import { LayoutsPanel } from './LayoutsPanel';
+import {
+  buildLayoutForContent, deleteLayoutTemplate, generateLayoutFromBrief,
+  getLayoutTemplates, renameLayoutTemplate, saveLayoutTemplate
+} from '@/lib/layout-actions';
+import { applyLayoutTemplate } from '@/lib/layouts/templates';
+import { EMPTY_FIELDS, LayoutsPanel } from './LayoutsPanel';
+import { CanvasToolbar, alignedPosition } from './CanvasToolbar';
+import { GENERATION_STALL_STEP, GENERATION_STEPS, GenerationErrorModal, GenerationProgressModal } from './GenerationModal';
+import { LayoutLibrary } from './LayoutLibrary';
 import { ArrowGraphic, IconGraphic, LineGraphic, ShapeGraphic } from './ElementGraphics';
 import { ReelTimeline } from './ReelTimeline';
 import { ReelVideoPanel } from './ReelVideoPanel';
@@ -178,7 +186,19 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   const [uploading, setUploading] = useState(null);
   const [mediaError, setMediaError] = useState('');
   const [guides, setGuides] = useState([]);
-  const [scale, setScale] = useState(1);
+  // Zoom (§9): 'fit' deixa o canvas se ajustar à área; um número é o zoom que o
+  // usuário escolheu na toolbar e vale até ele pedir "Ajustar" de novo.
+  const [fitScale, setFitScale] = useState(1);
+  const [zoomMode, setZoomMode] = useState('fit');
+  const [layoutFields, setLayoutFields] = useState(EMPTY_FIELDS);
+  const [structureId, setStructureId] = useState('');
+  const [styleId, setStyleId] = useState('');
+  const [generation, setGeneration] = useState({ status: 'idle', step: 0, message: '', detail: '', mode: null });
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [mascot, setMascot] = useState([]);
+  const [issues, setIssues] = useState([]);
+  const [layoutError, setLayoutError] = useState('');
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [busy, setBusy] = useState('');
@@ -192,7 +212,9 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   const wheelHistoryRef = useRef(0);
   const uploadSequenceRef = useRef(new Map());
   const stateRef = useRef(state);
+  const generationTimerRef = useRef(null);
   stateRef.current = state;
+  const scale = zoomMode === 'fit' ? fitScale : zoomMode / 100;
   const [cw, ch] = canvasSize(state.format, state.ratio);
   const surface = getSurface(state.doc, state.format);
   const mediaTransform = surface.media
@@ -219,6 +241,14 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
       ? recentEmojis
       : EMOJI_CATEGORIES.find((category) => category.id === emojiCategory)?.emojis || [];
   const selectedIsText = !!selected && isTextLayer(selected);
+  // Rótulo da toolbar: "Título principal · 2 de 5". A contagem é de cima para
+  // baixo, igual à ordem exibida no painel de camadas.
+  const selectionLabel = selected
+    ? `${layerRowLabel(selected)} · ${surface.layers.length - surface.layers.indexOf(selected)} de ${surface.layers.length}`
+    : state.sel === 'bg' && surface.media
+      ? `${surface.media.kind === 'video' ? 'Vídeo' : 'Imagem'} de fundo`
+      : '';
+  const canvasIsEmpty = !surface.media && !surface.layers.length;
 
   const flash = useCallback((message) => {
     setToast(message);
@@ -266,7 +296,10 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
       if (!el) return;
       const availableW = Math.max(120, el.clientWidth - 50);
       const availableH = Math.max(120, el.clientHeight - (state.format === 'carrossel' || state.format === 'reel' ? 120 : 45));
-      setScale(Math.min(1, Math.max(.3, Math.min(availableW / cw, availableH / ch))));
+      // O teto era 1: em Full HD a peça ficava com 430px no meio da maior área
+      // da tela. O handoff pede um artboard de até ~560px, então o ajuste pode
+      // passar de 100% — o limite existe só para o texto não virar borrão.
+      setFitScale(Math.min(1.4, Math.max(.3, Math.min(availableW / cw, availableH / ch))));
     };
     update();
     const observer = new ResizeObserver(update);
@@ -407,6 +440,169 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
       }
     });
     setState((current) => ({ ...current, sel: null, editing: null }));
+  }
+
+  // ---- Layouts e geração (PRD §6, §7, §12) --------------------------------
+  // A geração vive aqui, e não dentro do painel: o modal de progresso é da
+  // tela inteira e o estado vazio do canvas dispara exatamente o mesmo fluxo.
+  useEffect(() => {
+    let alive = true;
+    getLayoutTemplates(brandId)
+      .then((result) => { if (alive) setTemplates(result?.templates || []); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [brandId]);
+
+  useEffect(() => () => window.clearInterval(generationTimerRef.current), []);
+
+  function contentFromFields(fields = layoutFields) {
+    return {
+      title: fields.title,
+      subtitle: fields.subtitle,
+      bullets: fields.bullets.split('\n').map((line) => line.trim()).filter(Boolean),
+      cta: fields.cta,
+      brand: brandName,
+      caption: state.caption
+    };
+  }
+
+  function applyLayoutResult(result) {
+    setMascot(result.mascot || []);
+    setIssues(result.issues || []);
+    applyLayoutSurfaces(result.slides.map((slide) => slide.surface));
+    flash(result.slides.length > 1 ? `${result.slides.length} slides montados` : 'Arte montada no canvas');
+  }
+
+  // O backend não emite progresso real. As etapas avançam no tempo até a
+  // penúltima e param ali: a última só marca quando a arte existe de verdade.
+  function startStepTicker() {
+    window.clearInterval(generationTimerRef.current);
+    generationTimerRef.current = window.setInterval(() => {
+      setGeneration((current) => (current.status === 'running' && current.step < GENERATION_STALL_STEP
+        ? { ...current, step: current.step + 1 }
+        : current));
+    }, 900);
+  }
+
+  function stopStepTicker() {
+    window.clearInterval(generationTimerRef.current);
+    generationTimerRef.current = null;
+  }
+
+  async function runGeneration(mode, overrides = {}) {
+    const fields = overrides.fields || layoutFields;
+    const structure = overrides.structureId !== undefined ? overrides.structureId : structureId;
+    const topic = fields.title.trim() || String(state.caption || '').trim();
+    if (mode === 'content' && !fields.title.trim()) {
+      setLayoutError('Escreva ao menos um título.');
+      setTool('layouts');
+      return;
+    }
+    if (mode === 'ai' && !topic) {
+      setLayoutError('Escreva um tema ou uma legenda para a IA partir de algum lugar.');
+      setTool('layouts');
+      return;
+    }
+
+    setLayoutError('');
+    setLibraryOpen(false);
+    setGeneration({ status: 'running', step: 0, message: '', detail: '', mode, structureId: structure });
+    startStepTicker();
+    try {
+      const result = mode === 'ai'
+        ? await generateLayoutFromBrief({
+          brandId, brandName, brief: { topic, format: state.format },
+          format: state.format, ratio: state.ratio, media: surface?.media || null
+        })
+        : await buildLayoutForContent({
+          brandId, content: contentFromFields(fields), format: state.format, ratio: state.ratio,
+          media: surface?.media || null, structureId: structure || null, styleId: styleId || null
+        });
+
+      if (result.error) {
+        setGeneration({ status: 'error', step: 0, message: result.error, detail: result.detail || '', mode, structureId: structure });
+        return;
+      }
+      if (mode === 'ai' && result.spec) {
+        const spec = result.spec;
+        setLayoutFields({
+          title: spec.imageTitle || spec.headline || '',
+          subtitle: spec.subtext || '',
+          bullets: (spec.bullets || []).join('\n'),
+          cta: spec.cta || ''
+        });
+      }
+      setGeneration((current) => ({ ...current, step: GENERATION_STEPS.length - 1 }));
+      applyLayoutResult(result);
+      setGeneration({ status: 'idle', step: 0, message: '', detail: '', mode: null });
+    } catch (error) {
+      setGeneration({
+        status: 'error', step: 0, mode, structureId: structure,
+        message: 'Não foi possível montar a arte. Tente novamente.',
+        detail: error?.message || ''
+      });
+    } finally {
+      stopStepTicker();
+    }
+  }
+
+  function applyTemplateFromLibrary(template) {
+    const built = applyLayoutTemplate(template.template, {
+      content: contentFromFields(),
+      canvas: [cw, ch],
+      media: surface?.media || null
+    });
+    applyLayoutSurfaces([built]);
+    setMascot([`Apliquei o layout "${template.name}" com o conteúdo atual.`]);
+    setIssues([]);
+    setLibraryOpen(false);
+    flash(`Layout "${template.name}" aplicado`);
+  }
+
+  async function saveCurrentAsLayout() {
+    const name = window.prompt('Nome do layout', layoutFields.title.trim() || 'Meu layout');
+    if (name === null) return;
+    setBusy('save-layout');
+    try {
+      const result = await saveLayoutTemplate({
+        brandId, name, surface, canvas: [cw, ch], format: state.format, ratio: state.ratio,
+        structureId: structureId || null, styleId: styleId || null
+      });
+      if (result.error) throw new Error(result.error);
+      setTemplates((current) => [result.template, ...current]);
+      flash('Layout salvo');
+    } catch (error) {
+      flash(error.message);
+    } finally { setBusy(''); }
+  }
+
+  async function renameTemplate(templateId, name) {
+    const result = await renameLayoutTemplate({ brandId, templateId, name });
+    if (result.error) return flash(result.error);
+    setTemplates((current) => current.map((item) => (item.id === templateId ? { ...item, name: result.name } : item)));
+    return undefined;
+  }
+
+  async function removeTemplate(templateId) {
+    const result = await deleteLayoutTemplate({ brandId, templateId });
+    if (result.error) return flash(result.error);
+    setTemplates((current) => current.filter((item) => item.id !== templateId));
+    return undefined;
+  }
+
+  // ---- Toolbar do canvas (§9) ---------------------------------------------
+  function applyZoom(percent) {
+    setZoomMode(Math.min(400, Math.max(25, Math.round(percent))));
+  }
+
+  function alignSelected(mode) {
+    if (!selected) return;
+    updateLayer(selected.id, alignedPosition(selected, [cw, ch], mode));
+  }
+
+  function sendSelectedTo(edge) {
+    if (!selected) return;
+    moveLayerToStackIndex(selected.id, edge === 'front' ? surface.layers.length - 1 : 0);
   }
 
   function setRatio(ratio) {
@@ -940,8 +1136,8 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
         <div className={`${styles.chip} ${styles.brandChip}`}>{brandName} · @{brandName.replace(/^@/, '')}</div>
         <div className={`${styles.chip} ${styles.status}`}>{state.status}</div>
         <div className={styles.spacer} />
-        <IconButton title="Desfazer" onClick={undo} disabled={!state.undoStack.length}><Undo2 size={16} /></IconButton>
-        <IconButton title="Refazer" onClick={redo} disabled={!state.redoStack.length}><Redo2 size={16} /></IconButton>
+        {/* Desfazer/refazer saíram do header e viraram o primeiro grupo da
+            toolbar do canvas, junto do resto da edição. */}
         <div className={`${styles.segment} ${styles.themeToggle}`}>
           <button className={state.theme === 'light' ? styles.selected : ''} onClick={() => { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); setState((v) => ({ ...v, theme: 'light' })); }}>Claro</button>
           <button className={state.theme === 'dark' ? styles.selected : ''} onClick={() => { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); setState((v) => ({ ...v, theme: 'dark' })); }}>Escuro</button>
@@ -965,22 +1161,38 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
         </nav>
 
         {tool && <aside className={styles.panel}>
-          <div className={styles.panelHead}><span>{TOOLS.find(([id]) => id === tool)?.[2]}</span><IconButton title="Fechar painel" onClick={() => setTool(null)}><X size={14} /></IconButton></div>
+          <div className={styles.panelHead}>
+            <span>
+              <strong>{TOOLS.find(([id]) => id === tool)?.[2]}</strong>
+              {tool === 'layouts' && <small>Escreva o conteúdo, a IA monta a arte</small>}
+              {tool === 'texto' && selectedIsText && <small>Texto selecionado</small>}
+            </span>
+            <IconButton title="Fechar painel" onClick={() => setTool(null)}><X size={14} /></IconButton>
+          </div>
+          {tool === 'layouts' ? <LayoutsPanel
+            format={state.format}
+            caption={state.caption}
+            fields={layoutFields}
+            onFields={(patch) => setLayoutFields((current) => ({ ...current, ...patch }))}
+            structureId={structureId}
+            onStructure={setStructureId}
+            styleId={styleId}
+            onStyle={setStyleId}
+            busy={generation.status === 'running'}
+            mascot={mascot}
+            issues={issues}
+            error={layoutError}
+            onGenerate={runGeneration}
+            onOpenLibrary={() => setLibraryOpen(true)}
+            onSaveCurrent={saveCurrentAsLayout}
+            canSaveCurrent={Boolean(surface.layers.length) && busy !== 'save-layout'}
+          /> : <div className={styles.panelScroll}>
           {tool === 'formato' && <>
             {Object.entries(FORMAT_META).map(([id, meta]) => <button key={id} className={`${styles.formatCard} ${state.format === id ? styles.activeCard : ''}`} onClick={() => setFormat(id)}><strong>{meta[0]}</strong><span>{meta[1]}</span></button>)}
-            {Object.keys(COMPOSER_FORMATS[state.format].ratios).length > 1 && <><div className={styles.sectionLabel}>PROPORÇÃO</div><div className={styles.segment}>{Object.keys(COMPOSER_FORMATS[state.format].ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => setRatio(ratio)}>{ratio}</button>)}</div></>}
+            {/* A proporção mora na barra acima do canvas. Repetir os mesmos
+                chips aqui era parte do "muitas opções misturadas" do PRD. */}
+            <p className={styles.panelHintText}>A proporção fica na barra acima do canvas, junto do formato.</p>
           </>}
-          {tool === 'layouts' && <LayoutsPanel
-            brandId={brandId}
-            brandName={brandName}
-            format={state.format}
-            ratio={state.ratio}
-            canvas={[cw, ch]}
-            surface={surface}
-            caption={state.caption}
-            onApplySurfaces={applyLayoutSurfaces}
-            onToast={flash}
-          />}
           {tool === 'midia' && <>
             {!surface.media ? (
               <label className={styles.upload} aria-label="Importar mídia"><Upload size={22} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small><input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} /></label>
@@ -1122,14 +1334,47 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
             {state.format === 'reel' && <div className={styles.toggle}><span>Mostrar também no Feed</span><button className={`${styles.switch} ${state.showFeed ? styles.switchOn : ''}`} onClick={() => updateField('showFeed', !state.showFeed)}><span /></button></div>}
           </>}
           {tool === 'publicar' && <><div className={styles.sectionLabel}>VALIDAÇÃO</div>{(validation.ok ? ['Mídia e formato prontos', 'Limites de texto válidos'] : validation.errors).map((item) => <div className={styles.check} key={item}><Check size={14} color={validation.ok ? 'var(--vc-success)' : 'var(--vc-warn)'} />{item}</div>)}<button className={`${styles.button} ${styles.primary}`} style={{ width: '100%', marginTop: 10 }} onClick={() => setModal('publish')}>Publicar agora</button><button className={`${styles.button} ${styles.soft}`} style={{ width: '100%', marginTop: 7 }} onClick={() => setModal('schedule')}>Agendar</button><button className={`${styles.button} ${styles.outline}`} style={{ width: '100%', marginTop: 7 }} onClick={persistDraft}>Salvar rascunho</button></>}
+          </div>}
         </aside>}
 
         <main className={styles.stage}>
-          <div className={styles.formatBar}>
+          <div className={styles.formatBar} role="group" aria-label="Formato e proporção">
             <div className={styles.segment}>{Object.entries(FORMAT_META).map(([id, meta]) => <button key={id} className={state.format === id ? styles.selected : ''} onClick={() => setFormat(id)}>{meta[0]}</button>)}</div>
-            {Object.keys(COMPOSER_FORMATS[state.format].ratios).length > 1 && <div className={styles.segment}>{Object.keys(COMPOSER_FORMATS[state.format].ratios).map((ratio) => <button key={ratio} className={state.ratio === ratio ? styles.selected : ''} onClick={() => setRatio(ratio)}>{ratio}</button>)}</div>}
+            {Object.keys(COMPOSER_FORMATS[state.format].ratios).length > 1 && <>
+              <span className={styles.barDivider} aria-hidden="true" />
+              <span className={styles.barLabel}>PROPORÇÃO</span>
+              <div className={styles.ratioChips}>
+                {Object.keys(COMPOSER_FORMATS[state.format].ratios).map((ratio) => <button
+                  key={ratio}
+                  type="button"
+                  className={state.ratio === ratio ? styles.chipActive : styles.chip2}
+                  onClick={() => setRatio(ratio)}
+                >{ratio}</button>)}
+              </div>
+            </>}
             {state.format === 'carrossel' && <span className={styles.chip}>Slide {state.doc.carrossel.active + 1} de {state.doc.carrossel.slides.length}</span>}
+            <span className={styles.spacer} />
+            <span className={styles.chip} title={brandKit ? undefined : 'Configure o Brand Kit para a arte sair na identidade da marca'}>
+              <Palette size={12} /> {brandKit ? 'Brand Kit aplicado' : 'Sem Brand Kit'}
+            </span>
           </div>
+          <CanvasToolbar
+            canUndo={Boolean(state.undoStack.length)}
+            canRedo={Boolean(state.redoStack.length)}
+            onUndo={undo}
+            onRedo={redo}
+            zoomPercent={Math.round(scale * 100)}
+            onZoomIn={() => applyZoom(Math.round(scale * 100) + 10)}
+            onZoomOut={() => applyZoom(Math.round(scale * 100) - 10)}
+            onZoomFit={() => setZoomMode('fit')}
+            selection={{ layer: selected, label: selectionLabel }}
+            onDuplicate={() => selected && duplicateLayer(selected.id)}
+            onAlign={alignSelected}
+            onToggleLock={() => selected && updateLayer(selected.id, { locked: !selected.locked })}
+            onBringToFront={() => sendSelectedTo('front')}
+            onSendToBack={() => sendSelectedTo('back')}
+            onDelete={() => selected && deleteLayerById(selected.id)}
+          />
           <div className={styles.canvasRegion} ref={regionRef} onPointerDown={() => setState((current) => ({ ...current, sel: null, editing: null }))}>
             <div className={styles.scaleWrap} style={{ width: cw * scale, height: ch * scale }}>
               <div
@@ -1184,6 +1429,14 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
                 {state.format === 'story' && <><div className={styles.safeTop}>INTERFACE DO INSTAGRAM</div><div className={styles.safeBottom}>ÁREA SEGURA</div></>}
               </div>
             </div>
+            {canvasIsEmpty && <CanvasEmptyState
+              format={FORMAT_META[state.format][0]}
+              ratio={state.ratio}
+              size={`${cw} × ${ch} px`}
+              onGenerate={() => { setTool('layouts'); setLayoutError(''); }}
+              onMedia={() => setTool('midia')}
+              onLayout={() => setLibraryOpen(true)}
+            />}
             {state.format === 'carrossel' && <CarouselStrip state={state} setState={setState} onAction={carouselAction} onReorder={reorderSlide} />}
             {state.format === 'reel' && <>
               <ReelTimeline
@@ -1202,18 +1455,48 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
           </div>
         </main>
 
-        {previewOpen && <PreviewPanel state={state} surface={surface} brandName={brandName} currentTime={state.format === 'reel' ? playhead : undefined} />}
-        {layersOpen && <LayersPanel
-          surface={surface}
-          selected={state.sel}
-          onSelect={(id) => setState((current) => ({ ...current, sel: id, editing: null }))}
-          onPatch={updateLayer}
-          onReorder={moveLayerInStack}
-          onReorderTo={moveLayerToStackIndex}
-          onDuplicate={duplicateLayer}
-          onDelete={deleteLayerById}
-        />}
+        {(previewOpen || layersOpen) && <aside className={styles.rightPanel} aria-label="Prévia e camadas">
+          <BrandKitSummary brandName={brandName} brandLabel={brandLabel} brandKit={brandKit} onOpen={() => setTool('config')} />
+          {previewOpen && <PreviewPanel state={state} surface={surface} brandName={brandName} currentTime={state.format === 'reel' ? playhead : undefined} />}
+          {layersOpen && <LayersPanel
+            surface={surface}
+            selected={state.sel}
+            onSelect={(id) => setState((current) => ({ ...current, sel: id, editing: null }))}
+            onPatch={updateLayer}
+            onReorder={moveLayerInStack}
+            onReorderTo={moveLayerToStackIndex}
+            onDuplicate={duplicateLayer}
+            onDelete={deleteLayerById}
+            onAddText={() => addPreset({ text: 'Adicionar título', fs: 32, weight: 800, h: 52 })}
+            onAddImage={() => setTool('midia')}
+            onAddShape={() => addPreset(ELEMENT_SHAPES[0]?.preset || { type: 'shape', shape: 'rect', w: 160, h: 90, fill: '#3b82f6' })}
+            onAddEmoji={() => { setTool('elementos'); setElementCategory('Emojis'); }}
+          />}
+        </aside>}
       </div>
+
+      {libraryOpen && <LayoutLibrary
+        templates={templates}
+        onClose={() => setLibraryOpen(false)}
+        onApplyStructure={(id) => { setStructureId(id); runGeneration('content', { structureId: id }); }}
+        onApplyTemplate={applyTemplateFromLibrary}
+        onRename={renameTemplate}
+        onDelete={removeTemplate}
+        onSaveCurrent={saveCurrentAsLayout}
+        canSaveCurrent={Boolean(surface.layers.length)}
+      />}
+      {generation.status === 'running' && <GenerationProgressModal
+        step={generation.step}
+        subtitle={`${FORMAT_META[state.format][0]} ${state.ratio}${styleId ? ` · estilo ${styleId}` : ''}`}
+        onCancel={() => { stopStepTicker(); setGeneration({ status: 'idle', step: 0, message: '', detail: '', mode: null }); }}
+      />}
+      {generation.status === 'error' && <GenerationErrorModal
+        message={generation.message}
+        detail={generation.detail}
+        onRetry={() => runGeneration(generation.mode, { structureId: generation.structureId })}
+        onLibrary={() => { setGeneration({ status: 'idle', step: 0, message: '', detail: '', mode: null }); setLibraryOpen(true); }}
+        onClose={() => setGeneration({ status: 'idle', step: 0, message: '', detail: '', mode: null })}
+      />}
 
       {modal === 'delete-draft'
         ? <DeleteDraftModal busy={busy} onClose={() => setModal(null)} onConfirm={confirmDraftDeletion} />
@@ -1409,25 +1692,96 @@ function CarouselStrip({ state, setState, onAction, onReorder }) {
   </div>;
 }
 
+// Resumo do Brand Kit (§13): faixa compacta no topo do painel direito. Mostra
+// só o que existe de verdade no kit — sem inventar logo ou fonte que a marca
+// ainda não configurou.
+function brandPaletteColors(brandKit) {
+  const palette = brandKit?.palette;
+  if (!palette || typeof palette !== 'object') return [];
+  return Object.values(palette)
+    .filter((value) => typeof value === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(value))
+    .slice(0, 4);
+}
+
+function BrandKitSummary({ brandName, brandLabel, brandKit, onOpen }) {
+  const name = brandLabel || brandName || 'Marca';
+  const initials = name.replace(/^@/, '').slice(0, 2).toUpperCase();
+  const colors = brandPaletteColors(brandKit);
+  return <div className={styles.brandKitBar}>
+    <span className={styles.brandKitLogo} aria-hidden="true">{initials}</span>
+    <span className={styles.brandKitInfo}>
+      <strong>{name}</strong>
+      <small>{brandKit?.visual_style || 'Estilo definido pela IA'}</small>
+    </span>
+    <span className={styles.brandKitDots} aria-hidden="true">
+      {colors.length
+        ? colors.map((color, index) => <i key={`${color}-${index}`} style={{ background: color }} />)
+        : <i style={{ background: 'var(--vc-accent)' }} />}
+    </span>
+    <IconButton title="Configurações da peça" onClick={onOpen}><SlidersHorizontal size={14} /></IconButton>
+  </div>;
+}
+
+// Estado vazio do canvas (§7): as três portas de entrada, cada uma abrindo a
+// função que já existe. Some assim que a primeira camada ou mídia entra.
+function CanvasEmptyState({ format, ratio, size, onGenerate, onMedia, onLayout }) {
+  return <div className={styles.emptyOverlay} data-testid="composer-empty-state">
+    <div className={styles.emptyCard}>
+      <span className={styles.emptyBadge}><Sparkles size={24} /></span>
+      <h2>Comece sua criação</h2>
+      <p>Escreva o conteúdo e deixe a IA montar, ou comece de uma mídia ou de um layout pronto.</p>
+      <div className={styles.emptyActions}>
+        <button type="button" className={`${styles.button} ${styles.primary} ${styles.emptyPrimary}`} onClick={onGenerate}>
+          <Sparkles size={16} /> Gerar com IA
+        </button>
+        <div className={styles.emptyRow}>
+          <button type="button" className={`${styles.button} ${styles.outline}`} onClick={onMedia}><ImageIcon size={14} /> Mídia</button>
+          <button type="button" className={`${styles.button} ${styles.outline}`} onClick={onLayout}><LayoutGrid size={14} /> Layout</button>
+        </div>
+      </div>
+      <small>{format} · {ratio} · {size}</small>
+    </div>
+  </div>;
+}
+
 function PreviewPanel({ state, surface, brandName, currentTime }) {
   const [cw, ch] = canvasSize(state.format, state.ratio);
   const vertical = state.format === 'story' || state.format === 'reel';
-  const previewScale = 242 / cw;
+  const handle = brandName.replace(/^@/, '');
+  const previewScale = 268 / cw;
   const previewH = ch * previewScale;
-  return <aside className={styles.rightPanel}>
-    <div className={styles.rightTitle}>PRÉVIA NO INSTAGRAM</div>
-    <div className={`${styles.phone} ${state.format === 'story' ? styles.storyPhone : ''} ${state.format === 'reel' ? styles.reelPhone : ''}`} style={vertical ? { height: previewH + 16 } : undefined}>
-      <div className={styles.notch} />
-      {!vertical && <div className={styles.phoneHead}><span className={styles.avatar} /><strong>{brandName.replace(/^@/, '')}</strong><span style={{ marginLeft: 'auto' }}><MoreHorizontal size={14} /></span></div>}
-      <div className={styles.phoneMedia} style={{ height: previewH }}>
-        <PreviewSurface surface={surface} cw={cw} ch={ch} scale={previewScale} currentTime={currentTime} />
-        {state.format === 'story' && <div className={styles.storyChrome}><div className={styles.storyProgress} /><strong>{brandName.replace(/^@/, '')}</strong> · 2 min <X size={15} style={{ float: 'right' }} /><div style={{ position: 'absolute', bottom: 17, left: 12, right: 12, border: '1px solid #fff', borderRadius: 99, padding: 8 }}>Enviar mensagem…</div></div>}
-        {state.format === 'reel' && <div className={styles.storyChrome}><div style={{ position: 'absolute', right: 12, bottom: 76, display: 'grid', gap: 13, textAlign: 'center' }}>♡<span style={{ fontSize: 8 }}>1,2k</span>◯<span style={{ fontSize: 8 }}>86</span>⌁</div><div style={{ position: 'absolute', left: 11, bottom: 24 }}><strong>@{brandName.replace(/^@/, '')}</strong> · Seguir<br />{state.caption || 'Sua legenda aparece aqui'}<br />♫ Áudio original</div></div>}
-      </div>
-      {!vertical && <><div className={styles.phoneActions}>♡ <MessageSquareText size={16} /> <Send size={16} /><span style={{ marginLeft: 'auto' }}>⌑</span></div><div className={styles.phoneCaption}>{!state.hideLikes && <strong>1.284 curtidas<br /></strong>}<strong>{brandName.replace(/^@/, '')}</strong> {state.caption || 'Sua legenda aparece aqui'}<br /><span style={{ color: '#00376b' }}>{state.hashtags}</span><br /><small>HÁ 2 MINUTOS</small></div></>}
+  return <section className={styles.panelSection} aria-label="Prévia no Instagram">
+    <div className={styles.sectionHead}>
+      <span className={styles.rightTitle}>PRÉVIA NO INSTAGRAM</span>
+      <span className={styles.previewMode}><Smartphone size={12} /> {vertical ? 'Tela cheia' : 'Feed'}</span>
     </div>
-    <p style={{ textAlign: 'center', fontSize: 10.5, color: 'var(--vc-faint)', lineHeight: 1.45 }}>Prévia fiel ao enquadramento. O Instagram pode aplicar compressão ao arquivo publicado.</p>
-  </aside>;
+    <div className={`${styles.igCard} ${vertical ? styles.igVertical : ''}`}>
+      <div className={styles.igHead}>
+        <span className={styles.igAvatar} aria-hidden="true"><i>{handle.slice(0, 2).toUpperCase()}</i></span>
+        <span className={styles.igName}><strong>{handle}</strong><small>{state.location || 'Publicação'}</small></span>
+        <MoreHorizontal size={15} aria-hidden="true" />
+      </div>
+      <div className={styles.igMedia} style={{ height: previewH }}>
+        <PreviewSurface surface={surface} cw={cw} ch={ch} scale={previewScale} currentTime={currentTime} />
+        {state.format === 'story' && <div className={styles.storyChrome}><div className={styles.storyProgress} /><strong>{handle}</strong> · 2 min <X size={15} style={{ float: 'right' }} /><div style={{ position: 'absolute', bottom: 17, left: 12, right: 12, border: '1px solid #fff', borderRadius: 99, padding: 8 }}>Enviar mensagem…</div></div>}
+        {state.format === 'reel' && <div className={styles.storyChrome}><div style={{ position: 'absolute', right: 12, bottom: 76, display: 'grid', gap: 13, textAlign: 'center' }}>♡<span style={{ fontSize: 8 }}>1,2k</span>◯<span style={{ fontSize: 8 }}>86</span>⌁</div><div style={{ position: 'absolute', left: 11, bottom: 24 }}><strong>@{handle}</strong> · Seguir<br />{state.caption || 'Sua legenda aparece aqui'}<br />♫ Áudio original</div></div>}
+      </div>
+      <div className={styles.igActions}>
+        <Heart size={19} aria-hidden="true" />
+        <MessageSquareText size={19} aria-hidden="true" />
+        <Send size={19} aria-hidden="true" />
+        <Bookmark size={19} aria-hidden="true" style={{ marginLeft: 'auto' }} />
+      </div>
+      <div className={styles.igCaption}>
+        {/* Números de interação são enfeite da prévia — nunca viram métrica. */}
+        {!state.hideLikes && <strong className={styles.igLikes}>1.284 curtidas</strong>}
+        <p><strong>{handle}</strong> {state.caption || 'Sua legenda aparece aqui'}</p>
+        {state.hashtags && <p className={styles.igTags}>{state.hashtags.split(/[\s,]+/).filter(Boolean).map((tag) => `#${tag.replace(/^#/, '')}`).join(' ')}</p>}
+        <small>Há 2 minutos</small>
+      </div>
+    </div>
+    <p className={styles.previewNote}>Prévia fiel ao enquadramento. O Instagram aplica compressão ao publicar.</p>
+  </section>;
 }
 
 function PreviewSurface({ surface, cw, ch, scale, currentTime }) {
@@ -1558,6 +1912,17 @@ function LayerTypeIcon({ layer }) {
   return <Type size={13} />;
 }
 
+// Subtítulo da camada (§15 do handoff): tipo + o detalhe que diferencia duas
+// camadas do mesmo tipo — a fonte de um texto, o formato de uma forma.
+const SHAPE_LABEL = { rect: 'Retângulo', circle: 'Círculo', ellipse: 'Elipse', triangle: 'Triângulo', star: 'Estrela' };
+
+function layerRowType(layer) {
+  const base = LAYER_TYPE_LABEL[layer.type] || 'Elemento';
+  if (layer.type === 'shape') return `${base} · ${SHAPE_LABEL[layer.shape || 'rect'] || 'Personalizada'}`;
+  if (isTextLayer(layer) && layer.font) return `${base} · ${layer.font}`;
+  return base;
+}
+
 function layerRowLabel(layer) {
   if (layer.type === 'icon') return ELEMENT_ICON_MAP[layer.icon]?.label || 'Ícone';
   if (isEmojiLayer(layer)) return `Emoji ${layer.text}`;
@@ -1565,13 +1930,20 @@ function layerRowLabel(layer) {
   return text || LAYER_TYPE_LABEL[layer.type] || 'Elemento';
 }
 
-function LayersPanel({ surface, selected, onSelect, onPatch, onReorder, onReorderTo, onDuplicate, onDelete }) {
+function LayersPanel({
+  surface, selected, onSelect, onPatch, onReorder, onReorderTo, onDuplicate, onDelete,
+  onAddText, onAddImage, onAddShape, onAddEmoji
+}) {
   const [dragId, setDragId] = useState(null);
   const [dropAt, setDropAt] = useState(null);
   const total = surface.layers.length;
   const mediaLabel = surface.media?.kind === 'video' ? 'Vídeo' : 'Imagem';
   const endDrag = () => { setDragId(null); setDropAt(null); };
-  return <aside className={`${styles.rightPanel} ${styles.layersPanel}`}><div className={styles.rightTitle}>CAMADAS</div>
+  return <section className={styles.panelSection} aria-label="Camadas">
+    <div className={styles.sectionHead}>
+      <span className={styles.rightTitle}>CAMADAS</span>
+      <IconButton title="Adicionar texto" onClick={onAddText}><Plus size={14} /></IconButton>
+    </div>
     {[...surface.layers].reverse().map((layer, position) => <div
       key={layer.id}
       draggable
@@ -1597,7 +1969,10 @@ function LayersPanel({ surface, selected, onSelect, onPatch, onReorder, onReorde
     >
       <span className={styles.layerGrip} aria-hidden="true"><GripVertical size={12} /></span>
       <span className={styles.layerIcon}><LayerTypeIcon layer={layer} /></span>
-      <span className={styles.layerName}>{layerRowLabel(layer)}</span>
+      <span className={styles.layerName}>
+        <b>{layerRowLabel(layer)}</b>
+        <small>{layerRowType(layer)}</small>
+      </span>
       <span className={styles.layerActions}>
         <button aria-label="Trazer para frente" disabled={position === 0} onClick={(e) => { e.stopPropagation(); onReorder(layer.id, 1); }}><ChevronUp size={13} /></button>
         <button aria-label="Enviar para trás" disabled={position === total - 1} onClick={(e) => { e.stopPropagation(); onReorder(layer.id, -1); }}><ChevronDown size={13} /></button>
@@ -1613,8 +1988,19 @@ function LayersPanel({ surface, selected, onSelect, onPatch, onReorder, onReorde
       <button type="button" className={styles.layerName} aria-label={`Selecionar camada ${mediaLabel}`} style={{ border: 0, background: 'transparent', textAlign: 'left', padding: 0 }} onClick={() => onSelect('bg')}>{surface.media.name || mediaLabel}</button>
       <span className={styles.layerActions}><span className={styles.layerBadge}>{mediaLabel}</span></span>
     </div>}
-    {!surface.layers.length && !surface.media && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Adicione textos, formas ou figurinhas ao canvas.</p>}
-  </aside>;
+    {!surface.layers.length && !surface.media && <>
+      <div className={styles.layersEmpty}>
+        <strong>Nenhum elemento adicionado</strong>
+        <span>Adicione um elemento ao canvas</span>
+      </div>
+      <div className={styles.layerShortcuts}>
+        <button type="button" onClick={onAddText}><Type size={14} /> Texto</button>
+        <button type="button" onClick={onAddImage}><ImageIcon size={14} /> Imagem</button>
+        <button type="button" onClick={onAddShape}><Square size={14} /> Forma</button>
+        <button type="button" onClick={onAddEmoji}><Smile size={14} /> Emoji</button>
+      </div>
+    </>}
+  </section>;
 }
 
 function PublicationModal({ kind, state, validation, busy, onClose, onConfirm, onField }) {

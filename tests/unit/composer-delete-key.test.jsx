@@ -34,13 +34,13 @@ describe('tecla Delete no canvas', () => {
   it('Delete remove a camada selecionada', async () => {
     await renderWithSelectedLayer();
     fireEvent.keyDown(window, { key: 'Delete' });
-    await waitFor(() => expect(screen.getByText('Adicione textos, formas ou figurinhas ao canvas.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Nenhum elemento adicionado')).toBeTruthy());
   });
 
   it('Backspace também remove a camada selecionada', async () => {
     await renderWithSelectedLayer();
     fireEvent.keyDown(window, { key: 'Backspace' });
-    await waitFor(() => expect(screen.getByText('Adicione textos, formas ou figurinhas ao canvas.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Nenhum elemento adicionado')).toBeTruthy());
   });
 
   // Regressão: o guard antigo ignorava qualquer INPUT, então depois de encostar
@@ -50,7 +50,7 @@ describe('tecla Delete no canvas', () => {
     await renderWithSelectedLayer();
     const opacity = screen.getByLabelText('Opacidade do elemento');
     fireEvent.keyDown(opacity, { key: 'Delete' });
-    await waitFor(() => expect(screen.getByText('Adicione textos, formas ou figurinhas ao canvas.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Nenhum elemento adicionado')).toBeTruthy());
   });
 
   it('não remove a camada enquanto o usuário digita em um campo', async () => {
@@ -58,6 +58,6 @@ describe('tecla Delete no canvas', () => {
     fireEvent.click(screen.getByRole('button', { name: /Legenda/ }));
     const caption = screen.getByPlaceholderText('Escreva a legenda…');
     fireEvent.keyDown(caption, { key: 'Backspace' });
-    expect(screen.queryByText('Adicione textos, formas ou figurinhas ao canvas.')).toBeNull();
+    expect(screen.queryByText('Nenhum elemento adicionado')).toBeNull();
   });
 });
