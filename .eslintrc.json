@@ -1,0 +1,15 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "ignorePatterns": [".next/", "node_modules/", "out/", "coverage/", "tests/visual/output/"],
+  "rules": {
+    "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
+
+    // Desligada de propósito, não por preguiça: as imagens deste app são mídia
+    // do usuário (URLs do Supabase Storage, blob: e data:) desenhada dentro do
+    // editor de canvas. `next/image` passaria tudo pelo otimizador — custo por
+    // imagem no provedor, `remotePatterns` para cada bucket — e quebraria o
+    // `crossOrigin="anonymous"` de que o canvas depende para exportar a peça.
+    // Aqui `<img>` é a escolha certa, então o aviso seria ruído permanente.
+    "@next/next/no-img-element": "off"
+  }
+}

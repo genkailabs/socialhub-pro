@@ -7,7 +7,7 @@ vi.mock('@/lib/ai/provider', () => ({ runText: mocks.runText }));
 vi.mock('@/lib/ai/limits', () => ({ checkLimit: mocks.checkLimit }));
 
 import { defineSkill } from '@/lib/ai/skills/registry';
-import { runSkill } from '@/lib/ai/skills/run';
+import { DEFAULT_SKILL_MAX_TOKENS, runSkill } from '@/lib/ai/skills/run';
 
 const skill = defineSkill({
   id: 'teste',
@@ -171,6 +171,29 @@ describe('runSkill', () => {
 
       expect(mocks.runText.mock.calls[0][0].maxTokens).toBe(4096);
       expect(mocks.runText.mock.calls[1][0].maxTokens).toBe(8000);
+    });
+
+    // Em produção, post-producer, content-strategy e story-planner omitiam
+    // maxTokens, caíam no padrão 1200 do provedor e eram cortadas exatamente
+    // ali — cinco falhas registradas, cada uma queimando uma tentativa. O teto
+    // de quem não declara passa a ser decisão nossa, e o log diz o número.
+    it('skill sem maxTokens usa o teto padrao, nao o do provedor', async () => {
+      const { supabase, insert } = makeSupabase();
+      const semTeto = defineSkill({
+        id: 'sem-teto',
+        version: 1,
+        description: 'Skill sem teto declarado',
+        inputSchema: z.object({ topico: z.string().min(1) }),
+        outputSchema: z.object({ titulo: z.string() }),
+        buildPrompt: () => ({ system: 's', user: 'u' })
+      });
+      mocks.runText.mockResolvedValue(cortada);
+
+      await expect(runSkill({ skill: semTeto, input: { topico: 'a' }, supabase, ...ctx() })).rejects.toThrow();
+
+      expect(mocks.runText.mock.calls[0][0].maxTokens).toBe(DEFAULT_SKILL_MAX_TOKENS);
+      expect(insert.mock.calls[0][0].error).toContain(`cortada no limite de ${DEFAULT_SKILL_MAX_TOKENS}`);
+      expect(insert.mock.calls[0][0].error).not.toContain('undefined');
     });
 
     it('nao cresce o teto quando o problema foi a saida, nao o espaco', async () => {

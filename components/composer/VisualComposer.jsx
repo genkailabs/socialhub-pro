@@ -5,9 +5,9 @@ import {
   AlignCenter, AlignLeft, AlignRight, ArrowUpRight, Bold, Bookmark, Check, ChevronDown,
   ChevronLeft, ChevronRight, ChevronUp, Copy, Eye, EyeOff, Film, GripVertical, Heart,
   Image as ImageIcon, Italic, Layers3, LayoutGrid, LayoutTemplate, Lock, MapPin, Maximize2,
-  MessageSquareText, Minus, MoreHorizontal, Palette, Plus, Redo2,
+  MessageSquareText, Minus, MoreHorizontal, Palette, Plus,
   Save, Search, Send, Settings2, Shapes, SlidersHorizontal, Smartphone, Smile, Sparkles,
-  Square, Trash2, Type, Undo2, Unlock, Upload, UserRoundPlus, X
+  Square, Trash2, Type, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
@@ -324,6 +324,10 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
     }
     element.addEventListener('timeupdate', tick);
     return () => element.removeEventListener('timeupdate', tick);
+    // Depender de `reel.video` inteiro reinscreveria o listener a cada mutação
+    // do Reel (volume, mudo, capa). O `tick` só lê start/end, então são esses
+    // os campos que importam.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.format, reel.video.start, reel.video.end, reel.audio?.start, reelDuration]);
 
   useEffect(() => {
