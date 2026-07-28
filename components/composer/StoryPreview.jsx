@@ -1,4 +1,4 @@
-import { X, ExternalLink, ShieldAlert } from 'lucide-react';
+import { X, ExternalLink } from 'lucide-react';
 
 export function StoryPreview({
   media = [],

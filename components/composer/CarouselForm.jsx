@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import {
-  Layers, ImagePlus, X, Hash, Smile, ChevronRight, MessageCircle,
+  ImagePlus, X, Hash, Smile, ChevronRight, MessageCircle,
   AlertCircle, GripVertical, ArrowUp, ArrowDown, RefreshCw, CheckCircle2
 } from 'lucide-react';
-import { Section, FieldLabel, Note, fieldClass, dropzoneClass } from './ComposerSection';
+import { Section, FieldLabel, fieldClass, dropzoneClass } from './ComposerSection';
 import { normalizeHashtags, composeCaption, IG_CAPTION_MAX, IG_CAROUSEL_MIN, IG_CAROUSEL_MAX } from '@/lib/posts-media';
 
 const EMOJIS = ['🔥', '🚀', '✨', '💡', '🎉', '❤️', '👏', '📈', '✅', '👀', '💬', '🙌'];

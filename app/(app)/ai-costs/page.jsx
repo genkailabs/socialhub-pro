@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Coins, Sparkles, AlertCircle, CheckCircle2, Cpu, Image as ImageIcon, DollarSign, Layers, ExternalLink } from 'lucide-react';
+import { Coins, Sparkles, AlertCircle, CheckCircle2, Cpu, Image as ImageIcon, DollarSign, ExternalLink } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Card } from '@/components/ui/Card';
 import { SpendTrend } from '@/components/reports/SpendTrend';

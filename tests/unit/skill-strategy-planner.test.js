@@ -223,6 +223,33 @@ describe('skill editorial-planner', () => {
     expect(planOut.safeParse(weeklyPlan([{ ...item, stage: 'funil' }])).success).toBe(false);
   });
 
+  // Em produção dois planos inteiros foram recusados por "consideração" e
+  // "decisão" com acento. A IA acertou o conceito e errou a grafia; jogar fora
+  // sete dias de planejamento por causa disso é desperdício.
+  it('aceita o estagio escrito com acento ou como etapa de funil', () => {
+    const item = {
+      date: '2026-07-20', suggestedTime: '12:00', format: 'image', topic: 't', title: 'x', objective: 'o', pillar: 'p',
+      stage: 'descoberta', cta: 'c', rationale: 'r', summary: 's', hook: 'h',
+      targetAudience: 'a', estimatedDuration: 'Nao se aplica'
+    };
+
+    for (const [escrito, esperado] of [
+      ['consideração', 'consideracao'],
+      ['Decisão', 'decisao'],
+      ['topo', 'descoberta'],
+      ['fundo', 'decisao'],
+      ['  Conversao ', 'decisao']
+    ]) {
+      const parsed = planOut.safeParse(weeklyPlan([{ ...item, stage: escrito }]));
+      expect(parsed.success, `stage "${escrito}" deveria passar`).toBe(true);
+      expect(parsed.data.items[0].stage).toBe(esperado);
+    }
+
+    // O que não tem correspondência continua sendo erro — normalizar não é
+    // aceitar qualquer coisa.
+    expect(planOut.safeParse(weeklyPlan([{ ...item, stage: 'engajamento' }])).success).toBe(false);
+  });
+
   it('recusa plano vazio', () => {
     expect(planOut.safeParse(weeklyPlan([])).success).toBe(false);
   });
