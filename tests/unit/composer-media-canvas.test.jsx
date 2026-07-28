@@ -14,7 +14,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({ storage: { from: () => ({ remove: vi.fn() }) } })
 }));
-vi.mock('@/lib/posts-media', () => ({
+vi.mock('@/lib/posts-media', async (importOriginal) => ({
+  ...(await importOriginal()),
   uploadTempMedia: mocks.uploadTempMedia,
   removeTempMedia: mocks.removeTempMedia
 }));

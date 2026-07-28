@@ -6,7 +6,9 @@ import { addLayer, makeComposerDocument } from '@/lib/composer-editor';
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({ storage: { from: () => ({ remove: vi.fn() }) } })
 }));
-vi.mock('@/lib/posts-media', () => ({ uploadTempMedia: vi.fn(), removeTempMedia: vi.fn() }));
+vi.mock('@/lib/posts-media', async (importOriginal) => ({
+  ...(await importOriginal()), uploadTempMedia: vi.fn(), removeTempMedia: vi.fn()
+}));
 vi.mock('@/lib/posts-actions', () => ({
   publishNow: vi.fn(), saveDraft: vi.fn(), schedulePost: vi.fn(), deleteComposerDraft: vi.fn()
 }));

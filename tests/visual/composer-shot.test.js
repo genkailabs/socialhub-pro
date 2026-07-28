@@ -50,6 +50,41 @@ describe('markup do Composer para inspeção', () => {
     }));
     const vazio = renderToStaticMarkup(React.createElement(VisualComposer, base));
 
+    // O painel Layouts não aparece nos dois de cima (o Composer abre em
+    // "Formato"), e é justamente ali que o aviso de itens precisa caber sem
+    // empurrar o rodapé fixo de "Gerar arte". Renderizado à parte, dentro do
+    // mesmo <aside> que o painel usa na tela real.
+    const { LayoutsPanel } = await import('@/components/composer/LayoutsPanel');
+    const painel = (props) => renderToStaticMarkup(React.createElement(
+      'div',
+      { className: 'shell' },
+      React.createElement(LayoutsPanel, {
+        format: 'post',
+        caption: '',
+        fields: { title: 'Meta transforma sua IA em um agente', subtitle: 'o que muda para quem usa', bullets: '', cta: '' },
+        onFields: () => {},
+        structureId: '',
+        onStructure: () => {},
+        styleId: '',
+        onStyle: () => {},
+        onGenerate: () => {},
+        onOpenLibrary: () => {},
+        onSaveCurrent: () => {},
+        canSaveCurrent: false,
+        ...props
+      })
+    ));
+
+    fs.mkdirSync(OUT, { recursive: true });
+    fs.writeFileSync(path.join(OUT, 'painel-vazio.html'), painel({}));
+    fs.writeFileSync(path.join(OUT, 'painel-3itens.html'), painel({
+      fields: { title: 'Três erros que derrubam seu alcance', subtitle: '', bullets: 'Não responda comentário com link\nPoste sempre no mesmo horário\nUse 3 hashtags, não 30', cta: 'salve para depois' }
+    }));
+    fs.writeFileSync(path.join(OUT, 'painel-alerta.html'), painel({
+      structureId: 'lista',
+      fields: { title: 'Três erros que derrubam seu alcance', subtitle: '', bullets: 'só um item', cta: '' }
+    }));
+
     // O CSS do build tem hashes diferentes dos que o bundler do teste gera:
     // usar um com o outro produz um PNG sem estilo nenhum, que mente sobre a
     // tela. Aqui o CSS bruto é reescrito com o mapa de classes deste render.

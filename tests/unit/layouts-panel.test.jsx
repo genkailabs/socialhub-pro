@@ -18,7 +18,9 @@ vi.mock('@/lib/layout-actions', () => actions);
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({ storage: { from: () => ({ remove: vi.fn() }) } })
 }));
-vi.mock('@/lib/posts-media', () => ({ uploadTempMedia: vi.fn(), removeTempMedia: vi.fn() }));
+vi.mock('@/lib/posts-media', async (importOriginal) => ({
+  ...(await importOriginal()), uploadTempMedia: vi.fn(), removeTempMedia: vi.fn()
+}));
 vi.mock('@/lib/posts-actions', () => ({
   publishNow: vi.fn(), saveDraft: vi.fn(), schedulePost: vi.fn(), deleteComposerDraft: vi.fn()
 }));
@@ -121,6 +123,30 @@ describe('Composer — painel de Layouts', () => {
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Titulo' } });
     gerar('Montar com o conteúdo atual');
     expect(await screen.findByText(/chamada para ação/)).toBeTruthy();
+  });
+
+  // O campo de itens escondia a regra: 2 linhas viram comparação, 3 viram
+  // lista, e em carrossel cada linha vira um slide. Nada disso aparecia.
+  it('o campo de itens diz o que os itens provocam, e acompanha o formato', () => {
+    openLayouts();
+    expect(screen.getByText(/Sem itens: a arte sai com título e subtítulo/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/Itens/), { target: { value: 'um\ndois\ntrês' } });
+    expect(screen.getByText('3 itens · habilita o layout de Lista.')).toBeTruthy();
+
+    // Trocar o formato muda o efeito dos mesmos itens.
+    fireEvent.click(within(screen.getByRole('group', { name: 'Formato e proporção' }))
+      .getByRole('button', { name: 'Carrossel' }));
+    expect(screen.getByText('3 itens · viram 4 slides (capa + 3).')).toBeTruthy();
+  });
+
+  it('avisa quando a estrutura escolhida à mão não tem itens suficientes', () => {
+    openLayouts();
+    fireEvent.change(screen.getByLabelText(/Itens/), { target: { value: 'só um' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }));
+
+    expect(screen.getByText(/precisa de 3 itens — você tem 1/)).toBeTruthy();
   });
 
   it('preenche os campos a partir da legenda existente', () => {
