@@ -5,7 +5,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 const mocks = vi.hoisted(() => ({ uploadTempMedia: vi.fn(), removeTempMedia: vi.fn(), saveDraft: vi.fn() }));
 
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ storage: { from: () => ({ remove: vi.fn() }) } }) }));
-vi.mock('@/lib/posts-media', () => ({ uploadTempMedia: mocks.uploadTempMedia, removeTempMedia: mocks.removeTempMedia }));
+vi.mock('@/lib/posts-media', async (importOriginal) => ({
+  ...(await importOriginal()), uploadTempMedia: mocks.uploadTempMedia, removeTempMedia: mocks.removeTempMedia
+}));
 vi.mock('@/lib/posts-actions', () => ({
   publishNow: vi.fn(), saveDraft: mocks.saveDraft, schedulePost: vi.fn(), deleteComposerDraft: vi.fn()
 }));

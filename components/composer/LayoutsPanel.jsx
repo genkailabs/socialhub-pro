@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronUp, Grid2x2, LayoutGrid, Sparkles, Wand2 } from 'lucide-react';
 import { STRUCTURES } from '@/lib/layouts/structures';
 import { VISUAL_STYLES } from '@/lib/layouts/styles';
+import { bulletsHint } from '@/lib/layouts/bullets-hint';
 import styles from './VisualComposer.module.css';
 
 export const EMPTY_FIELDS = { title: '', subtitle: '', bullets: '', cta: '' };
@@ -45,6 +46,7 @@ export function LayoutsPanel({
   const menuRef = useRef(null);
   const captionFields = fieldsFromCaption(caption);
   const structures = manualStructures(format);
+  const itemsHint = bulletsHint({ text: fields.bullets, format, structureId });
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -81,15 +83,20 @@ export function LayoutsPanel({
           placeholder="Uma linha de apoio"
         />
         <label className={styles.fieldLabel} htmlFor="layout-bullets">
-          Lista ou dados <span className={styles.fieldHint}>1 item por linha</span>
+          Itens <span className={styles.fieldHint}>um por linha</span>
         </label>
         <textarea
           id="layout-bullets"
           className={`${styles.textarea} ${styles.textareaShort}`}
           value={fields.bullets}
           onChange={(e) => onFields({ bullets: e.target.value })}
-          placeholder="Vira lista, comparação ou carrossel"
+          placeholder="Um item por linha"
         />
+        {/* A regra deixa de ser invisível: o campo diz o que os itens provocam
+            no formato atual, enquanto a pessoa digita. */}
+        <p className={`${styles.bulletsHint} ${styles[`hint_${itemsHint.tone}`]}`} aria-live="polite">
+          {itemsHint.message}
+        </p>
         <label className={styles.fieldLabel} htmlFor="layout-cta">Chamada para ação</label>
         <input
           id="layout-cta"
