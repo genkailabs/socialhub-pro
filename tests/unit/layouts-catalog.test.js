@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { COMPONENTS, componentById, componentIds, componentText, trimToLimit, dynamicComponentIds, fixedComponentIds } from '@/lib/layouts/components';
 import { VISUAL_STYLES, styleIds, styleTypeScale, styleInsets, styleForKeywords, styleById } from '@/lib/layouts/styles';
 import { STRUCTURES, structureIds, structureFits, eligibleStructures, contentUsage } from '@/lib/layouts/structures';
+import { findFont } from '@/lib/composer-fonts';
 
 // §17: o MVP promete números concretos. Se o catálogo encolher, o produto
 // entregue deixa de bater com o que foi combinado.
 describe('catálogo do MVP (§17)', () => {
-  it('tem 12 estruturas, 8 estilos e 20 componentes', () => {
-    expect(STRUCTURES).toHaveLength(12);
+  // 13 desde que `texto-destaque` entrou, extraída das referências de carrossel.
+  it('tem 13 estruturas, 8 estilos e 20 componentes', () => {
+    expect(STRUCTURES).toHaveLength(13);
     expect(VISUAL_STYLES).toHaveLength(8);
     expect(COMPONENTS.length).toBeGreaterThanOrEqual(20);
   });
@@ -90,6 +92,16 @@ describe('estilo', () => {
     }
   });
 
+  // A capa é a peça em que o título É o conteúdo. `fitTextSize` só encolhe, então
+  // sem um ponto de partida maior o título curto fica pequeno dentro de um slot
+  // grande — exatamente o que deixava a peça morna.
+  it('a escala de capa parte maior que a do título comum, em todo estilo', () => {
+    for (const style of VISUAL_STYLES) {
+      const scale = styleTypeScale(style, { width: 430, height: 430 });
+      expect(scale.cover, style.id).toBeGreaterThan(scale.title);
+    }
+  });
+
   it('dá margem vertical maior na peça alta (interface do Instagram por cima)', () => {
     const style = styleById('minimalista');
     const story = styleInsets(style, { width: 292, height: 519 });
@@ -102,6 +114,17 @@ describe('estilo', () => {
     expect(styleForKeywords('Escritório de advocacia').id).toBe('premium');
     expect(styleForKeywords('clinica odontologica').id).toBe('acolhedor');
     expect(styleForKeywords('')).toBeNull();
+  });
+
+  // Monoespaçada é fonte de código: cada caractere ocupa a mesma largura, o que
+  // afrouxa o texto corrido e derruba a leitura no feed. Serve para selo, dado
+  // ou etiqueta — não para o corpo. Continua na biblioteca para escolha manual.
+  it('nenhum estilo usa monoespaçada no corpo do texto', () => {
+    for (const style of VISUAL_STYLES) {
+      const font = findFont(style.fonts.body);
+      expect(font, `${style.id}: fonte de corpo fora da biblioteca`).toBeTruthy();
+      expect(font.category, `${style.id} usa ${style.fonts.body} no corpo`).not.toBe('Monoespaçadas');
+    }
   });
 });
 

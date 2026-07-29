@@ -7,7 +7,7 @@ import {
   Image as ImageIcon, Italic, Layers3, LayoutGrid, LayoutTemplate, Lock, MapPin, Maximize2,
   MessageSquareText, Minus, MoreHorizontal, Palette, Plus,
   Save, Search, Send, Settings2, Shapes, SlidersHorizontal, Smartphone, Smile, Sparkles,
-  Square, Trash2, Type, Unlock, Upload, UserRoundPlus, X
+  Square, Target, Trash2, Type, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
@@ -35,6 +35,8 @@ import {
 } from '@/lib/layout-actions';
 import { applyLayoutTemplate } from '@/lib/layouts/templates';
 import { EMPTY_FIELDS, LayoutsPanel } from './LayoutsPanel';
+import { StrategyPanel } from './StrategyPanel';
+import { DEFAULT_MODE_ID, goalForPrompt, modeById, pieceTypeById } from '@/lib/composer-strategy';
 import { CanvasToolbar, alignedPosition } from './CanvasToolbar';
 import { GENERATION_STALL_STEP, GENERATION_STEPS, GenerationErrorModal, GenerationProgressModal } from './GenerationModal';
 import { LayoutLibrary } from './LayoutLibrary';
@@ -51,6 +53,9 @@ const FORMAT_META = {
   reel: ['Reel', 'Vídeo vertical']
 };
 const TOOLS = [
+  // §10: Estratégia vem primeiro porque é a primeira decisão — para que a peça
+  // existe. Layouts sem objetivo produz arte correta que não serve a nada.
+  ['estrategia', Target, 'Estratégia'],
   ['formato', Maximize2, 'Formato'], ['layouts', LayoutTemplate, 'Layouts'],
   ['midia', ImageIcon, 'Mídia'], ['texto', Type, 'Texto'],
   ['elementos', Shapes, 'Elementos'], ['legenda', MessageSquareText, 'Legenda'],
@@ -190,6 +195,13 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   // usuário escolheu na toolbar e vale até ele pedir "Ajustar" de novo.
   const [fitScale, setFitScale] = useState(1);
   const [zoomMode, setZoomMode] = useState('fit');
+  // Estratégia da peça (PRD 01 §3/§4/§5). Vazio = "ainda não decidi": objetivo
+  // e tipo são opcionais, e sem eles o Composer se comporta como antes.
+  // `creationMode`, não `mode`: `runGeneration(mode, …)` já usa esse nome para
+  // outra coisa ('content' | 'ai') e o sombreamento passaria despercebido.
+  const [creationMode, setCreationMode] = useState(DEFAULT_MODE_ID);
+  const [objective, setObjective] = useState('');
+  const [pieceType, setPieceType] = useState('');
   const [layoutFields, setLayoutFields] = useState(EMPTY_FIELDS);
   const [structureId, setStructureId] = useState('');
   const [styleId, setStyleId] = useState('');
@@ -465,6 +477,8 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
       subtitle: fields.subtitle,
       bullets: fields.bullets.split('\n').map((line) => line.trim()).filter(Boolean),
       cta: fields.cta,
+      // Rascunho salvo antes deste campo existir não traz a chave.
+      highlight: fields.highlight || '',
       brand: brandName,
       caption: state.caption
     };
@@ -495,7 +509,12 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
 
   async function runGeneration(mode, overrides = {}) {
     const fields = overrides.fields || layoutFields;
-    const structure = overrides.structureId !== undefined ? overrides.structureId : structureId;
+    // §3: no modo automático a IA decide tudo — escolha manual de estrutura é
+    // descartada aqui, e não escondida da tela, para a pessoa ver o que mudou.
+    const automatico = creationMode === 'automatico';
+    const structure = automatico
+      ? ''
+      : overrides.structureId !== undefined ? overrides.structureId : structureId;
     const topic = fields.title.trim() || String(state.caption || '').trim();
     if (mode === 'content' && !fields.title.trim()) {
       setLayoutError('Escreva ao menos um título.');
@@ -515,12 +534,15 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
     try {
       const result = mode === 'ai'
         ? await generateLayoutFromBrief({
-          brandId, brandName, brief: { topic, format: state.format },
+          // §4: o objetivo escolhido vira `brief.goal`, que o buildContentPrompt
+          // já lia e nunca recebia. Sem objetivo, o prompt usa o padrão dele.
+          brandId, brandName, brief: { topic, format: state.format, goal: goalForPrompt(objective) || undefined },
           format: state.format, ratio: state.ratio, media: surface?.media || null
         })
         : await buildLayoutForContent({
           brandId, content: contentFromFields(fields), format: state.format, ratio: state.ratio,
-          media: surface?.media || null, structureId: structure || null, styleId: styleId || null
+          media: surface?.media || null, structureId: structure || null,
+          styleId: automatico ? null : (styleId || null)
         });
 
       if (result.error) {
@@ -1168,13 +1190,30 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
           <div className={styles.panelHead}>
             <span>
               <strong>{TOOLS.find(([id]) => id === tool)?.[2]}</strong>
+              {tool === 'estrategia' && <small>Para que esta peça existe</small>}
               {tool === 'layouts' && <small>Escreva o conteúdo, a IA monta a arte</small>}
               {tool === 'texto' && selectedIsText && <small>Texto selecionado</small>}
             </span>
             <IconButton title="Fechar painel" onClick={() => setTool(null)}><X size={14} /></IconButton>
           </div>
-          {tool === 'layouts' ? <LayoutsPanel
+          {tool === 'estrategia' ? <StrategyPanel
             format={state.format}
+            mode={creationMode}
+            objective={objective}
+            pieceType={pieceType}
+            onMode={setCreationMode}
+            onObjective={setObjective}
+            onPieceType={(id) => {
+              setPieceType(id);
+              // O tipo carrega as estruturas compatíveis (§5): se a estrutura
+              // fixada não é uma delas, volta para "a IA escolhe" em vez de
+              // montar uma peça que contraria o tipo recém-escolhido.
+              const permitidas = pieceTypeById(id)?.structures || [];
+              if (structureId && permitidas.length && !permitidas.includes(structureId)) setStructureId('');
+            }}
+          /> : tool === 'layouts' ? <LayoutsPanel
+            format={state.format}
+            usesAi={modeById(creationMode).usesAi}
             caption={state.caption}
             fields={layoutFields}
             onFields={(patch) => setLayoutFields((current) => ({ ...current, ...patch }))}

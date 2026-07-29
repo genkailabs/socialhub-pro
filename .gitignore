@@ -68,3 +68,12 @@ supabase/.temp/
 
 # Pacotes de handoff de design (referencia local, nao versionar)
 *.zip
+
+# Referencias de layout: os prints sao insumo local de curadoria, nao produto.
+# O que vira patrimonio do repo e a planta extraida em lib/layouts/structures.js.
+docs/referencias-layout/*
+!docs/referencias-layout/README.md
+
+# Referencias de interface do proprio app (nao sao artes de post): mesma regra.
+docs/referencias-ui/*
+!docs/referencias-ui/README.md

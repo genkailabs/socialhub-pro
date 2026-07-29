@@ -24,7 +24,33 @@ const CASES = [
   ['Pergunta', { title: 'Voce ja revisou seu contrato este ano', subtitle: 'Conta pra gente nos comentarios.', cta: 'Responder', brand: 'escritorio' }, null, { niche: 'advocacia' }, {}],
   ['Story com foto', { title: 'A promocao de inverno comeca hoje', subtitle: 'Ate 40% de desconto em toda a loja.', cta: 'Aproveitar', brand: 'loja' }, media, { niche: 'restaurante' }, { format: 'story' }],
   ['Aviso de serviço', { title: 'Atendimento em novo horario', warning: 'A partir de segunda atendemos das 9h as 18h, sem fechar para o almoco.', subtitle: 'Agende pelo WhatsApp.', cta: 'Agendar', brand: 'clinica' }, null, { niche: 'clinica' }, {}],
-  ['Capa de carrossel', { title: 'O guia rapido do fechamento contabil', subtitle: 'Quatro passos para nao errar.', brand: 'genkailabs' }, media, { niche: 'tecnologia' }, { structureId: 'capa-carrossel' }]
+  ['Capa de carrossel', { title: 'O guia rapido do fechamento contabil', subtitle: 'Quatro passos para nao errar.', brand: 'genkailabs' }, media, { niche: 'tecnologia' }, { structureId: 'capa-carrossel' }],
+  // A peça que motivou a Etapa A, com o conteúdo real que a expôs: itens já
+  // marcados com bullet (o "1. •" duplicado) e estilo tecnologia (mono no
+  // corpo). Fica como amostra fixa — é o antes/depois que se olha.
+  ['Lista tech com item ja marcado', {
+    title: 'Meta transforma sua IA em um verdadeiro assistente pessoal',
+    subtitle: 'Meta transforma assistente em parceiro de rotina.',
+    eyebrow: 'Dica',
+    bullets: ['• Organiza compromissos', '• Faz pesquisas mais profundas', '• Cria resumos inteligentes', '• Ajuda na produtividade'],
+    cta: 'Compartilhe com quem precisa saber disso!',
+    brand: 'genkailabs'
+  }, null, { niche: 'tecnologia' }, { structureId: 'lista' }],
+  // Capa curta: é onde a escala de capa aparece. Título longo encolhe sozinho —
+  // o que se confere aqui é o curto ocupando o quadro.
+  ['Capa com titulo curto', { title: 'A conta que ninguem faz', subtitle: 'E o quanto ela custa no fim do ano.', brand: 'genkailabs' }, null, { niche: 'contabilidade' }, { structureId: 'capa-carrossel' }],
+  // Estrutura extraída das referências: moldura em cima e embaixo, título
+  // dominante, palavra destacada e dois blocos de texto.
+  ['Texto com destaque', {
+    title: 'Pra viralizar tem que postar muitos Reels',
+    highlight: 'Mito',
+    subtitle: 'Voce ja deve ter ouvido isso antes. O problema e que hoje essa nao e a melhor forma de construir audiencia.',
+    info: '95% do nosso publico nao veio de Reels. A maioria fica refem do formato porque nao entende o carrossel.',
+    footer: 'Feito com SocialHub',
+    date: 'Julho 2026',
+    slideNumber: '2/10',
+    brand: 'genkailabs'
+  }, null, { niche: 'marketing digital' }, { structureId: 'texto-destaque' }]
 ];
 
 function css(style) {

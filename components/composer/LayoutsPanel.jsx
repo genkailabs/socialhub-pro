@@ -7,7 +7,7 @@ import { VISUAL_STYLES } from '@/lib/layouts/styles';
 import { bulletsHint } from '@/lib/layouts/bullets-hint';
 import styles from './VisualComposer.module.css';
 
-export const EMPTY_FIELDS = { title: '', subtitle: '', bullets: '', cta: '' };
+export const EMPTY_FIELDS = { title: '', subtitle: '', bullets: '', cta: '', highlight: '' };
 
 // Swatch por estilo (§5 do handoff). Cor só de identificação na lista — a
 // paleta real da peça continua vindo do Brand Kit e do estilo.
@@ -28,7 +28,7 @@ const STYLE_SWATCH = {
 export function fieldsFromCaption(caption = '') {
   const lines = String(caption || '').split('\n').map((line) => line.trim()).filter(Boolean);
   if (!lines.length) return null;
-  return { title: lines[0].slice(0, 90), subtitle: (lines[1] || '').slice(0, 160), bullets: '', cta: '' };
+  return { title: lines[0].slice(0, 90), subtitle: (lines[1] || '').slice(0, 160), bullets: '', cta: '', highlight: '' };
 }
 
 /** Estruturas oferecidas na escolha manual, filtradas pelo formato aberto. */
@@ -40,6 +40,8 @@ export function manualStructures(format) {
 export function LayoutsPanel({
   format, caption, fields, onFields, structureId, onStructure, styleId, onStyle,
   busy, mascot = [], issues = [], error = '',
+  // §3: quem decide se a IA escreve é o modo de criação, escolhido em Estratégia.
+  usesAi = true,
   onGenerate, onOpenLibrary, onSaveCurrent, canSaveCurrent
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -97,6 +99,17 @@ export function LayoutsPanel({
         <p className={`${styles.bulletsHint} ${styles[`hint_${itemsHint.tone}`]}`} aria-live="polite">
           {itemsHint.message}
         </p>
+        <label className={styles.fieldLabel} htmlFor="layout-highlight">
+          Destaque <span className={styles.fieldHint}>uma palavra</span>
+        </label>
+        <input
+          id="layout-highlight"
+          className={styles.field}
+          value={fields.highlight || ''}
+          maxLength={28}
+          onChange={(e) => onFields({ highlight: e.target.value })}
+          placeholder="Ex.: Mito"
+        />
         <label className={styles.fieldLabel} htmlFor="layout-cta">Chamada para ação</label>
         <input
           id="layout-cta"
@@ -177,10 +190,12 @@ export function LayoutsPanel({
             <Grid2x2 size={16} />
             <span><strong>Montar com o conteúdo atual</strong><em>Usa o texto que você escreveu</em></span>
           </button>
-          <button type="button" role="menuitem" onClick={() => choose('ai')}>
+          {/* §3: no modo Manual a IA não escreve. Some a opção em vez de
+              oferecê-la e desobedecer o modo que a pessoa escolheu. */}
+          {usesAi && <button type="button" role="menuitem" onClick={() => choose('ai')}>
             <Wand2 size={16} />
             <span><strong>Escrever o conteúdo e montar</strong><em>A IA redige a partir do tema</em></span>
-          </button>
+          </button>}
         </div>}
         <button
           type="button"
