@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildLayoutSurface, fitMediaToRect, fitTextSize, estimateLines } from '@/lib/layouts/build';
 import { structureById } from '@/lib/layouts/structures';
 import { styleById } from '@/lib/layouts/styles';
+import { contrastRatio } from '@/lib/ai/art/quality';
 import { composeSmartPost, composeSmartCarousel } from '@/lib/layouts/index';
 
 const media = { url: 'https://exemplo.test/foto.jpg', kind: 'image', width: 1600, height: 900, name: 'foto' };
@@ -186,6 +187,126 @@ describe('montagem da peça (§3)', () => {
     expect(itens).toHaveLength(3);
     expect(itens[0].text).toBe('1. Revise o contrato');
     expect(itens[2].text).toBe('3. Marque o prazo');
+  });
+
+  // O mesmo componente serve papéis diferentes conforme a estrutura: o destaque
+  // é o "VS" centralizado no comparativo e um rótulo alinhado à esquerda no
+  // texto-destaque. Sem ajuste por slot, seria preciso duplicar o componente.
+  it('deixa a estrutura ajustar o padrao do componente no slot', () => {
+    const comparativo = buildLayoutSurface({
+      structure: structureById('comparativo'), style: styleById('minimalista'),
+      content: { ...content, bullets: ['Antes era manual', 'Agora e automatico'], highlight: 'VS' },
+      kit, canvas: [430, 430]
+    });
+    const destaque = buildLayoutSurface({
+      structure: structureById('texto-destaque'), style: styleById('minimalista'),
+      content: { ...content, highlight: 'Mito', info: 'Texto de fecho da peca.' },
+      kit, canvas: [430, 430]
+    });
+    const alvo = (r) => r.surface.layers.find((l) => l.componentId === 'destaque-palavra');
+    expect(alvo(comparativo).align).toBe('center');
+    expect(alvo(destaque).align).toBe('left');
+  });
+
+  // Componentes que moram dentro de um bloco de cor (`PANELLED`) tinham a tinta
+  // calculada contra o fundo da PÁGINA, não contra o painel. Numa paleta em que
+  // os dois são escuros, o texto sumia — o render do box-informativo mostrou.
+  it('garante leitura do texto que mora dentro de um bloco de cor', () => {
+    const { surface } = buildLayoutSurface({
+      structure: structureById('aviso'), style: styleById('tecnologia'),
+      content: { ...content, warning: 'A partir de segunda o horario muda.' },
+      // Paleta hostil de propósito: tinta e painel quase da mesma cor.
+      kit: { palette: { accent: '#1B2A4A', bg: '#101828', ink: '#16233D' } },
+      canvas: [430, 430]
+    });
+    const texto = surface.layers.find((l) => l.componentId === 'aviso');
+    const painel = surface.layers.find((l) => l.componentId === 'painel');
+    expect(painel).toBeTruthy();
+    expect(contrastRatio(texto.color, painel.fill)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // Sombra em texto existe para descolar a letra da FOTO. Sobre fundo chapado
+  // ela só borra — e o render mostrou isso no título do estilo tecnologia, que
+  // declara `shadow: true`. O subtítulo já seguia esta regra; o título não.
+  it('so poe sombra no titulo quando ele esta sobre foto', () => {
+    const tech = styleById('tecnologia');
+    expect(tech.shadow, 'o estilo precisa declarar sombra para o teste valer').toBe(true);
+
+    const semFoto = buildLayoutSurface({
+      structure: structureById('capa-carrossel'), style: tech, content, kit, canvas: [430, 430]
+    });
+    const comFoto = buildLayoutSurface({
+      structure: structureById('capa-carrossel'), style: tech, content, kit, media, canvas: [430, 430]
+    });
+    const titulo = (r) => r.surface.layers.find((l) => l.componentId === 'titulo');
+    expect(titulo(semFoto).shOn).toBeFalsy();
+    expect(titulo(comFoto).shOn).toBe(true);
+  });
+
+  // A capa é o que decide se alguém para o dedo. Mesmo título, mesmo estilo: na
+  // capa ele tem de sair maior que numa peça que divide espaço com o resto.
+  it('o titulo da capa sai maior que o de uma peca comum', () => {
+    const curto = { ...content, title: 'A conta que ninguem faz' };
+    const capa = buildLayoutSurface({
+      structure: structureById('capa-carrossel'), style: styleById('jornalistico'),
+      content: curto, kit, canvas: [430, 430]
+    });
+    const comum = buildLayoutSurface({
+      structure: structureById('conteudo-limpo'), style: styleById('jornalistico'),
+      content: curto, kit, canvas: [430, 430]
+    });
+    const tituloCapa = capa.surface.layers.find((l) => l.componentId === 'titulo');
+    const tituloComum = comum.surface.layers.find((l) => l.componentId === 'titulo');
+    expect(tituloCapa.fs).toBeGreaterThan(tituloComum.fs);
+  });
+
+  // A escala de capa é ponto de PARTIDA, não imposição: quem não couber encolhe.
+  // Sem esta guarda o boost viraria texto vazando na peça mais visível de todas.
+  it('a capa encolhe o titulo longo e deixa o curto grande', () => {
+    const capa = (title) => {
+      const { surface } = buildLayoutSurface({
+        structure: structureById('capa-carrossel'), style: styleById('jornalistico'),
+        content: { ...content, title }, kit, canvas: [430, 430]
+      });
+      return surface.layers.find((l) => l.componentId === 'titulo');
+    };
+    const curto = capa('A conta que ninguem faz');
+    const longo = capa('Por que o preco do servico subiu neste ano e o que muda para quem ja e cliente da casa desde o comeco');
+    expect(longo.fs).toBeLessThan(curto.fs);
+    // O encolhimento é real, não cosmético: o título longo cabe no slot.
+    expect(longo.fs).toBeLessThan(longo.h);
+  });
+
+  // O item chega marcado quando a IA escreve "• item" ou o usuário cola de uma
+  // lista pronta. Somar o número do slot em cima do marcador produzia "1. • item"
+  // na peça — o número é do layout, o marcador digitado é ruído.
+  it('nao duplica marcador quando o item ja vem com bullet ou numero', () => {
+    const { surface } = buildLayoutSurface({
+      structure: structureById('lista'), style: styleById('editorial'),
+      content: {
+        ...content,
+        bullets: ['• Organiza compromissos', '2) Faz pesquisas mais profundas', '- Cria resumos']
+      },
+      kit, canvas: [430, 430]
+    });
+    const itens = surface.layers.filter((l) => l.componentId === 'lista');
+    expect(itens[0].text).toBe('1. Organiza compromissos');
+    expect(itens[1].text).toBe('2. Faz pesquisas mais profundas');
+    expect(itens[2].text).toBe('3. Cria resumos');
+  });
+
+  // Sem esta guarda o texto some: "10 motivos para revisar" viraria "motivos
+  // para revisar", porque o número faz parte da frase, não é marcador.
+  it('preserva numero que faz parte da frase', () => {
+    const { surface } = buildLayoutSurface({
+      structure: structureById('lista'), style: styleById('editorial'),
+      content: { ...content, bullets: ['10 motivos para revisar', '3x mais rapido', '2026 muda tudo'] },
+      kit, canvas: [430, 430]
+    });
+    const itens = surface.layers.filter((l) => l.componentId === 'lista');
+    expect(itens[0].text).toBe('1. 10 motivos para revisar');
+    expect(itens[1].text).toBe('2. 3x mais rapido');
+    expect(itens[2].text).toBe('3. 2026 muda tudo');
   });
 });
 

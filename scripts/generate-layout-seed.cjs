@@ -48,7 +48,7 @@ lines.push('INSERT INTO public.layout_structures (id, name, category, format, wi
 lines.push(STRUCTURES.map((structure) => (
   `  (${quote(structure.id)}, ${quote(structure.label)}, ${quote(structure.category)}, `
   + `${quote(structure.shapes.includes('story') ? 'todos' : 'feed')}, 1080, 1080, ${structure.slides || 1}, 'ativo', `
-  + `${json({ description: structure.description, density: structure.density, shapes: structure.shapes, requires: structure.requires, uses: structure.uses, contentTypes: structure.contentTypes, slots: structure.slots })}, TRUE)`
+  + `${json({ description: structure.description, density: structure.density, shapes: structure.shapes, requires: structure.requires, uses: structure.uses, contentTypes: structure.contentTypes, cover: Boolean(structure.cover), slots: structure.slots })}, TRUE)`
 )).join(',\n'));
 lines.push('ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category, structure = EXCLUDED.structure, updated_at = NOW();');
 lines.push('');
