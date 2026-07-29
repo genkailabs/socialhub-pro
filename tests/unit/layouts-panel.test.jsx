@@ -59,7 +59,7 @@ describe('Composer — painel de Layouts', () => {
   it('oferece escolha automática de estrutura e de estilo', () => {
     openLayouts();
     expect(screen.getByText(/manchete, lista, comparação ou citação/)).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /A IA escolhe/ }).length).toBe(2);
+    expect(screen.getAllByRole('button', { name: /Escolher por mim/ }).length).toBe(2);
   });
 
   it('mostra as estruturas manuais só quando o usuário pede', () => {

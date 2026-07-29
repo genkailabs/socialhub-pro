@@ -8,10 +8,10 @@ import { findFont } from '@/lib/composer-fonts';
 // entregue deixa de bater com o que foi combinado.
 describe('catálogo do MVP (§17)', () => {
   // 21 = 13 + os 8 templates de alto impacto do PRD 02 §5.
-  it('tem 21 estruturas, 8 estilos e 20 componentes', () => {
-    expect(STRUCTURES).toHaveLength(21);
+  it('tem 27 estruturas, 8 estilos e 21 componentes', () => {
+    expect(STRUCTURES).toHaveLength(27);
     expect(VISUAL_STYLES).toHaveLength(8);
-    expect(COMPONENTS.length).toBeGreaterThanOrEqual(20);
+    expect(COMPONENTS.length).toBeGreaterThanOrEqual(21);
   });
 
   it('não repete id em nenhum catálogo', () => {

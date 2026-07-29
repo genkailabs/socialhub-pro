@@ -8,14 +8,23 @@ import {
 import { structureIds } from '@/lib/layouts/structures';
 
 describe('modos de criação (§3)', () => {
-  it('tem os três modos e o padrão é Assistido', () => {
-    expect(MODES.map((m) => m.id)).toEqual(['manual', 'assistido', 'automatico']);
-    expect(DEFAULT_MODE_ID).toBe('assistido');
-    expect(modeById(DEFAULT_MODE_ID).asksApproval).toBe(true);
+  // Dois modos porque só existem dois comportamentos: a IA escreve o texto ou
+  // não. "Assistido" prometia aprovação etapa a etapa que nunca foi construída,
+  // e "automático" só descartava a estrutura e o estilo escolhidos.
+  it('tem os dois modos e o padrão é Com IA', () => {
+    expect(MODES.map((m) => m.id)).toEqual(['manual', 'ia']);
+    expect(DEFAULT_MODE_ID).toBe('ia');
   });
 
-  it('modo desconhecido cai no padrão em vez de quebrar a tela', () => {
+  it('nenhum modo promete aprovação por etapa', () => {
+    for (const m of MODES) expect(m.asksApproval, m.id).toBeUndefined();
+  });
+
+  // Rascunho salvo antes do corte guarda 'assistido' ou 'automatico'.
+  it('modo desconhecido ou antigo cai no padrão em vez de quebrar a tela', () => {
     expect(modeById('inexistente').id).toBe(DEFAULT_MODE_ID);
+    expect(modeById('assistido').id).toBe(DEFAULT_MODE_ID);
+    expect(modeById('automatico').id).toBe(DEFAULT_MODE_ID);
   });
 
   it('só o manual dispensa a IA', () => {
@@ -92,8 +101,10 @@ describe('tipo de peça (§5)', () => {
 
   // Tipo sem estrutura própria é honesto sobre isso em vez de fingir.
   it('registra a lacuna quando o tipo ainda não tem estrutura propria', () => {
-    expect(pieceTypeById('anuncio').missing).toBeTruthy();
     expect(pieceTypeById('tutorial').missing).toBeTruthy();
     expect(pieceTypeById('lista').missing).toBeUndefined();
+    // `anuncio-foto` entrou no catálogo: a lacuna some junto com o motivo dela.
+    expect(pieceTypeById('anuncio').missing).toBeUndefined();
+    expect(pieceTypeById('anuncio').structures).toContain('anuncio-foto');
   });
 });

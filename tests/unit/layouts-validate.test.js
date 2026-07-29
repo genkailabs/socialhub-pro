@@ -148,15 +148,21 @@ describe('correção automática (§14)', () => {
 });
 
 describe('consistência entre slides (§14)', () => {
-  it('aceita capa diferente do miolo', () => {
+  // O ritmo do §9 exige estruturas diferentes entre os slides. O que precisa ser
+  // igual é o estilo — é ele que faz a sequência ler como uma peça só.
+  it('aceita estruturas diferentes quando o estilo é o mesmo', () => {
     expect(validateSlideConsistency([
-      { structureId: 'capa-carrossel' }, { structureId: 'manchete' }, { structureId: 'manchete' }
+      { structureId: 'capa-carrossel', styleId: 'editorial' },
+      { structureId: 'slide-explicacao', styleId: 'editorial' },
+      { structureId: 'lista-visual', styleId: 'editorial' },
+      { structureId: 'slide-cta', styleId: 'editorial' }
     ]).ok).toBe(true);
   });
 
-  it('reprova três estruturas diferentes no mesmo carrossel', () => {
+  it('reprova estilos diferentes no mesmo carrossel', () => {
     const result = validateSlideConsistency([
-      { structureId: 'capa-carrossel' }, { structureId: 'manchete' }, { structureId: 'lista' }
+      { structureId: 'capa-carrossel', styleId: 'editorial' },
+      { structureId: 'manchete', styleId: 'comercial' }
     ]);
     expect(result.ok).toBe(false);
     expect(result.issues[0].id).toBe('slides_inconsistentes');

@@ -1,10 +1,10 @@
 'use client';
 
-import { Sparkles, Wand2, Hand } from 'lucide-react';
+import { Wand2, Hand } from 'lucide-react';
 import { MODES, OBJECTIVES, pieceTypesForFormat, pieceTypeById } from '@/lib/composer-strategy';
 import styles from './VisualComposer.module.css';
 
-const MODE_ICON = { manual: Hand, assistido: Sparkles, automatico: Wand2 };
+const MODE_ICON = { manual: Hand, ia: Wand2 };
 
 /**
  * Primeira etapa do fluxo guiado (PRD 01 §3, §4, §5).
@@ -49,7 +49,7 @@ export function StrategyPanel({ format, mode, objective, pieceType, onMode, onOb
       </div>
       <p className={styles.fieldHint}>
         {objective
-          ? 'A IA escreve para este objetivo e o layout inclina para ele.'
+          ? 'A IA escreve para este objetivo e a escolha de estrutura inclina para ele.'
           : 'Sem objetivo a IA escreve para engajar, que é o padrão dela.'}
       </p>
 
@@ -66,8 +66,8 @@ export function StrategyPanel({ format, mode, objective, pieceType, onMode, onOb
       </div>
       <p className={styles.fieldHint}>
         {tipoAtual
-          ? 'Os campos de conteúdo mostram só o que este tipo usa.'
-          : 'Sem tipo, o Composer mostra todos os campos.'}
+          ? 'Em Layouts, os campos e as estruturas ficam só os que este tipo usa.'
+          : 'Sem tipo, o Composer mostra todos os campos e todas as estruturas.'}
       </p>
       {/* Honestidade do registro: o tipo existe mas a estrutura própria ainda
           não. Melhor dizer do que entregar uma peça que não é o que promete. */}

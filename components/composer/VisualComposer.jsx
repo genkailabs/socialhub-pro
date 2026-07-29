@@ -37,10 +37,10 @@ import { applyLayoutTemplate } from '@/lib/layouts/templates';
 import { EMPTY_FIELDS, LayoutsPanel } from './LayoutsPanel';
 import { StrategyPanel } from './StrategyPanel';
 import { StockPanel } from './StockPanel';
-import { DEFAULT_MODE_ID, goalForPrompt, modeById, pieceTypeById } from '@/lib/composer-strategy';
+import { DEFAULT_MODE_ID, goalForPrompt, modeById, pieceTypeById, structuresForPieceType } from '@/lib/composer-strategy';
 import { structureById } from '@/lib/layouts/structures';
 import { CanvasToolbar, alignedPosition } from './CanvasToolbar';
-import { GENERATION_STALL_STEP, GENERATION_STEPS, GenerationErrorModal, GenerationProgressModal } from './GenerationModal';
+import { GenerationErrorModal, GenerationProgressModal } from './GenerationModal';
 import { LayoutLibrary } from './LayoutLibrary';
 import { ArrowGraphic, IconGraphic, LineGraphic, ShapeGraphic } from './ElementGraphics';
 import { ReelTimeline } from './ReelTimeline';
@@ -207,7 +207,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   const [layoutFields, setLayoutFields] = useState(EMPTY_FIELDS);
   const [structureId, setStructureId] = useState('');
   const [styleId, setStyleId] = useState('');
-  const [generation, setGeneration] = useState({ status: 'idle', step: 0, message: '', detail: '', mode: null });
+  const [generation, setGeneration] = useState({ status: 'idle', message: '', detail: '', mode: null });
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [mascot, setMascot] = useState([]);
@@ -226,7 +226,6 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   const wheelHistoryRef = useRef(0);
   const uploadSequenceRef = useRef(new Map());
   const stateRef = useRef(state);
-  const generationTimerRef = useRef(null);
   stateRef.current = state;
   const scale = zoomMode === 'fit' ? fitScale : zoomMode / 100;
   const [cw, ch] = canvasSize(state.format, state.ratio);
@@ -471,16 +470,16 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
     return () => { alive = false; };
   }, [brandId]);
 
-  useEffect(() => () => window.clearInterval(generationTimerRef.current), []);
-
   function contentFromFields(fields = layoutFields) {
     return {
       title: fields.title,
       subtitle: fields.subtitle,
       bullets: fields.bullets.split('\n').map((line) => line.trim()).filter(Boolean),
       cta: fields.cta,
-      // Rascunho salvo antes deste campo existir não traz a chave.
+      // Rascunho salvo antes destes campos existir não traz as chaves.
       highlight: fields.highlight || '',
+      source: fields.source || '',
+      date: fields.date || '',
       brand: brandName,
       caption: state.caption
     };
@@ -493,30 +492,9 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
     flash(result.slides.length > 1 ? `${result.slides.length} slides montados` : 'Arte montada no canvas');
   }
 
-  // O backend não emite progresso real. As etapas avançam no tempo até a
-  // penúltima e param ali: a última só marca quando a arte existe de verdade.
-  function startStepTicker() {
-    window.clearInterval(generationTimerRef.current);
-    generationTimerRef.current = window.setInterval(() => {
-      setGeneration((current) => (current.status === 'running' && current.step < GENERATION_STALL_STEP
-        ? { ...current, step: current.step + 1 }
-        : current));
-    }, 900);
-  }
-
-  function stopStepTicker() {
-    window.clearInterval(generationTimerRef.current);
-    generationTimerRef.current = null;
-  }
-
   async function runGeneration(mode, overrides = {}) {
     const fields = overrides.fields || layoutFields;
-    // §3: no modo automático a IA decide tudo — escolha manual de estrutura é
-    // descartada aqui, e não escondida da tela, para a pessoa ver o que mudou.
-    const automatico = creationMode === 'automatico';
-    const structure = automatico
-      ? ''
-      : overrides.structureId !== undefined ? overrides.structureId : structureId;
+    const structure = overrides.structureId !== undefined ? overrides.structureId : structureId;
     const topic = fields.title.trim() || String(state.caption || '').trim();
     if (mode === 'content' && !fields.title.trim()) {
       setLayoutError('Escreva ao menos um título.');
@@ -531,46 +509,55 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
 
     setLayoutError('');
     setLibraryOpen(false);
-    setGeneration({ status: 'running', step: 0, message: '', detail: '', mode, structureId: structure });
-    startStepTicker();
+    setGeneration({ status: 'running', message: '', detail: '', mode, structureId: structure });
     try {
       const result = mode === 'ai'
         ? await generateLayoutFromBrief({
-          // §4: o objetivo escolhido vira `brief.goal`, que o buildContentPrompt
-          // já lia e nunca recebia. Sem objetivo, o prompt usa o padrão dele.
-          brandId, brandName, brief: { topic, format: state.format, goal: goalForPrompt(objective) || undefined },
-          format: state.format, ratio: state.ratio, media: surface?.media || null
+          // §4/§5: objetivo vira `brief.goal` (o prompt já lia e nunca recebia) e
+          // o tipo de peça vira `brief.pieceType`, que é o que liga as regras de
+          // notícia e a pesquisa. Estrutura e estilo vão junto: a IA escreve o
+          // texto, a forma continua sendo escolha de quem está no Composer.
+          brandId, brandName,
+          brief: {
+            topic, format: state.format,
+            goal: goalForPrompt(objective) || undefined,
+            pieceType: pieceTypeById(pieceType)?.label || undefined
+          },
+          format: state.format, ratio: state.ratio, media: surface?.media || null,
+          structureId: structure || null, styleId: styleId || null, objective: objective || null,
+          highlight: fields.highlight || ''
         })
         : await buildLayoutForContent({
           brandId, content: contentFromFields(fields), format: state.format, ratio: state.ratio,
           media: surface?.media || null, structureId: structure || null,
-          styleId: automatico ? null : (styleId || null)
+          styleId: styleId || null, objective: objective || null
         });
 
       if (result.error) {
-        setGeneration({ status: 'error', step: 0, message: result.error, detail: result.detail || '', mode, structureId: structure });
+        setGeneration({ status: 'error', message: result.error, detail: result.detail || '', mode, structureId: structure });
         return;
       }
       if (mode === 'ai' && result.spec) {
         const spec = result.spec;
-        setLayoutFields({
+        // O destaque agora vem junto (§1.2). Quem já tinha escrito um destaque à
+        // mão continua mandando: a IA reescreve o texto, não a escolha da pessoa.
+        setLayoutFields((current) => ({
+          ...current,
           title: spec.imageTitle || spec.headline || '',
           subtitle: spec.subtext || '',
           bullets: (spec.bullets || []).join('\n'),
-          cta: spec.cta || ''
-        });
+          cta: spec.cta || '',
+          highlight: current.highlight?.trim() ? current.highlight : (spec.highlight || '')
+        }));
       }
-      setGeneration((current) => ({ ...current, step: GENERATION_STEPS.length - 1 }));
       applyLayoutResult(result);
-      setGeneration({ status: 'idle', step: 0, message: '', detail: '', mode: null });
+      setGeneration({ status: 'idle', message: '', detail: '', mode: null });
     } catch (error) {
       setGeneration({
-        status: 'error', step: 0, mode, structureId: structure,
+        status: 'error', mode, structureId: structure,
         message: 'Não foi possível montar a arte. Tente novamente.',
         detail: error?.message || ''
       });
-    } finally {
-      stopStepTicker();
     }
   }
 
@@ -1223,13 +1210,15 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
             onPieceType={(id) => {
               setPieceType(id);
               // O tipo carrega as estruturas compatíveis (§5): se a estrutura
-              // fixada não é uma delas, volta para "a IA escolhe" em vez de
+              // fixada não é uma delas, volta para "escolher por mim" em vez de
               // montar uma peça que contraria o tipo recém-escolhido.
-              const permitidas = pieceTypeById(id)?.structures || [];
+              const permitidas = structuresForPieceType(id);
               if (structureId && permitidas.length && !permitidas.includes(structureId)) setStructureId('');
             }}
           /> : tool === 'layouts' ? <LayoutsPanel
+            ratio={state.ratio}
             format={state.format}
+            pieceType={pieceType}
             usesAi={modeById(creationMode).usesAi}
             caption={state.caption}
             fields={layoutFields}
@@ -1469,6 +1458,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
                   ? <MediaBox
                       media={surface.media}
                       transform={mediaTransform}
+                      clip={surface.bgClip}
                       canvas={[cw, ch]}
                       selected={state.sel === 'bg'}
                       onPointerDown={(event) => beginGesture('media-move', event)}
@@ -1561,16 +1551,15 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
         canSaveCurrent={Boolean(surface.layers.length)}
       />}
       {generation.status === 'running' && <GenerationProgressModal
-        step={generation.step}
         subtitle={`${FORMAT_META[state.format][0]} ${state.ratio}${styleId ? ` · estilo ${styleId}` : ''}`}
-        onCancel={() => { stopStepTicker(); setGeneration({ status: 'idle', step: 0, message: '', detail: '', mode: null }); }}
+        onCancel={() => setGeneration({ status: 'idle', message: '', detail: '', mode: null })}
       />}
       {generation.status === 'error' && <GenerationErrorModal
         message={generation.message}
         detail={generation.detail}
         onRetry={() => runGeneration(generation.mode, { structureId: generation.structureId })}
-        onLibrary={() => { setGeneration({ status: 'idle', step: 0, message: '', detail: '', mode: null }); setLibraryOpen(true); }}
-        onClose={() => setGeneration({ status: 'idle', step: 0, message: '', detail: '', mode: null })}
+        onLibrary={() => { setGeneration({ status: 'idle', message: '', detail: '', mode: null }); setLibraryOpen(true); }}
+        onClose={() => setGeneration({ status: 'idle', message: '', detail: '', mode: null })}
       />}
 
       {modal === 'delete-draft'
@@ -1806,8 +1795,10 @@ function CanvasEmptyState({ format, ratio, size, onGenerate, onMedia, onLayout }
       <h2>Comece sua criação</h2>
       <p>Escreva o conteúdo e deixe a IA montar, ou comece de uma mídia ou de um layout pronto.</p>
       <div className={styles.emptyActions}>
+        {/* Este botão abre o painel Layouts — não dispara geração nenhuma. O
+            rótulo anterior ("Gerar com IA") prometia o que ele não faz. */}
         <button type="button" className={`${styles.button} ${styles.primary} ${styles.emptyPrimary}`} onClick={onGenerate}>
-          <Sparkles size={16} /> Gerar com IA
+          <Sparkles size={16} /> Escrever conteúdo
         </button>
         <div className={styles.emptyRow}>
           <button type="button" className={`${styles.button} ${styles.outline}`} onClick={onMedia}><ImageIcon size={14} /> Mídia</button>
@@ -1867,6 +1858,7 @@ function PreviewSurface({ surface, cw, ch, scale, currentTime }) {
     {surface.media && <MediaBox
       media={surface.media}
       transform={surface.bg}
+      clip={surface.bgClip}
       canvas={[cw, ch]}
       videoRef={typeof currentTime === 'number' ? previewVideoRef : undefined}
       currentTime={currentTime}
@@ -1891,6 +1883,7 @@ function MediaBox({
   media,
   transform,
   canvas,
+  clip = null,
   selected = false,
   videoRef,
   muted = true,
@@ -1906,7 +1899,7 @@ function MediaBox({
   onDimensions,
   testId
 }) {
-  const style = mediaTransformStyle(transform, media, canvas);
+  const style = mediaTransformStyle(transform, media, canvas, clip);
   const dimensions = (event) => {
     const element = event.currentTarget;
     onDimensions?.(element.videoWidth || element.naturalWidth, element.videoHeight || element.naturalHeight, element.duration);

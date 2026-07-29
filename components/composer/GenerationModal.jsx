@@ -1,31 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle, Check, ChevronDown, ChevronUp, LayoutGrid, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, LayoutGrid, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react';
 import styles from './VisualComposer.module.css';
 
-// As seis etapas do handoff (§10). O backend não emite progresso, então elas
-// são encenação visual do estado da operação — nunca resultado inventado: a
-// última só fecha quando a resposta real chega (§7 do PRD).
+// O que a geração faz, em ordem. É descrição do trabalho, não medição dele: o
+// backend não emite progresso, então não há etapa "concluída" para marcar.
+//
+// Antes essas seis linhas avançavam por um timer de 900ms e uma barra subia até
+// 83%. O número não vinha de lugar nenhum — era encenação, e uma geração lenta
+// ficava parada em "Posicionando os elementos" como se algo tivesse travado.
 export const GENERATION_STEPS = [
   'Analisando o conteúdo',
   'Escolhendo o layout',
-  'Preparando imagens',
   'Aplicando o Brand Kit',
-  'Posicionando os elementos',
-  'Finalizando a arte'
+  'Posicionando os elementos'
 ];
 
-// Enquanto a resposta não volta, o indicador para na penúltima etapa. Mostrar
-// 100% antes de existir arte seria mentir para o usuário.
-export const GENERATION_STALL_STEP = GENERATION_STEPS.length - 2;
-
-export function generationProgress(step) {
-  return Math.round(((step + 1) / GENERATION_STEPS.length) * 100);
-}
-
-export function GenerationProgressModal({ step, subtitle, onCancel }) {
-  const percent = generationProgress(step);
+export function GenerationProgressModal({ subtitle, onCancel }) {
   return <div className={styles.modalScrim}>
     <div className={styles.genModal} role="dialog" aria-modal="true" aria-labelledby="gen-title" aria-busy="true">
       <div className={styles.genHead}>
@@ -35,21 +27,17 @@ export function GenerationProgressModal({ step, subtitle, onCancel }) {
           <p>{subtitle}</p>
         </div>
       </div>
-      <div className={styles.genTrack}><span style={{ width: `${percent}%` }} /></div>
-      <div className={styles.genMeta}><span>{percent}% concluído</span><span>Sem previsão exata</span></div>
-      <ol className={styles.genSteps}>
-        {GENERATION_STEPS.map((label, index) => {
-          const state = index < step ? 'done' : index === step ? 'active' : 'idle';
-          return <li key={label} className={styles[`gen_${state}`]}>
-            {state === 'done'
-              ? <Check size={15} aria-hidden="true" />
-              : state === 'active'
-                ? <LoaderCircle size={15} className={styles.genSpin} aria-hidden="true" />
-                : <span className={styles.genDot} aria-hidden="true" />}
-            <span>{label}</span>
-          </li>;
-        })}
-      </ol>
+      {/* Barra indeterminada: diz "está trabalhando", não "está em X%". */}
+      <div className={`${styles.genTrack} ${styles.genTrackBusy}`}><span /></div>
+      <div className={styles.genMeta}>
+        <span><LoaderCircle size={13} className={styles.genSpin} aria-hidden="true" /> Trabalhando</span>
+        <span>Sem previsão exata</span>
+      </div>
+      <ul className={styles.genSteps}>
+        {GENERATION_STEPS.map((label) => (
+          <li key={label} className={styles.gen_idle}><span className={styles.genDot} aria-hidden="true" /><span>{label}</span></li>
+        ))}
+      </ul>
       <div className={styles.modalActions}>
         <button type="button" className={`${styles.button} ${styles.outline}`} onClick={onCancel}>Cancelar</button>
       </div>

@@ -88,7 +88,10 @@ describe('montagem da peça (§3)', () => {
       content, kit, canvas: [430, 430], media
     });
     const fundos = surface.layers.filter((l) => l.id.includes('-fundo-'));
-    const foto = surface.bg;
+    // O que conta é a área VISÍVEL da foto. Com moldura (`bgClip`) a caixa da
+    // mídia transborda de propósito para preencher o slot, e comparar com ela
+    // acusaria sobreposição onde o recorte já resolveu.
+    const foto = surface.bgClip || surface.bg;
     expect(fundos.length).toBeGreaterThan(0);
     for (const fundo of fundos) {
       const overlapW = Math.min(fundo.x + fundo.w, foto.x + foto.w) - Math.max(fundo.x, foto.x);
@@ -220,7 +223,10 @@ describe('montagem da peça (§3)', () => {
       canvas: [430, 430]
     });
     const texto = surface.layers.find((l) => l.componentId === 'aviso');
-    const painel = surface.layers.find((l) => l.componentId === 'painel');
+    // O painel que importa é o BLOCO DE COR do aviso, não o fundo da página —
+    // `find` pegava o primeiro da pilha, que é o fundo, e media o contraste
+    // contra a cor errada.
+    const painel = surface.layers.filter((l) => l.componentId === 'painel' && !l.id.includes('-fundo-')).pop();
     expect(painel).toBeTruthy();
     expect(contrastRatio(texto.color, painel.fill)).toBeGreaterThanOrEqual(4.5);
   });
@@ -343,14 +349,19 @@ describe('composeSmartPost (§3 ponta a ponta)', () => {
     }
   });
 
-  it('carrossel mantém a mesma cara entre os slides (§14)', () => {
+  it('carrossel mantém o mesmo estilo e varia a composição (§9/§14)', () => {
     const result = composeSmartCarousel({
       content: { ...content, bullets: ['Revise o contrato', 'Guarde os recibos', 'Marque o prazo'] },
       brand: { name: 'Genkai' }, kit, media
     });
-    expect(result.slides.length).toBe(4);
+    // O estilo é o que costura a sequência.
     const estilos = new Set(result.slides.map((s) => s.plan.style.id));
     expect(estilos.size).toBe(1);
     expect(result.issues.some((i) => i.id === 'slides_inconsistentes')).toBe(false);
+
+    // E a composição é o que dá ritmo: sete manchetes iguais era o defeito.
+    const estruturas = result.slides.map((s) => s.plan.structure.id);
+    expect(estruturas[0]).toBe('capa-carrossel');
+    expect(new Set(estruturas).size).toBeGreaterThan(2);
   });
 });

@@ -23,7 +23,8 @@ vi.mock('@/lib/layout-actions', () => ({
 
 import { VisualComposer } from '@/components/composer/VisualComposer';
 import { alignedPosition } from '@/components/composer/CanvasToolbar';
-import { GENERATION_STALL_STEP, GENERATION_STEPS, generationProgress } from '@/components/composer/GenerationModal';
+import * as GenerationModal from '@/components/composer/GenerationModal';
+import { GENERATION_STEPS } from '@/components/composer/GenerationModal';
 import { buildLibraryItems } from '@/components/composer/LayoutLibrary';
 
 beforeAll(() => {
@@ -52,7 +53,7 @@ describe('Composer — estado vazio do canvas (§5)', () => {
     render(<VisualComposer brandId="b1" brandName="marca" />);
     const empty = screen.getByTestId('composer-empty-state');
     expect(within(empty).getByText('Comece sua criação')).toBeTruthy();
-    expect(within(empty).getByRole('button', { name: /Gerar com IA/ })).toBeTruthy();
+    expect(within(empty).getByRole('button', { name: /Escrever conteúdo/ })).toBeTruthy();
     expect(within(empty).getByRole('button', { name: /Mídia/ })).toBeTruthy();
     expect(within(empty).getByRole('button', { name: /Layout/ })).toBeTruthy();
   });
@@ -63,9 +64,9 @@ describe('Composer — estado vazio do canvas (§5)', () => {
     expect(screen.queryByTestId('composer-empty-state')).toBeNull();
   });
 
-  it('"Gerar com IA" abre o painel de Layouts, que é onde o conteúdo é escrito', () => {
+  it('"Escrever conteúdo" abre o painel de Layouts, que é onde o conteúdo é escrito', () => {
     render(<VisualComposer brandId="b1" brandName="marca" />);
-    fireEvent.click(within(screen.getByTestId('composer-empty-state')).getByRole('button', { name: /Gerar com IA/ }));
+    fireEvent.click(within(screen.getByTestId('composer-empty-state')).getByRole('button', { name: /Escrever conteúdo/ }));
     expect(screen.getByLabelText('Título')).toBeTruthy();
   });
 
@@ -181,12 +182,13 @@ describe('Composer — Brand Kit e prévia (§13, §14)', () => {
   });
 });
 
-describe('Geração: etapas visuais sem inventar resultado (§7)', () => {
-  it('são seis etapas e o indicador para antes da última', () => {
-    expect(GENERATION_STEPS).toHaveLength(6);
-    expect(GENERATION_STALL_STEP).toBe(4);
-    expect(generationProgress(GENERATION_STALL_STEP)).toBeLessThan(100);
-    expect(generationProgress(GENERATION_STEPS.length - 1)).toBe(100);
+describe('Geração: descreve o trabalho sem medir o que não mede (§7)', () => {
+  // O backend não emite progresso. As etapas descrevem o que a geração faz; não
+  // existe mais porcentagem nem etapa "concluída" avançando por timer.
+  it('lista as etapas sem expor progresso numérico', () => {
+    expect(GENERATION_STEPS.length).toBeGreaterThan(0);
+    expect(GenerationModal.generationProgress).toBeUndefined();
+    expect(GenerationModal.GENERATION_STALL_STEP).toBeUndefined();
   });
 });
 

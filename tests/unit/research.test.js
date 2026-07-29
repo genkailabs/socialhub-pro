@@ -66,6 +66,13 @@ describe('needsResearch', () => {
   it('formato livre não-notícia usa só o gatilho do tema', () => {
     expect(needsResearch({ format: 'Parecer Simplificado', topic: 'contrato de aluguel' })).toBe(false);
   });
+  // No Composer o formato é o do canvas ('post'); quem diz "isto é notícia" é o
+  // tipo de peça da Estratégia. Antes ele não chegava aqui e a peça saía sem
+  // pesquisa nenhuma, apesar do usuário ter marcado Notícia.
+  it('tipo de peça Notícia pesquisa mesmo com formato de canvas', () => {
+    expect(needsResearch({ format: 'post', pieceType: 'Notícia', topic: 'reforma tributária' })).toBe(true);
+    expect(needsResearch({ format: 'post', pieceType: 'Editorial', topic: 'reforma tributária' })).toBe(false);
+  });
   it('flag explícita força pesquisa (modo avançado)', () => {
     expect(needsResearch({ topic: 'dicas de foco', format: 'quote', research: true })).toBe(true);
   });

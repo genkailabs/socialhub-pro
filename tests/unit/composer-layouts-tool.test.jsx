@@ -59,9 +59,9 @@ describe('Composer: um único caminho de arte', () => {
     render(<VisualComposer brandId="brand-1" brandName="Marca" />);
     fireEvent.click(rail().getByRole('button', { name: /Layouts/ }));
     expect(screen.getByLabelText('Título')).toBeTruthy();
-    // "A IA escolhe" é o padrão da estrutura: sem ele o usuário precisaria
+    // "Escolher por mim" é o padrão da estrutura: sem ele o usuário precisaria
     // entender o catálogo interno antes de conseguir a primeira arte.
-    expect(screen.getAllByRole('button', { name: /A IA escolhe/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Escolher por mim/ }).length).toBeGreaterThan(0);
     expect(screen.getByText(/manchete, lista, comparação ou citação/)).toBeTruthy();
   });
 });

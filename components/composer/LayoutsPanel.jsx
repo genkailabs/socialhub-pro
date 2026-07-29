@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ChevronUp, Grid2x2, LayoutGrid, Sparkles, Wand2 } from 'lucide-react';
-import { STRUCTURES } from '@/lib/layouts/structures';
+import { STRUCTURES, shapeOf } from '@/lib/layouts/structures';
+import { canvasSize } from '@/lib/composer-editor';
 import { VISUAL_STYLES } from '@/lib/layouts/styles';
 import { bulletsHint } from '@/lib/layouts/bullets-hint';
+import { fieldsForPieceType, structuresForPieceType } from '@/lib/composer-strategy';
 import styles from './VisualComposer.module.css';
 
-export const EMPTY_FIELDS = { title: '', subtitle: '', bullets: '', cta: '', highlight: '' };
+export const EMPTY_FIELDS = { title: '', subtitle: '', bullets: '', cta: '', highlight: '', source: '', date: '' };
 
 // Swatch por estilo (§5 do handoff). Cor só de identificação na lista — a
 // paleta real da peça continua vindo do Brand Kit e do estilo.
@@ -28,26 +30,51 @@ const STYLE_SWATCH = {
 export function fieldsFromCaption(caption = '') {
   const lines = String(caption || '').split('\n').map((line) => line.trim()).filter(Boolean);
   if (!lines.length) return null;
-  return { title: lines[0].slice(0, 90), subtitle: (lines[1] || '').slice(0, 160), bullets: '', cta: '', highlight: '' };
+  return { ...EMPTY_FIELDS, title: lines[0].slice(0, 90), subtitle: (lines[1] || '').slice(0, 160) };
 }
 
-/** Estruturas oferecidas na escolha manual, filtradas pelo formato aberto. */
-export function manualStructures(format) {
-  const shape = format === 'story' || format === 'reel' ? 'story' : 'square';
+/**
+ * Estruturas oferecidas na escolha manual, filtradas pela peça aberta.
+ *
+ * A proporção entra junto com o formato (§1.5): derivar a forma só do formato
+ * dizia "square" para um post 4:5 e "story" para qualquer coisa vertical, então
+ * a lista manual divergia da lista que o motor considera elegível.
+ */
+export function manualStructures(format, ratio = '1:1') {
+  const [width, height] = canvasSize(format, ratio);
+  const shape = shapeOf({ width, height });
   return STRUCTURES.filter((structure) => structure.shapes.includes(shape));
 }
 
+/**
+ * §5: com tipo de peça escolhido, só as estruturas que o tipo aceita.
+ * Sem tipo, o catálogo inteiro do formato — é o comportamento de antes.
+ */
+export function structuresFor(format, pieceType, ratio = '1:1') {
+  const doFormato = manualStructures(format, ratio);
+  const permitidas = structuresForPieceType(pieceType);
+  if (!permitidas.length) return doFormato;
+  const filtradas = doFormato.filter((structure) => permitidas.includes(structure.id));
+  // Tipo cujas estruturas não servem a este formato (ex.: capa de Reel num
+  // post): melhor oferecer o catálogo do formato que uma lista vazia.
+  return filtradas.length ? filtradas : doFormato;
+}
+
 export function LayoutsPanel({
-  format, caption, fields, onFields, structureId, onStructure, styleId, onStyle,
+  format, ratio = '1:1', caption, fields, onFields, structureId, onStructure, styleId, onStyle,
   busy, mascot = [], issues = [], error = '',
   // §3: quem decide se a IA escreve é o modo de criação, escolhido em Estratégia.
   usesAi = true,
+  // §6: o tipo de peça diz quais campos fazem sentido. Sem tipo, todos aparecem.
+  pieceType = '',
   onGenerate, onOpenLibrary, onSaveCurrent, canSaveCurrent
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const captionFields = fieldsFromCaption(caption);
-  const structures = manualStructures(format);
+  const structures = structuresFor(format, pieceType, ratio);
+  const campos = fieldsForPieceType(pieceType);
+  const usa = (field) => campos.includes(field);
   const itemsHint = bulletsHint({ text: fields.bullets, format, structureId });
 
   useEffect(() => {
@@ -75,50 +102,84 @@ export function LayoutsPanel({
           onChange={(e) => onFields({ title: e.target.value })}
           placeholder="Do que o post fala"
         />
-        <label className={styles.fieldLabel} htmlFor="layout-subtitle">Subtítulo</label>
-        <input
-          id="layout-subtitle"
-          className={styles.field}
-          value={fields.subtitle}
-          maxLength={160}
-          onChange={(e) => onFields({ subtitle: e.target.value })}
-          placeholder="Uma linha de apoio"
-        />
-        <label className={styles.fieldLabel} htmlFor="layout-bullets">
-          Itens <span className={styles.fieldHint}>um por linha</span>
-        </label>
-        <textarea
-          id="layout-bullets"
-          className={`${styles.textarea} ${styles.textareaShort}`}
-          value={fields.bullets}
-          onChange={(e) => onFields({ bullets: e.target.value })}
-          placeholder="Um item por linha"
-        />
-        {/* A regra deixa de ser invisível: o campo diz o que os itens provocam
-            no formato atual, enquanto a pessoa digita. */}
-        <p className={`${styles.bulletsHint} ${styles[`hint_${itemsHint.tone}`]}`} aria-live="polite">
-          {itemsHint.message}
-        </p>
-        <label className={styles.fieldLabel} htmlFor="layout-highlight">
-          Destaque <span className={styles.fieldHint}>uma palavra</span>
-        </label>
-        <input
-          id="layout-highlight"
-          className={styles.field}
-          value={fields.highlight || ''}
-          maxLength={28}
-          onChange={(e) => onFields({ highlight: e.target.value })}
-          placeholder="Ex.: Mito"
-        />
-        <label className={styles.fieldLabel} htmlFor="layout-cta">Chamada para ação</label>
-        <input
-          id="layout-cta"
-          className={styles.field}
-          value={fields.cta}
-          maxLength={32}
-          onChange={(e) => onFields({ cta: e.target.value })}
-          placeholder="Ex.: leia a reportagem completa"
-        />
+        {usa('subtitle') && <>
+          <label className={styles.fieldLabel} htmlFor="layout-subtitle">Subtítulo</label>
+          <input
+            id="layout-subtitle"
+            className={styles.field}
+            value={fields.subtitle}
+            maxLength={160}
+            onChange={(e) => onFields({ subtitle: e.target.value })}
+            placeholder="Uma linha de apoio"
+          />
+        </>}
+        {usa('bullets') && <>
+          <label className={styles.fieldLabel} htmlFor="layout-bullets">
+            Itens <span className={styles.fieldHint}>um por linha</span>
+          </label>
+          <textarea
+            id="layout-bullets"
+            className={`${styles.textarea} ${styles.textareaShort}`}
+            value={fields.bullets}
+            onChange={(e) => onFields({ bullets: e.target.value })}
+            placeholder="Um item por linha"
+          />
+          {/* A regra deixa de ser invisível: o campo diz o que os itens provocam
+              no formato atual, enquanto a pessoa digita. */}
+          <p className={`${styles.bulletsHint} ${styles[`hint_${itemsHint.tone}`]}`} aria-live="polite">
+            {itemsHint.message}
+          </p>
+        </>}
+        {usa('highlight') && <>
+          <label className={styles.fieldLabel} htmlFor="layout-highlight">
+            Destaque <span className={styles.fieldHint}>uma palavra</span>
+          </label>
+          <input
+            id="layout-highlight"
+            className={styles.field}
+            value={fields.highlight || ''}
+            maxLength={28}
+            onChange={(e) => onFields({ highlight: e.target.value })}
+            placeholder="Ex.: Mito"
+          />
+        </>}
+        {/* §1.4: notícia mostra crédito e data. Não é enfeite — é o que separa
+            uma peça jornalística de um card de frase. */}
+        {usa('source') && <>
+          <label className={styles.fieldLabel} htmlFor="layout-source">
+            Fonte <span className={styles.fieldHint}>quem publicou</span>
+          </label>
+          <input
+            id="layout-source"
+            className={styles.field}
+            value={fields.source || ''}
+            maxLength={48}
+            onChange={(e) => onFields({ source: e.target.value })}
+            placeholder="Ex.: Agência Brasil"
+          />
+        </>}
+        {usa('date') && <>
+          <label className={styles.fieldLabel} htmlFor="layout-date">Data</label>
+          <input
+            id="layout-date"
+            className={styles.field}
+            value={fields.date || ''}
+            maxLength={24}
+            onChange={(e) => onFields({ date: e.target.value })}
+            placeholder="Ex.: 29 jul 2026"
+          />
+        </>}
+        {usa('cta') && <>
+          <label className={styles.fieldLabel} htmlFor="layout-cta">Chamada para ação</label>
+          <input
+            id="layout-cta"
+            className={styles.field}
+            value={fields.cta}
+            maxLength={32}
+            onChange={(e) => onFields({ cta: e.target.value })}
+            placeholder="Ex.: leia a reportagem completa"
+          />
+        </>}
         {captionFields && <button
           type="button"
           className={styles.linkButton}
@@ -131,7 +192,7 @@ export function LayoutsPanel({
             type="button"
             className={structureId ? '' : styles.selected}
             onClick={() => onStructure('')}
-          ><Sparkles size={13} /> A IA escolhe</button>
+          ><Sparkles size={13} /> Escolher por mim</button>
           <button
             type="button"
             className={structureId ? styles.selected : ''}
@@ -148,7 +209,7 @@ export function LayoutsPanel({
               >{structure.label}</button>)}
             </div>
           : <p className={styles.panelHintText}>
-              A IA lê o seu conteúdo e escolhe entre manchete, lista, comparação ou citação.
+              O Hub lê o seu conteúdo e escolhe entre manchete, lista, comparação ou citação.
             </p>}
 
         <div className={styles.sectionLabel}>ESTILO VISUAL</div>
@@ -157,7 +218,7 @@ export function LayoutsPanel({
             type="button"
             className={styleId ? styles.styleItem : `${styles.styleItem} ${styles.styleItemActive}`}
             onClick={() => onStyle('')}
-          ><span className={styles.styleSwatch} style={{ background: 'var(--vc-accent)' }} />A IA escolhe</button>
+          ><span className={styles.styleSwatch} style={{ background: 'var(--vc-accent)' }} />Escolher por mim</button>
           {VISUAL_STYLES.map((style) => <button
             key={style.id}
             type="button"
