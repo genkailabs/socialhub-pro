@@ -197,4 +197,27 @@ describe('Biblioteca: catálogo interno + salvos, sem segunda estrutura no banco
     expect(items.filter((item) => !item.saved).length).toBeGreaterThan(5);
     expect(items.every((item) => Array.isArray(item.blocks))).toBe(true);
   });
+
+  // PRD 02 §11: o card mostra o que a peça exige. A ficha só existe para as
+  // estruturas do catálogo — layout salvo não tem contrato para derivar dela,
+  // e é isso que faz o filtro de foto escondê-lo em vez de mostrá-lo sem
+  // atender ao que foi pedido.
+  it('anexa a ficha as estruturas do catalogo, e nao aos layouts salvos', () => {
+    const items = buildLibraryItems([{ id: 't1', name: 'Meu', category: 'jornalistico', template: { canvas: [430, 430], elements: [] } }]);
+    const salvo = items.find((item) => item.saved);
+    const catalogo = items.filter((item) => !item.saved);
+
+    expect(salvo.card).toBeUndefined();
+    for (const item of catalogo) {
+      expect(item.card, item.name).toBeTruthy();
+      expect(typeof item.card.needsPhoto, item.name).toBe('boolean');
+      expect(['pouco', 'medio', 'muito'], item.name).toContain(item.card.textLevel);
+      expect(item.card.recommendedFor, item.name).toBeTruthy();
+    }
+    // Os templates de alto impacto entraram e pedem foto.
+    const hero = catalogo.find((item) => item.structureId === 'hero-editorial');
+    expect(hero.card.needsPhoto).toBe(true);
+    const pessoa = catalogo.find((item) => item.structureId === 'manchete-pessoa');
+    expect(pessoa.card.withPerson).toBe(true);
+  });
 });

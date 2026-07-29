@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Check, Pencil, Search, Trash2, X } from 'lucide-react';
-import { STRUCTURES } from '@/lib/layouts/structures';
+import { STRUCTURES, structureCard } from '@/lib/layouts/structures';
 import styles from './VisualComposer.module.css';
 
 // Miniatura desenhada a partir do próprio layout (§12): os slots da estrutura
@@ -79,7 +79,9 @@ export function buildLibraryItems(templates = []) {
     name: structure.label,
     category: structure.category,
     saved: false,
-    blocks: structureBlocks(structure)
+    blocks: structureBlocks(structure),
+    // §11: a ficha vem derivada da própria estrutura, não redigitada aqui.
+    card: structureCard(structure)
   }));
   return [...saved, ...builtin];
 }
@@ -89,6 +91,7 @@ export function LayoutLibrary({
 }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('todos');
+  const [photoFilter, setPhotoFilter] = useState('todos');
   const [renaming, setRenaming] = useState(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -100,9 +103,20 @@ export function LayoutLibrary({
   const savedCount = items.filter((item) => item.saved).length;
   const visible = items.filter((item) => {
     if (category !== 'todos' && item.category !== category) return false;
+    // §11: filtros de foto e de pessoa. Layout salvo não tem ficha derivada,
+    // então some quando o filtro é sobre a ficha — em vez de aparecer sem
+    // atender ao que foi pedido.
+    if (photoFilter !== 'todos') {
+      if (!item.card) return false;
+      if (photoFilter === 'com-foto' && !item.card.needsPhoto) return false;
+      if (photoFilter === 'sem-foto' && item.card.needsPhoto) return false;
+      if (photoFilter === 'com-pessoa' && !item.card.withPerson) return false;
+    }
     if (!query.trim()) return true;
     const term = fold(query);
-    return fold(item.name).includes(term) || fold(item.category).includes(term);
+    return fold(item.name).includes(term)
+      || fold(item.category).includes(term)
+      || fold(item.card?.recommendedFor).includes(term);
   });
 
   function commitRename(item) {
@@ -134,6 +148,19 @@ export function LayoutLibrary({
           className={category === item ? styles.libFilterActive : ''}
           onClick={() => setCategory(item)}
         >{item === 'todos' ? 'Todos' : item}</button>)}
+      </div>
+
+      {/* §11: filtrar pelo que a peça exige, não só pelo assunto dela. */}
+      <div className={styles.libFilters} role="tablist" aria-label="Necessidade de foto">
+        {[['todos', 'Qualquer foto'], ['com-foto', 'Precisa de foto'], ['sem-foto', 'Sem foto'], ['com-pessoa', 'Com pessoa']]
+          .map(([id, label]) => <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={photoFilter === id}
+            className={photoFilter === id ? styles.libFilterActive : ''}
+            onClick={() => setPhotoFilter(id)}
+          >{label}</button>)}
       </div>
 
       <div className={styles.libGrid}>
@@ -168,6 +195,16 @@ export function LayoutLibrary({
               <button type="button" aria-label={`Excluir layout ${item.name}`} onClick={() => onDelete(item.templateId)}><Trash2 size={12} /></button>
             </span>}
           </div>
+          {/* §11: o que a peça pede e para que serve, no próprio card. Sem
+              isso a escolha vira adivinhação a partir de um desenho pequeno. */}
+          {item.card && <div className={styles.libCardMeta}>
+            <span className={styles.libTags}>
+              <em>{item.card.needsPhoto ? 'Precisa de foto' : 'Sem foto'}</em>
+              {item.card.withPerson && <em>Com pessoa</em>}
+              <em>{{ pouco: 'Pouco texto', medio: 'Texto médio', muito: 'Muito texto' }[item.card.textLevel]}</em>
+            </span>
+            <small title={item.card.recommendedFor}>{item.card.recommendedFor}</small>
+          </div>}
         </div>)}
         {!visible.length && <p className={styles.libEmpty}>Nenhum layout encontrado.</p>}
       </div>
