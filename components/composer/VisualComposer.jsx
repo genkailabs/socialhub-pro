@@ -38,6 +38,7 @@ import { EMPTY_FIELDS, LayoutsPanel } from './LayoutsPanel';
 import { StrategyPanel } from './StrategyPanel';
 import { StockPanel } from './StockPanel';
 import { DEFAULT_MODE_ID, goalForPrompt, modeById, pieceTypeById } from '@/lib/composer-strategy';
+import { structureById } from '@/lib/layouts/structures';
 import { CanvasToolbar, alignedPosition } from './CanvasToolbar';
 import { GENERATION_STALL_STEP, GENERATION_STEPS, GenerationErrorModal, GenerationProgressModal } from './GenerationModal';
 import { LayoutLibrary } from './LayoutLibrary';
@@ -670,9 +671,16 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
           license: metadata.license || null
         } : {})
       };
+      // §10: a estrutura escolhida diz se a peça é feita para foto ocupar o
+      // quadro e onde o rosto costuma ficar. Sem estrutura escolhida, nada
+      // muda — o encaixe segue sendo a foto inteira, centralizada.
+      const estrutura = structureById(structureId);
       targetSurface.bg = fitMediaToCanvas(
         { width: metadata.width, height: metadata.height },
-        canvasSize(target.format, effectiveRatio)
+        canvasSize(target.format, effectiveRatio),
+        estrutura?.faceZone || estrutura?.inkOverImage
+          ? { mode: 'cover', anchor: estrutura.faceZone === 'topo' ? 'topo' : 'centro' }
+          : {}
       );
     });
     setState((current) => targetIsActive(current, target)
