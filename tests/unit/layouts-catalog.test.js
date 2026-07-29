@@ -7,9 +7,9 @@ import { findFont } from '@/lib/composer-fonts';
 // §17: o MVP promete números concretos. Se o catálogo encolher, o produto
 // entregue deixa de bater com o que foi combinado.
 describe('catálogo do MVP (§17)', () => {
-  // 13 desde que `texto-destaque` entrou, extraída das referências de carrossel.
-  it('tem 13 estruturas, 8 estilos e 20 componentes', () => {
-    expect(STRUCTURES).toHaveLength(13);
+  // 21 = 13 + os 8 templates de alto impacto do PRD 02 §5.
+  it('tem 21 estruturas, 8 estilos e 20 componentes', () => {
+    expect(STRUCTURES).toHaveLength(21);
     expect(VISUAL_STYLES).toHaveLength(8);
     expect(COMPONENTS.length).toBeGreaterThanOrEqual(20);
   });
