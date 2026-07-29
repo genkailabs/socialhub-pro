@@ -36,6 +36,7 @@ import {
 import { applyLayoutTemplate } from '@/lib/layouts/templates';
 import { EMPTY_FIELDS, LayoutsPanel } from './LayoutsPanel';
 import { StrategyPanel } from './StrategyPanel';
+import { StockPanel } from './StockPanel';
 import { DEFAULT_MODE_ID, goalForPrompt, modeById, pieceTypeById } from '@/lib/composer-strategy';
 import { CanvasToolbar, alignedPosition } from './CanvasToolbar';
 import { GENERATION_STALL_STEP, GENERATION_STEPS, GenerationErrorModal, GenerationProgressModal } from './GenerationModal';
@@ -659,7 +660,15 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
         size: metadata.size || null,
         type: metadata.type || null,
         width: metadata.width || null,
-        height: metadata.height || null
+        height: metadata.height || null,
+        // §13: imagem de fora carrega de onde veio e sob qual licença. Só entra
+        // quando existe — upload do usuário continua sem esses campos.
+        ...(metadata.source ? {
+          source: metadata.source,
+          sourceUrl: metadata.sourceUrl || null,
+          photographer: metadata.photographer || null,
+          license: metadata.license || null
+        } : {})
       };
       targetSurface.bg = fitMediaToCanvas(
         { width: metadata.width, height: metadata.height },
@@ -1278,6 +1287,21 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
             </p>}
             {uploading != null && <div className={styles.progress}><span style={{ width: `${uploading}%` }} /></div>}
             {mediaError && <div className={styles.error}>{mediaError}</div>}
+            {/* Vídeo não vem de banco de foto: no Reel o canvas é o vídeo. */}
+            {state.format !== 'reel' && <StockPanel
+              format={state.format}
+              subject={layoutFields.title || ''}
+              onPick={(photo) => pickMedia(photo.full, 'image', {
+                name: photo.alt || `Foto de ${photo.photographer}`,
+                width: photo.width,
+                height: photo.height,
+                type: 'image/jpeg',
+                source: photo.source,
+                sourceUrl: photo.sourceUrl,
+                photographer: photo.photographer,
+                license: photo.license
+              })}
+            />}
           </>}
           {tool === 'texto' && <>
             <button className={styles.preset} style={{ fontSize: 19, fontWeight: 800 }} onClick={() => addPreset({ text: 'Adicionar título', fs: 32, weight: 800, h: 52 })}>Adicionar título</button>
