@@ -50,7 +50,18 @@ const CASES = [
     date: 'Julho 2026',
     slideNumber: '2/10',
     brand: 'genkailabs'
-  }, null, { niche: 'marketing digital' }, { structureId: 'texto-destaque' }]
+  }, null, { niche: 'marketing digital' }, { structureId: 'texto-destaque' }],
+
+  // Templates de alto impacto (PRD 02 §5). Quase todos pedem foto: é o ponto
+  // deles. Renderizados com a mesma foto para comparar composição, não imagem.
+  ['Hero editorial', { title: 'A cidade que decidiu andar a pe', subtitle: 'O que muda quando o carro deixa de ser o centro.', eyebrow: 'Editorial', brand: 'genkailabs' }, media, { niche: 'arquitetura' }, { structureId: 'hero-editorial' }],
+  ['Manchete com pessoa', { title: 'Ela recusou a promocao e explica por que', highlight: 'Escolha', brand: 'genkailabs' }, media, { niche: 'carreira' }, { structureId: 'manchete-pessoa' }],
+  ['Capa de autoridade', { title: 'Dra. Helena Ribeiro', subtitle: 'Nutricionista clinica · 12 anos de consultorio', brand: 'clinica' }, media, { niche: 'clinica' }, { structureId: 'capa-autoridade' }],
+  ['Notícia premium', { title: 'Nova regra do simples nacional entra em vigor', subtitle: 'A mudanca vale a partir do proximo mes.', eyebrow: 'Notícia', date: '28 jul', brand: 'genkailabs' }, media, { niche: 'contabilidade' }, { structureId: 'noticia-premium' }],
+  ['Trend alert', { title: 'O feed mudou e ninguem avisou', highlight: 'Agora', eyebrow: 'Alerta', brand: 'genkailabs' }, media, { niche: 'marketing digital' }, { structureId: 'trend-alert' }],
+  ['Anúncio publicitário', { title: 'Combo de inverno na padaria', highlight: '30% OFF', cta: 'Peca pelo WhatsApp', brand: 'padaria' }, media, { niche: 'restaurante' }, { structureId: 'anuncio-foto' }],
+  ['Retrato corporativo', { title: 'Marcos Alves', quote: 'A gente parou de vender hora e comecou a vender resultado', subtitle: 'Socio-fundador', brand: 'consultoria' }, media, { niche: 'advocacia' }, { structureId: 'retrato-corporativo' }],
+  ['Editorial minimalista', { title: 'Menos, porem melhor', subtitle: 'O que sobra quando se tira tudo que nao era necessario.', brand: 'estudio' }, media, { niche: 'design' }, { structureId: 'editorial-minimalista' }]
 ];
 
 function css(style) {
