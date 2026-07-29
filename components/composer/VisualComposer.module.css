@@ -207,3 +207,10 @@
 @media(max-width:1250px){.rightPanel,.rightPanel.layersPanel{width:300px}.libGrid{grid-template-columns:repeat(2,1fr)}.libSearch{width:170px}}
 @media(max-width:900px){.rightPanel,.rightPanel.layersPanel{width:286px}.canvasToolbar{padding:6px 10px}}
 @media(max-width:680px){.rightPanel,.rightPanel.layersPanel{width:calc(100% - 58px)}.libGrid{grid-template-columns:1fr}.libHead{flex-wrap:wrap}.libSearch{width:100%;order:3}}
+
+/* Banco de imagens (PRD 02 §3): grade de miniaturas com o crédito visível na
+   própria peça, para a origem não depender de o usuário abrir outra tela. */
+.stockGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:9px}
+.stockThumb{position:relative;aspect-ratio:1;border:1px solid var(--vc-border);border-radius:10px;background-size:cover;background-position:center;padding:0;overflow:hidden;cursor:pointer}
+.stockThumb:hover{border-color:var(--vc-accent)}
+.stockThumb span{position:absolute;left:0;right:0;bottom:0;padding:4px 6px;font-size:8.5px;line-height:1.2;color:#fff;text-align:left;background:linear-gradient(transparent,rgba(0,0,0,.72));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
