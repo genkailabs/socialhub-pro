@@ -134,6 +134,8 @@ describe('runSkill', () => {
     const res = await runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() });
 
     expect(res.data.itens).toEqual(['a']);
+    expect(mocks.runText.mock.calls[1][0].system).toContain('itens');
+    expect(mocks.runText.mock.calls[1][0].user).toContain('CORRECAO OBRIGATORIA');
   });
 
   it('desiste depois da segunda falha e registra o erro', async () => {
@@ -203,6 +205,144 @@ describe('runSkill', () => {
       await expect(runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() })).rejects.toThrow();
 
       expect(mocks.runText.mock.calls[1][0].maxTokens).toBe(4096);
+    });
+  });
+
+  // Bug de producao (2026-07-31): carousel-directions falhou duas vezes seguidas
+  // com `headlineOptions.N.subheadline: Invalid input`. O modelo mandava `null`
+  // no campo opcional, e `.default()` do Zod so cobre `undefined` — um campo que
+  // nem era obrigatorio derrubava a resposta inteira e queimava 28s de retry.
+  describe('null onde o schema tem default', () => {
+    const comOpcional = defineSkill({
+      id: 'com-opcional',
+      version: 1,
+      description: 'Skill com campo opcional',
+      inputSchema: z.object({ topico: z.string().min(1) }),
+      outputSchema: z.object({
+        titulo: z.string(),
+        apoio: z.string().max(190).default(''),
+        itens: z.array(z.string()).default([])
+      }),
+      buildPrompt: () => ({ system: 's', user: 'u' })
+    });
+
+    it('aceita o null e nao gasta uma segunda tentativa', async () => {
+      const { supabase } = makeSupabase();
+      mocks.runText.mockResolvedValue({
+        content: JSON.stringify({ titulo: 'Oi', apoio: null, itens: null }),
+        usage: {}, model: 'm', provider: 'deepseek'
+      });
+
+      const res = await runSkill({ skill: comOpcional, input: { topico: 'a' }, supabase, ...ctx() });
+
+      expect(res.data).toEqual({ titulo: 'Oi', apoio: '', itens: [] });
+      expect(mocks.runText).toHaveBeenCalledTimes(1);
+    });
+
+    it('conserta o null dentro de lista de objetos', async () => {
+      const comLista = defineSkill({
+        id: 'com-lista',
+        version: 1,
+        description: 'Skill com lista de objetos',
+        inputSchema: z.object({ topico: z.string().min(1) }),
+        outputSchema: z.object({
+          opcoes: z.array(z.object({ titulo: z.string(), apoio: z.string().default('') })).length(2)
+        }),
+        buildPrompt: () => ({ system: 's', user: 'u' })
+      });
+      const { supabase } = makeSupabase();
+      mocks.runText.mockResolvedValue({
+        content: JSON.stringify({ opcoes: [{ titulo: 'a', apoio: null }, { titulo: 'b', apoio: 'ok' }] }),
+        usage: {}, model: 'm', provider: 'deepseek'
+      });
+
+      const res = await runSkill({ skill: comLista, input: { topico: 'a' }, supabase, ...ctx() });
+
+      expect(res.data.opcoes).toEqual([{ titulo: 'a', apoio: '' }, { titulo: 'b', apoio: 'ok' }]);
+      expect(mocks.runText).toHaveBeenCalledTimes(1);
+    });
+
+    // story-planner declara `cta: z.string().nullable()`. Trocar null por
+    // undefined em toda a arvore quebraria justamente quem pediu null.
+    it('nao mexe no null que o schema aceita de proposito', async () => {
+      const comNullable = defineSkill({
+        id: 'com-nullable',
+        version: 1,
+        description: 'Skill com campo nullable',
+        inputSchema: z.object({ topico: z.string().min(1) }),
+        outputSchema: z.object({ cta: z.string().nullable() }),
+        buildPrompt: () => ({ system: 's', user: 'u' })
+      });
+      const { supabase } = makeSupabase();
+      mocks.runText.mockResolvedValue({ content: JSON.stringify({ cta: null }), usage: {}, model: 'm', provider: 'deepseek' });
+
+      const res = await runSkill({ skill: comNullable, input: { topico: 'a' }, supabase, ...ctx() });
+
+      expect(res.data).toEqual({ cta: null });
+      expect(mocks.runText).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // A razao da rejeicao vira o prompt de correcao da tentativa seguinte. No
+  // build, a mensagem do Zod degradava para "Invalid input" seco: o modelo
+  // recebia o nome do campo e nenhuma pista, e repetia o mesmo erro. A razao
+  // passa a ser montada por nos, a partir do codigo da issue e do valor real.
+  describe('razao da rejeicao', () => {
+    it('diz o tipo esperado e o que veio no lugar', async () => {
+      const { supabase, insert } = makeSupabase();
+      mocks.runText.mockResolvedValue({
+        content: JSON.stringify({ titulo: 42, itens: ['a'] }),
+        usage: {}, model: 'm', provider: 'deepseek'
+      });
+
+      await expect(runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() })).rejects.toThrow();
+
+      const erro = insert.mock.calls[0][0].error;
+      expect(erro).toContain('titulo');
+      expect(erro).toContain('string');
+      expect(erro).toContain('number');
+    });
+
+    it('diz o limite quando o texto passou do maximo', async () => {
+      const comLimite = defineSkill({
+        id: 'com-limite',
+        version: 1,
+        description: 'Skill com limite de texto',
+        inputSchema: z.object({ topico: z.string().min(1) }),
+        outputSchema: z.object({ titulo: z.string().max(10) }),
+        buildPrompt: () => ({ system: 's', user: 'u' })
+      });
+      const { supabase, insert } = makeSupabase();
+      mocks.runText.mockResolvedValue({
+        content: JSON.stringify({ titulo: 'texto muito maior que o permitido' }),
+        usage: {}, model: 'm', provider: 'deepseek'
+      });
+
+      await expect(runSkill({ skill: comLimite, input: { topico: 'a' }, supabase, ...ctx() })).rejects.toThrow();
+
+      const erro = insert.mock.calls[0][0].error;
+      expect(erro).toContain('10');
+      expect(erro).toContain('33');
+    });
+
+    it('lista os valores aceitos quando o campo e fechado', async () => {
+      const comEnum = defineSkill({
+        id: 'com-enum',
+        version: 1,
+        description: 'Skill com enum',
+        inputSchema: z.object({ topico: z.string().min(1) }),
+        outputSchema: z.object({ angulo: z.enum(['erro', 'processo']) }),
+        buildPrompt: () => ({ system: 's', user: 'u' })
+      });
+      const { supabase, insert } = makeSupabase();
+      mocks.runText.mockResolvedValue({
+        content: JSON.stringify({ angulo: 'outro' }),
+        usage: {}, model: 'm', provider: 'deepseek'
+      });
+
+      await expect(runSkill({ skill: comEnum, input: { topico: 'a' }, supabase, ...ctx() })).rejects.toThrow();
+
+      expect(insert.mock.calls[0][0].error).toContain('erro | processo');
     });
   });
 
