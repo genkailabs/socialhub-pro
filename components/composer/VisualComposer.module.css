@@ -227,3 +227,54 @@
 .libTags{display:flex;flex-wrap:wrap;gap:4px}
 .libTags em{font-style:normal;font-size:9px;font-weight:650;letter-spacing:.2px;padding:2px 6px;border-radius:99px;background:var(--vc-hover);color:var(--vc-sub);white-space:nowrap}
 .libCardMeta small{font-size:10px;line-height:1.35;color:var(--vc-faint);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ---------------------------------------------------------------------------
+   Reorganização do Composer (§3–§5).
+
+   Barra contextual acima do canvas: os controles do que está selecionado. São
+   pequenos de propósito — abrir um painel inteiro para mudar o corpo de um
+   texto era o que fazia a tela parecer embolada. */
+.tbButtonOn{background:var(--vc-accentSoft);color:var(--vc-accentText)}
+.tbSelect{height:28px;max-width:132px;border:1px solid var(--vc-border);border-radius:8px;background:var(--vc-input);color:var(--vc-text);font:inherit;font-size:11.5px;padding:0 6px;cursor:pointer}
+.tbNumber{width:52px;height:28px;border:1px solid var(--vc-border);border-radius:8px;background:var(--vc-input);color:var(--vc-text);font:inherit;font-size:11.5px;text-align:center;padding:0 4px}
+.tbColor{position:relative;width:30px;height:30px;display:grid;place-items:center;border-radius:8px;cursor:pointer}
+.tbColor:hover{background:var(--vc-hover)}
+.tbColor input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.tbSwatch{width:18px;height:18px;border-radius:5px;border:1px solid var(--vc-border)}
+.tbRange{display:inline-flex;align-items:center;width:76px}
+.tbRange input{width:100%}
+
+/* Etapas da seção Criar: numeradas porque a ordem é a ordem da decisão. */
+.stepLabel{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:750;letter-spacing:.8px;color:var(--vc-faint);margin:18px 0 8px}
+.stepLabel span{width:17px;height:17px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--vc-accentSoft);color:var(--vc-accentText);font-size:10px;letter-spacing:0}
+.details{margin-top:12px;border:1px solid var(--vc-border);border-radius:11px;padding:0 11px}
+.details>summary{padding:10px 0;font-size:11.5px;font-weight:650;color:var(--vc-sub);cursor:pointer;list-style:none}
+.details>summary::-webkit-details-marker{display:none}
+.details>summary:before{content:"▸ ";color:var(--vc-faint)}
+.details[open]>summary:before{content:"▾ "}
+.details[open]{padding-bottom:11px}
+.resultCard{display:grid;gap:3px;padding:11px;border:1px solid var(--vc-accent);border-radius:11px;background:var(--vc-accentSoft)}
+.resultCard strong{font-size:13px;color:var(--vc-accentText)}
+.resultCard span{font-size:10.5px;color:var(--vc-sub)}
+
+/* Seção Layout: ficha da estrutura com miniatura desenhada dos próprios slots,
+   e não uma imagem de catálogo que envelhece separada da estrutura. */
+.layoutList{display:grid;gap:7px}
+.layoutAuto{width:100%;display:grid;gap:2px;text-align:left;padding:10px 11px;margin-bottom:8px;border:1px solid var(--vc-border);border-radius:11px;background:var(--vc-input);font:inherit;font-size:12.5px;font-weight:650;color:var(--vc-text)}
+.layoutAuto em{font-style:normal;font-size:10.5px;font-weight:400;color:var(--vc-sub)}
+.layoutCard{width:100%;display:flex;gap:10px;align-items:flex-start;text-align:left;padding:9px;border:1px solid var(--vc-border);border-radius:11px;background:var(--vc-input);font:inherit;color:var(--vc-text)}
+.layoutCard:hover{border-color:var(--vc-accent)}
+.layoutCardActive{border-color:var(--vc-accent);background:var(--vc-accentSoft)}
+.layoutThumb{position:relative;width:44px;height:55px;flex:none;border-radius:5px;background:var(--vc-card);border:1px solid var(--vc-border);overflow:hidden}
+.thumbBlock{position:absolute;background:var(--vc-faint);opacity:.55;border-radius:1px}
+.thumbMedia{position:absolute;background:var(--vc-accent);opacity:.5;border-radius:1px}
+.layoutCardBody{display:grid;gap:3px;min-width:0}
+.layoutCardBody strong{font-size:12.5px}
+.layoutCardBody em{font-style:normal;font-size:10.5px;line-height:1.35;color:var(--vc-sub)}
+.layoutTags{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.tag{font-size:9.5px;font-weight:600;padding:2px 6px;border-radius:99px;background:var(--vc-hover);color:var(--vc-sub);white-space:nowrap}
+.tagOn{font-size:9.5px;font-weight:600;padding:2px 6px;border-radius:99px;background:var(--vc-accentSoft);color:var(--vc-accentText);white-space:nowrap}
+
+/* Direita: prévia e propriedades. Camadas saiu daqui. */
+.rightHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.rightHead .rightTitle{margin:0}

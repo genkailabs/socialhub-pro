@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({ storage: { from: () => ({ remove: vi.fn() }) } })
@@ -57,7 +57,10 @@ describe('painel Elementos (PRD Elementos §3-§9)', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Ícones' }));
     fireEvent.click(screen.getByRole('button', { name: 'Ícone WhatsApp' }));
     await waitFor(() => expect(screen.getByLabelText('Cor do elemento')).toBeTruthy());
-    expect(screen.getByText('WhatsApp')).toBeTruthy();
+    // O rótulo da seleção virou uma frase só ("WhatsApp · 1 de 1"), então o
+    // texto exato não casa mais.
+    // O rótulo aparece na barra do canvas e no cabeçalho de propriedades.
+    expect(within(screen.getByRole('toolbar', { name: 'Ferramentas do canvas' })).getByText(/^WhatsApp · \d+ de \d+$/)).toBeTruthy();
   });
 
   it('insere forma e permite ajustar borda e sombra', async () => {

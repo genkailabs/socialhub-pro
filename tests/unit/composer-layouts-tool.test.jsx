@@ -41,9 +41,12 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 // externa, o painel de notícia e o motor de layouts. Só o motor ficou — este
 // teste existe para que nenhum dos outros volte sem querer.
 describe('Composer: um único caminho de arte', () => {
-  it('oferece a ferramenta Layouts na barra', () => {
+  // "Estratégia" e "Layouts" viraram "Criar" e "Layout": o conteúdo é escrito
+  // num, a forma é escolhida no outro.
+  it('oferece as seções Criar e Layout na barra', () => {
     render(<VisualComposer brandId="brand-1" brandName="Marca" />);
-    expect(rail().getByRole('button', { name: /Layouts/ })).toBeTruthy();
+    expect(rail().getByRole('button', { name: 'Criar' })).toBeTruthy();
+    expect(rail().getByRole('button', { name: 'Layout' })).toBeTruthy();
   });
 
   it('não oferece mais "Criar com IA externa" no painel de Mídia', () => {
@@ -55,13 +58,19 @@ describe('Composer: um único caminho de arte', () => {
     expect(screen.getByLabelText('Importar mídia')).toBeTruthy();
   });
 
-  it('abre o painel de Layouts com a escolha automática', () => {
+  // "Criar" é a seção que abre sozinha: a primeira decisão da peça é o
+  // conteúdo. Modo padrão é "Com IA", então o primeiro campo pede o tema.
+  it('o conteúdo é escrito em Criar, que já abre aberta', () => {
     render(<VisualComposer brandId="brand-1" brandName="Marca" />);
-    fireEvent.click(rail().getByRole('button', { name: /Layouts/ }));
-    expect(screen.getByLabelText('Título')).toBeTruthy();
-    // "Escolher por mim" é o padrão da estrutura: sem ele o usuário precisaria
+    expect(screen.getByLabelText('Tema')).toBeTruthy();
+  });
+
+  it('Layout abre com a escolha automática de estrutura e de estilo', () => {
+    render(<VisualComposer brandId="brand-1" brandName="Marca" />);
+    fireEvent.click(rail().getByRole('button', { name: 'Layout' }));
+    // "Escolher por mim" é o padrão nos dois: sem ele o usuário precisaria
     // entender o catálogo interno antes de conseguir a primeira arte.
-    expect(screen.getAllByRole('button', { name: /Escolher por mim/ }).length).toBeGreaterThan(0);
-    expect(screen.getByText(/manchete, lista, comparação ou citação/)).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /Escolher por mim/ }).length).toBe(2);
+    expect(screen.getByText(/O Hub lê o conteúdo e decide/)).toBeTruthy();
   });
 });

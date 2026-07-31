@@ -65,6 +65,13 @@ describe('pollinationsSearch', () => {
     expect(body.model).toBe('gemini-search');
     expect(body.messages[0].content).toContain('consulta');
     expect(opts.headers.Authorization).toContain('sk_test');
+    expect(opts.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('converte timeout do provedor em erro recuperável', async () => {
+    fetch.mockRejectedValue(new DOMException('timeout', 'TimeoutError'));
+
+    await expect(pollinationsSearch({ query: 'consulta' })).rejects.toThrow(/excedeu o tempo limite/);
   });
 
   it('erro HTTP lança com prefixo Pollinations', async () => {

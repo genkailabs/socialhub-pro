@@ -1,15 +1,18 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { ChevronUp, Grid2x2, LayoutGrid, Sparkles, Wand2 } from 'lucide-react';
-import { STRUCTURES, shapeOf } from '@/lib/layouts/structures';
-import { canvasSize } from '@/lib/composer-editor';
+import { LayoutGrid, Sparkles } from 'lucide-react';
+import {
+  STRUCTURES, shapeOf, structureCard, eligibleStructures, structureById
+} from '@/lib/layouts/structures';
 import { VISUAL_STYLES } from '@/lib/layouts/styles';
-import { bulletsHint } from '@/lib/layouts/bullets-hint';
-import { fieldsForPieceType, structuresForPieceType } from '@/lib/composer-strategy';
+import { canvasSize } from '@/lib/composer-editor';
+import { structuresForPieceType } from '@/lib/composer-strategy';
 import styles from './VisualComposer.module.css';
 
-export const EMPTY_FIELDS = { title: '', subtitle: '', bullets: '', cta: '', highlight: '', source: '', date: '' };
+// Reexportados daqui porque o Composer e os testes já importavam por este
+// caminho quando os campos moravam neste painel. O dono deles agora é o
+// CreatePanel — a peça é escrita lá.
+export { EMPTY_FIELDS, fieldsFromCaption } from './CreatePanel';
 
 // Swatch por estilo (§5 do handoff). Cor só de identificação na lista — a
 // paleta real da peça continua vindo do Brand Kit e do estilo.
@@ -24,14 +27,11 @@ const STYLE_SWATCH = {
   comercial: '#f05c5c'
 };
 
-// A legenda costuma ser o único texto que já existe quando o usuário abre o
-// painel. A primeira linha vira título e a segunda, apoio — é a leitura que
-// qualquer pessoa faria, e continua totalmente editável nos campos.
-export function fieldsFromCaption(caption = '') {
-  const lines = String(caption || '').split('\n').map((line) => line.trim()).filter(Boolean);
-  if (!lines.length) return null;
-  return { ...EMPTY_FIELDS, title: lines[0].slice(0, 90), subtitle: (lines[1] || '').slice(0, 160) };
-}
+const TEXT_LEVEL_LABEL = { pouco: 'pouco texto', medio: 'texto médio', muito: 'muito texto' };
+
+// Quantas estruturas entram em "recomendadas". Acima disso já é catálogo, e
+// catálogo tem lugar próprio (a Biblioteca).
+const MAX_RECOMENDADAS = 5;
 
 /**
  * Estruturas oferecidas na escolha manual, filtradas pela peça aberta.
@@ -60,158 +60,93 @@ export function structuresFor(format, pieceType, ratio = '1:1') {
   return filtradas.length ? filtradas : doFormato;
 }
 
+/**
+ * As poucas estruturas que servem ao conteúdo que existe agora (§5 da reorg).
+ *
+ * Mostrar as 27 de uma vez é o mesmo que não recomendar nenhuma. Aqui vale o
+ * que o motor considera ELEGÍVEL para este conteúdo — a mesma regra da escolha
+ * automática, para a lista não contradizer o que o Hub faria sozinho.
+ */
+export function recommendedStructures({ format, ratio, pieceType, content }) {
+  const doTipo = structuresFor(format, pieceType, ratio);
+  const [width, height] = canvasSize(format, ratio);
+  const elegiveis = new Set(eligibleStructures(content || {}, shapeOf({ width, height })).map((s) => s.id));
+  const cabem = doTipo.filter((structure) => elegiveis.has(structure.id));
+  // Conteúdo ainda vazio não elege quase nada: aí a recomendação é o começo do
+  // catálogo do tipo, que já é uma lista curta e coerente.
+  return (cabem.length ? cabem : doTipo).slice(0, MAX_RECOMENDADAS);
+}
+
+function StructureCard({ structure, active, onSelect }) {
+  const card = structureCard(structure);
+  return <button
+    type="button"
+    className={`${styles.layoutCard} ${active ? styles.layoutCardActive : ''}`}
+    onClick={() => onSelect(structure.id)}
+  >
+    {/* Miniatura desenhada dos próprios slots: nada de imagem de catálogo que
+        envelhece separada da estrutura. */}
+    <span className={styles.layoutThumb} aria-hidden="true">
+      {structure.slots.filter((slot) => slot.component !== 'sobreposicao').slice(0, 7).map((slot, index) => <span
+        key={`${slot.component}-${index}`}
+        className={slot.component === 'imagem-principal' ? styles.thumbMedia : styles.thumbBlock}
+        style={{ left: `${slot.x * 100}%`, top: `${slot.y * 100}%`, width: `${slot.w * 100}%`, height: `${Math.max(0.02, slot.h) * 100}%` }}
+      />)}
+    </span>
+    <span className={styles.layoutCardBody}>
+      <strong>{card.label}</strong>
+      <em>{card.recommendedFor}</em>
+      <span className={styles.layoutTags}>
+        <span className={card.needsPhoto ? styles.tagOn : styles.tag}>{card.needsPhoto ? 'precisa de foto' : 'sem foto'}</span>
+        <span className={styles.tag}>{TEXT_LEVEL_LABEL[card.textLevel]}</span>
+        {card.withPerson && <span className={styles.tag}>pessoa</span>}
+      </span>
+    </span>
+  </button>;
+}
+
+/**
+ * Seção "Layout" (§5 da reorg): estrutura primeiro, estilo depois.
+ *
+ * O painel antigo misturava campos de texto, estrutura e estilo na mesma
+ * coluna. Aqui só existe a FORMA — o conteúdo é escrito em "Criar".
+ */
 export function LayoutsPanel({
-  format, ratio = '1:1', caption, fields, onFields, structureId, onStructure, styleId, onStyle,
-  busy, mascot = [], issues = [], error = '',
-  // §3: quem decide se a IA escreve é o modo de criação, escolhido em Estratégia.
-  usesAi = true,
-  // §6: o tipo de peça diz quais campos fazem sentido. Sem tipo, todos aparecem.
-  pieceType = '',
-  onGenerate, onOpenLibrary, onSaveCurrent, canSaveCurrent
+  format, ratio = '1:1', pieceType = '', content = {},
+  structureId, onStructure, styleId, onStyle,
+  busy, error = '', onOpenLibrary, onSaveCurrent, canSaveCurrent
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-  const captionFields = fieldsFromCaption(caption);
-  const structures = structuresFor(format, pieceType, ratio);
-  const campos = fieldsForPieceType(pieceType);
-  const usa = (field) => campos.includes(field);
-  const itemsHint = bulletsHint({ text: fields.bullets, format, structureId });
-
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-    const close = (event) => { if (!menuRef.current?.contains(event.target)) setMenuOpen(false); };
-    window.addEventListener('pointerdown', close);
-    return () => window.removeEventListener('pointerdown', close);
-  }, [menuOpen]);
-
-  function choose(mode) {
-    setMenuOpen(false);
-    onGenerate(mode);
-  }
+  const recomendadas = recommendedStructures({ format, ratio, pieceType, content });
+  // A estrutura fixada pela pessoa entra na lista mesmo fora da recomendação:
+  // some dali seria esconder a escolha dela.
+  const fixada = structureId && !recomendadas.some((s) => s.id === structureId) ? structureById(structureId) : null;
+  const lista = fixada ? [fixada, ...recomendadas] : recomendadas;
 
   return (
     <>
       <div className={styles.panelBody}>
-        <div className={styles.sectionLabel}>CONTEÚDO</div>
-        <label className={styles.fieldLabel} htmlFor="layout-title">Título</label>
-        <input
-          id="layout-title"
-          className={styles.field}
-          value={fields.title}
-          maxLength={90}
-          onChange={(e) => onFields({ title: e.target.value })}
-          placeholder="Do que o post fala"
-        />
-        {usa('subtitle') && <>
-          <label className={styles.fieldLabel} htmlFor="layout-subtitle">Subtítulo</label>
-          <input
-            id="layout-subtitle"
-            className={styles.field}
-            value={fields.subtitle}
-            maxLength={160}
-            onChange={(e) => onFields({ subtitle: e.target.value })}
-            placeholder="Uma linha de apoio"
-          />
-        </>}
-        {usa('bullets') && <>
-          <label className={styles.fieldLabel} htmlFor="layout-bullets">
-            Itens <span className={styles.fieldHint}>um por linha</span>
-          </label>
-          <textarea
-            id="layout-bullets"
-            className={`${styles.textarea} ${styles.textareaShort}`}
-            value={fields.bullets}
-            onChange={(e) => onFields({ bullets: e.target.value })}
-            placeholder="Um item por linha"
-          />
-          {/* A regra deixa de ser invisível: o campo diz o que os itens provocam
-              no formato atual, enquanto a pessoa digita. */}
-          <p className={`${styles.bulletsHint} ${styles[`hint_${itemsHint.tone}`]}`} aria-live="polite">
-            {itemsHint.message}
-          </p>
-        </>}
-        {usa('highlight') && <>
-          <label className={styles.fieldLabel} htmlFor="layout-highlight">
-            Destaque <span className={styles.fieldHint}>uma palavra</span>
-          </label>
-          <input
-            id="layout-highlight"
-            className={styles.field}
-            value={fields.highlight || ''}
-            maxLength={28}
-            onChange={(e) => onFields({ highlight: e.target.value })}
-            placeholder="Ex.: Mito"
-          />
-        </>}
-        {/* §1.4: notícia mostra crédito e data. Não é enfeite — é o que separa
-            uma peça jornalística de um card de frase. */}
-        {usa('source') && <>
-          <label className={styles.fieldLabel} htmlFor="layout-source">
-            Fonte <span className={styles.fieldHint}>quem publicou</span>
-          </label>
-          <input
-            id="layout-source"
-            className={styles.field}
-            value={fields.source || ''}
-            maxLength={48}
-            onChange={(e) => onFields({ source: e.target.value })}
-            placeholder="Ex.: Agência Brasil"
-          />
-        </>}
-        {usa('date') && <>
-          <label className={styles.fieldLabel} htmlFor="layout-date">Data</label>
-          <input
-            id="layout-date"
-            className={styles.field}
-            value={fields.date || ''}
-            maxLength={24}
-            onChange={(e) => onFields({ date: e.target.value })}
-            placeholder="Ex.: 29 jul 2026"
-          />
-        </>}
-        {usa('cta') && <>
-          <label className={styles.fieldLabel} htmlFor="layout-cta">Chamada para ação</label>
-          <input
-            id="layout-cta"
-            className={styles.field}
-            value={fields.cta}
-            maxLength={32}
-            onChange={(e) => onFields({ cta: e.target.value })}
-            placeholder="Ex.: leia a reportagem completa"
-          />
-        </>}
-        {captionFields && <button
+        <div className={styles.sectionLabel}>ESTRUTURAS RECOMENDADAS</div>
+        <button
           type="button"
-          className={styles.linkButton}
-          onClick={() => onFields({ ...EMPTY_FIELDS, ...captionFields })}
-        >Preencher com a legenda</button>}
-
-        <div className={styles.sectionLabel}>ESTRUTURA</div>
-        <div className={styles.segment}>
-          <button
-            type="button"
-            className={structureId ? '' : styles.selected}
-            onClick={() => onStructure('')}
-          ><Sparkles size={13} /> Escolher por mim</button>
-          <button
-            type="button"
-            className={structureId ? styles.selected : ''}
-            onClick={() => onStructure(structures[0]?.id || '')}
-          >Manual</button>
+          className={`${styles.layoutAuto} ${structureId ? '' : styles.layoutCardActive}`}
+          onClick={() => onStructure('')}
+        ><Sparkles size={14} /> Escolher por mim
+          <em>O Hub lê o conteúdo e decide entre as {lista.length} abaixo.</em>
+        </button>
+        <div className={styles.layoutList}>
+          {lista.map((structure) => <StructureCard
+            key={structure.id}
+            structure={structure}
+            active={structureId === structure.id}
+            onSelect={onStructure}
+          />)}
         </div>
-        {structureId
-          ? <div className={styles.chipGrid}>
-              {structures.map((structure) => <button
-                key={structure.id}
-                type="button"
-                className={structureId === structure.id ? styles.chipActive : styles.chip2}
-                onClick={() => onStructure(structure.id)}
-              >{structure.label}</button>)}
-            </div>
-          : <p className={styles.panelHintText}>
-              O Hub lê o seu conteúdo e escolhe entre manchete, lista, comparação ou citação.
-            </p>}
+        <button type="button" className={styles.linkButton} onClick={onOpenLibrary}>
+          <LayoutGrid size={13} /> Ver todos os layouts
+        </button>
 
+        {/* Estilo DEPOIS da estrutura: escolher a roupa antes do corpo era
+            parte da mistura que deixava a tela confusa. */}
         <div className={styles.sectionLabel}>ESTILO VISUAL</div>
         <div className={styles.styleList}>
           <button
@@ -231,54 +166,15 @@ export function LayoutsPanel({
         </div>
 
         {error && <div className={styles.error} role="alert">{error}</div>}
-
-        {mascot.length > 0 && <>
-          <div className={styles.sectionLabel}>O QUE EU FIZ</div>
-          {mascot.map((line) => <div className={styles.check} key={line}><Sparkles size={13} />{line}</div>)}
-        </>}
-
-        {issues.length > 0 && <>
-          <div className={styles.sectionLabel}>AINDA PRECISA DE VOCÊ</div>
-          {issues.map((issue) => (
-            <div className={styles.error} key={`${issue.id}-${issue.message}`}>{issue.message} {issue.fix}</div>
-          ))}
-        </>}
       </div>
 
-      <div className={styles.panelFooter} ref={menuRef}>
-        {menuOpen && <div className={styles.genMenu} role="menu" aria-label="Como montar a arte">
-          <button type="button" role="menuitem" onClick={() => choose('content')}>
-            <Grid2x2 size={16} />
-            <span><strong>Montar com o conteúdo atual</strong><em>Usa o texto que você escreveu</em></span>
-          </button>
-          {/* §3: no modo Manual a IA não escreve. Some a opção em vez de
-              oferecê-la e desobedecer o modo que a pessoa escolheu. */}
-          {usesAi && <button type="button" role="menuitem" onClick={() => choose('ai')}>
-            <Wand2 size={16} />
-            <span><strong>Escrever o conteúdo e montar</strong><em>A IA redige a partir do tema</em></span>
-          </button>}
-        </div>}
+      <div className={styles.panelFooter}>
         <button
           type="button"
-          className={`${styles.button} ${styles.primary} ${styles.generateButton}`}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          disabled={Boolean(busy)}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          <Sparkles size={16} /> {busy ? 'Gerando…' : 'Gerar arte'} <ChevronUp size={15} className={menuOpen ? styles.caretOpen : ''} />
-        </button>
-        <div className={styles.panelFooterLinks}>
-          <button type="button" className={styles.linkButton} onClick={onOpenLibrary}>
-            <LayoutGrid size={13} /> Biblioteca de layouts
-          </button>
-          <button
-            type="button"
-            className={styles.linkButtonMuted}
-            disabled={!canSaveCurrent}
-            onClick={onSaveCurrent}
-          >Salvar como layout</button>
-        </div>
+          className={styles.linkButtonMuted}
+          disabled={!canSaveCurrent || Boolean(busy)}
+          onClick={onSaveCurrent}
+        >Salvar a peça atual como layout</button>
       </div>
     </>
   );

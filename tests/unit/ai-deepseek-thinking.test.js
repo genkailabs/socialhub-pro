@@ -43,4 +43,11 @@ describe('deepseekChat: modo de raciocínio', () => {
     await deepseekChat({ system: 's', user: 'u', thinking: true });
     expect(bodyOf(f).thinking).toEqual({ type: 'enabled' });
   });
+
+  it('limita a espera pelo provedor e traduz timeout', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new DOMException('timeout', 'TimeoutError')));
+    process.env.DEEPSEEK_API_KEY = 'chave-de-teste';
+
+    await expect(deepseekChat({ system: 's', user: 'u' })).rejects.toThrow(/excedeu o tempo limite/);
+  });
 });

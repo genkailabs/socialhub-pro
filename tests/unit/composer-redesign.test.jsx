@@ -46,7 +46,17 @@ function draftWith(build) {
 
 const rail = () => within(screen.getByLabelText('Ferramentas do Composer'));
 const toolbar = () => within(screen.getByRole('toolbar', { name: 'Ferramentas do canvas' }));
-const formatBar = () => within(screen.getByRole('group', { name: 'Formato e proporção' }));
+// Formato e proporção subiram para a barra de cima e viraram dois grupos: eram
+// os mesmos controles repetidos em duas fileiras.
+const ratioBar = () => within(screen.getByRole('group', { name: 'Proporção' }));
+
+// A barra lateral virou uma só, com oito seções. Camadas mora nela agora — não
+// existe mais um segundo painel fixo à direita.
+function openTool(label) {
+  fireEvent.click(rail().getByRole('button', { name: label }));
+}
+
+const layersPanel = () => screen.getByText('CAMADAS').closest('section');
 
 describe('Composer — estado vazio do canvas (§5)', () => {
   it('mostra as três portas de entrada quando não há nada no canvas', () => {
@@ -64,10 +74,16 @@ describe('Composer — estado vazio do canvas (§5)', () => {
     expect(screen.queryByTestId('composer-empty-state')).toBeNull();
   });
 
-  it('"Escrever conteúdo" abre o painel de Layouts, que é onde o conteúdo é escrito', () => {
+  // O conteúdo saiu do painel de Layouts e passou a ter seção própria: "Criar".
+  // No modo padrão (IA) o primeiro campo é o tema, não o título pronto.
+  it('"Escrever conteúdo" abre o painel Criar, que é onde o conteúdo é escrito', () => {
     render(<VisualComposer brandId="b1" brandName="marca" />);
+    // Criar abre sozinha; sair dela primeiro é o que faz o teste poder falhar.
+    openTool('Mídia');
+    expect(screen.queryByLabelText('Tema')).toBeNull();
+
     fireEvent.click(within(screen.getByTestId('composer-empty-state')).getByRole('button', { name: /Escrever conteúdo/ }));
-    expect(screen.getByLabelText('Título')).toBeTruthy();
+    expect(screen.getByLabelText('Tema')).toBeTruthy();
   });
 
   it('"Layout" abre a biblioteca', async () => {
@@ -83,18 +99,19 @@ describe('Composer — toolbar do canvas (§9)', () => {
     addLayer(doc.post, { text: 'Título principal' }, [430, 430], 'l-topo');
   });
 
-  it('desabilita as ações de elemento enquanto não há seleção', () => {
+  // Sem seleção a barra não mostra ação nenhuma: mostrar sete botões cinzas
+  // era ruído. Ela passou a dizer o que fazer para que apareçam.
+  it('sem seleção, a barra só orienta', () => {
     render(<VisualComposer brandId="b1" brandName="marca" initialDraft={draft()} />);
-    expect(toolbar().getByLabelText('Duplicar').disabled).toBe(true);
-    expect(toolbar().getByLabelText('Alinhar').disabled).toBe(true);
-    expect(toolbar().getByLabelText('Excluir').disabled).toBe(true);
     expect(toolbar().getByText('Selecione um elemento para editar')).toBeTruthy();
+    expect(toolbar().queryByLabelText('Duplicar')).toBeNull();
+    expect(toolbar().queryByLabelText('Excluir')).toBeNull();
   });
 
-  it('habilita as ações e identifica a seleção', () => {
+  it('com seleção, as ações aparecem e a barra identifica o elemento', () => {
     render(<VisualComposer brandId="b1" brandName="marca" initialDraft={draft()} />);
-    const panel = screen.getByText('CAMADAS').closest('section');
-    fireEvent.click(within(panel).getByText('Título principal'));
+    openTool('Camadas');
+    fireEvent.click(within(layersPanel()).getByText('Título principal'));
 
     expect(toolbar().getByLabelText('Duplicar').disabled).toBe(false);
     expect(toolbar().getByText(/Título principal · 1 de 2/)).toBeTruthy();
@@ -102,30 +119,32 @@ describe('Composer — toolbar do canvas (§9)', () => {
 
   it('trazer para frente e enviar para trás mudam a pilha', async () => {
     render(<VisualComposer brandId="b1" brandName="marca" initialDraft={draft()} />);
-    const panel = () => screen.getByText('CAMADAS').closest('section');
-    fireEvent.click(within(panel()).getByText('Fundo'));
+    openTool('Camadas');
+    fireEvent.click(within(layersPanel()).getByText('Fundo'));
     fireEvent.click(toolbar().getByLabelText('Trazer para frente'));
 
     // A lista mostra a pilha invertida: quem está na frente encabeça a lista.
     await waitFor(() => {
-      const rows = within(panel()).getAllByText(/Fundo|Título principal/);
+      const rows = within(layersPanel()).getAllByText(/Fundo|Título principal/);
       expect(rows[0].textContent).toBe('Fundo');
     });
   });
 
-  it('o zoom muda pela toolbar e volta com "Ajustar"', () => {
+  // Zoom, desfazer e refazer valem para a peça inteira, não para o elemento
+  // selecionado: saíram da barra do canvas e subiram para a barra de cima.
+  it('o zoom muda pela barra de cima e volta com "Ajustar"', () => {
     render(<VisualComposer brandId="b1" brandName="marca" initialDraft={draft()} />);
     const before = screen.getByTestId('canvas-zoom').textContent;
-    fireEvent.click(toolbar().getByLabelText('Aumentar zoom'));
+    fireEvent.click(screen.getByLabelText('Aumentar zoom'));
     expect(screen.getByTestId('canvas-zoom').textContent).not.toBe(before);
-    fireEvent.click(toolbar().getByRole('button', { name: 'Ajustar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }));
     expect(screen.getByTestId('canvas-zoom').textContent).toBe(before);
   });
 
   it('undo só liga quando existe histórico', () => {
     render(<VisualComposer brandId="b1" brandName="marca" initialDraft={draft()} />);
-    expect(toolbar().getByLabelText('Desfazer').disabled).toBe(true);
-    expect(toolbar().getByLabelText('Refazer').disabled).toBe(true);
+    expect(screen.getByLabelText('Desfazer').disabled).toBe(true);
+    expect(screen.getByLabelText('Refazer').disabled).toBe(true);
   });
 
   it('alinhar posiciona a camada em relação ao canvas', () => {
@@ -139,32 +158,39 @@ describe('Composer — toolbar do canvas (§9)', () => {
 describe('Composer — camadas e proporção (§11, §15)', () => {
   it('camadas vazias oferecem os quatro atalhos', () => {
     render(<VisualComposer brandId="b1" brandName="marca" />);
-    const panel = screen.getByText('CAMADAS').closest('section');
-    expect(within(panel).getByText('Nenhum elemento adicionado')).toBeTruthy();
+    openTool('Camadas');
+    expect(within(layersPanel()).getByText('Nenhum elemento adicionado')).toBeTruthy();
     for (const label of ['Texto', 'Imagem', 'Forma', 'Emoji']) {
-      expect(within(panel).getByRole('button', { name: label })).toBeTruthy();
+      expect(within(layersPanel()).getByRole('button', { name: label })).toBeTruthy();
     }
   });
 
   it('o atalho de texto cria a camada e o estado vazio some', async () => {
     render(<VisualComposer brandId="b1" brandName="marca" />);
-    const panel = screen.getByText('CAMADAS').closest('section');
-    fireEvent.click(within(panel).getByRole('button', { name: 'Texto' }));
+    openTool('Camadas');
+    fireEvent.click(within(layersPanel()).getByRole('button', { name: 'Texto' }));
     await waitFor(() => expect(screen.queryByTestId('composer-empty-state')).toBeNull());
   });
 
   it('trocar a proporção não apaga elementos', () => {
     const draft = draftWith((doc) => addLayer(doc.post, { text: 'Permanece' }, [430, 430], 'l1'));
     render(<VisualComposer brandId="b1" brandName="marca" initialDraft={draft} />);
-    fireEvent.click(formatBar().getByRole('button', { name: '4:5' }));
-    const panel = screen.getByText('CAMADAS').closest('section');
-    expect(within(panel).getByText('Permanece')).toBeTruthy();
+    fireEvent.click(ratioBar().getByRole('button', { name: '4:5' }));
+    openTool('Camadas');
+    expect(within(layersPanel()).getByText('Permanece')).toBeTruthy();
   });
 });
 
 describe('Composer — Brand Kit e prévia (§13, §14)', () => {
-  it('resume a marca no topo do painel direito', () => {
+  // O resumo do Brand Kit vivia grudado no topo da coluna da direita, visível o
+  // tempo todo. Ele é configuração, não é a peça: mudou para o painel que o
+  // chip da marca abre.
+  it('resume a marca no painel que o chip da marca abre', () => {
     render(<VisualComposer brandId="b1" brandName="genkailabs" brandLabel="GenkaiLabs" brandKit={{ visual_style: 'jornalistico', palette: { primary: '#3b82f6', ink: '#0f1317' } }} />);
+    expect(screen.queryByText('GenkaiLabs')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: '@genkailabs' }));
+
     expect(screen.getByText('GenkaiLabs')).toBeTruthy();
     expect(screen.getByText('jornalistico')).toBeTruthy();
   });
@@ -175,10 +201,13 @@ describe('Composer — Brand Kit e prévia (§13, §14)', () => {
     expect(screen.getByText(/Prévia fiel ao enquadramento/)).toBeTruthy();
   });
 
-  it('a barra de formatos mostra a proporção e o estado do Brand Kit', () => {
+  // A barra de cima passou a ser a dona de formato e proporção, e o chip da
+  // marca é quem diz se há Brand Kit — antes isso era uma linha de texto solta.
+  it('a barra de cima traz formato, proporção e o estado do Brand Kit', () => {
     render(<VisualComposer brandId="b1" brandName="marca" />);
-    expect(formatBar().getByText('PROPORÇÃO')).toBeTruthy();
-    expect(screen.getByText('Sem Brand Kit')).toBeTruthy();
+    expect(within(screen.getByRole('group', { name: 'Formato' })).getByRole('button', { name: 'Post' })).toBeTruthy();
+    expect(ratioBar().getByRole('button', { name: '4:5' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '@marca' }).title).toMatch(/Sem Brand Kit/);
   });
 });
 

@@ -23,7 +23,7 @@ vi.mock('@/lib/dna-signals', () => ({ recordDnaSignal: mocks.recordDnaSignal }))
 vi.mock('@/lib/composer-media-render', () => ({ prepareComposerMedia: mocks.prepareComposerMedia }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
-import { publishNow } from '@/lib/posts-actions';
+import { publishNow, saveDraft } from '@/lib/posts-actions';
 
 // Monta um supabase falso onde o insert em posts resolve com o que o teste pedir.
 function makeSupabase(insertResult) {
@@ -234,5 +234,37 @@ describe('publishNow', () => {
       share_to_feed: true
     });
     expect(insert.mock.calls[0][0].delete_after).toBeDefined();
+  });
+});
+
+describe('saveDraft', () => {
+  it('mantém a origem do Carrossel Studio para restaurar o documento após recarregar', async () => {
+    const { supabase, insert } = makeSupabase({ data: { id: 'studio-draft-1' }, error: null });
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.recordDnaSignal.mockResolvedValue(undefined);
+    const editorState = {
+      source: 'carrossel-studio',
+      version: 1,
+      doc: { name: 'Checklist', slides: [{ id: 'cover' }] }
+    };
+
+    await expect(saveDraft({
+      brandId: 'brand-1',
+      caption: 'Checklist',
+      hashtags: '',
+      imageUrls: ['temp/brand-1/slide-1.png'],
+      format: 'carousel',
+      editorState
+    })).resolves.toEqual({ ok: true, id: 'studio-draft-1' });
+
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({
+      format: 'carousel',
+      production: {
+        source: 'carrossel-studio',
+        version: 1,
+        editorState,
+        sourceMediaUrls: ['temp/brand-1/slide-1.png']
+      }
+    }));
   });
 });

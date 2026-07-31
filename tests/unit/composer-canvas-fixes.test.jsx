@@ -47,8 +47,14 @@ function dataTransfer(store = {}) {
   };
 }
 
+// Camadas desceu da coluna da direita para a barra única de seções: dois
+// painéis laterais disputando a mesma tela era o embolado que a reorg desfez.
+// Consultar a lista exige abrir a seção antes.
+function openLayers() {
+  fireEvent.click(within(screen.getByLabelText('Ferramentas do Composer')).getByRole('button', { name: 'Camadas' }));
+}
+
 function rowOf(label) {
-  // Camadas e prévia agora dividem o mesmo <aside>; a lista é a <section>.
   const panel = screen.getByText('CAMADAS').closest('section');
   return within(panel).getByText(label).closest('div[draggable]');
 }
@@ -85,6 +91,7 @@ describe('Composer — painel de camadas (§2.3, §2.4)', () => {
       addLayer(doc.post, { type: 'sticker', text: '🍕' }, [430, 430], 'l-emoji');
     });
     render(<VisualComposer brandId="brand-1" brandName="Marca" initialDraft={draft} />);
+    openLayers();
 
     for (const label of ['foto.png', 'Chamada', 'Forma', 'Linha', 'Seta', icon.label, 'Emoji 🍕']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
@@ -98,6 +105,7 @@ describe('Composer — painel de camadas (§2.3, §2.4)', () => {
       addLayer(doc.post, { text: 'Topo' }, [430, 430], 'l-topo');
     });
     render(<VisualComposer brandId="brand-1" brandName="Marca" initialDraft={draft} />);
+    openLayers();
 
     // A lista mostra a pilha invertida: "Topo" começa na frente.
     expect(within(rowOf('Topo')).getByLabelText('Trazer para frente').disabled).toBe(true);
@@ -123,6 +131,7 @@ describe('Composer — arrastar da biblioteca para o canvas (§2.7)', () => {
 
     fireEvent.drop(screen.getByTestId('composer-canvas'), { dataTransfer: transfer, clientX: 120, clientY: 90 });
 
+    openLayers();
     await waitFor(() => expect(screen.getByText('Forma')).toBeTruthy());
   });
 
@@ -133,6 +142,7 @@ describe('Composer — arrastar da biblioteca para o canvas (§2.7)', () => {
       clientX: 120,
       clientY: 90
     });
+    openLayers();
     expect(screen.getByText('Nenhum elemento adicionado')).toBeTruthy();
   });
 });

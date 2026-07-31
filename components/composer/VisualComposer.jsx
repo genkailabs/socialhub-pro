@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowUpRight, Bold, Bookmark, Check, ChevronDown,
   ChevronLeft, ChevronRight, ChevronUp, Copy, Eye, EyeOff, Film, GripVertical, Heart,
-  Image as ImageIcon, Italic, Layers3, LayoutGrid, LayoutTemplate, Lock, MapPin, Maximize2,
-  MessageSquareText, Minus, MoreHorizontal, Palette, Plus,
-  Save, Search, Send, Settings2, Shapes, SlidersHorizontal, Smartphone, Smile, Sparkles,
-  Square, Target, Trash2, Type, Unlock, Upload, UserRoundPlus, X
+  Image as ImageIcon, Italic, Layers3, LayoutGrid, LayoutTemplate, Lock, MapPin,
+  MessageSquareText, Minus, MoreHorizontal, Palette, Plus, Redo2,
+  Save, Search, Send, Shapes, Smartphone, Smile, Sparkles,
+  Square, Trash2, Type, Undo2, Unlock, Upload, UserRoundPlus, X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
@@ -34,10 +34,10 @@ import {
   getLayoutTemplates, renameLayoutTemplate, saveLayoutTemplate
 } from '@/lib/layout-actions';
 import { applyLayoutTemplate } from '@/lib/layouts/templates';
-import { EMPTY_FIELDS, LayoutsPanel } from './LayoutsPanel';
-import { StrategyPanel } from './StrategyPanel';
+import { LayoutsPanel } from './LayoutsPanel';
+import { CreatePanel, EMPTY_FIELDS } from './CreatePanel';
 import { StockPanel } from './StockPanel';
-import { DEFAULT_MODE_ID, goalForPrompt, modeById, pieceTypeById, structuresForPieceType } from '@/lib/composer-strategy';
+import { DEFAULT_MODE_ID, goalForPrompt, pieceTypeById, structuresForPieceType } from '@/lib/composer-strategy';
 import { structureById } from '@/lib/layouts/structures';
 import { CanvasToolbar, alignedPosition } from './CanvasToolbar';
 import { GenerationErrorModal, GenerationProgressModal } from './GenerationModal';
@@ -45,6 +45,7 @@ import { LayoutLibrary } from './LayoutLibrary';
 import { ArrowGraphic, IconGraphic, LineGraphic, ShapeGraphic } from './ElementGraphics';
 import { ReelTimeline } from './ReelTimeline';
 import { ReelVideoPanel } from './ReelVideoPanel';
+import { CarouselStudioClient } from '@/components/carrossel/CarouselStudioClient';
 import styles from './VisualComposer.module.css';
 import './composer-fonts.css';
 
@@ -54,15 +55,31 @@ const FORMAT_META = {
   story: ['Story', 'Vertical 9:16'],
   reel: ['Reel', 'Vídeo vertical']
 };
+// Uma barra só, oito seções, na ordem em que a peça acontece (§3 da reorg).
+//
+// O que saiu e por quê:
+// - "Estratégia" e "Layouts" viraram "Criar" e "Layout": a pessoa decidia o
+//   objetivo num painel e escrevia o conteúdo em outro, com a geração no
+//   segundo — dois painéis para uma decisão só.
+// - "Formato" subiu para a barra de cima, onde já moravam formato e proporção
+//   em outra fileira. Eram os mesmos controles em dois lugares.
+// - "Camadas" desceu da direita para cá: dois painéis laterais disputando a
+//   mesma tela era o "embolado" que se via na captura.
+// - "Config." sai da barra e passa a abrir pelo chip da marca lá em cima, que
+//   até aqui só decorava.
 const TOOLS = [
-  // §10: Estratégia vem primeiro porque é a primeira decisão — para que a peça
-  // existe. Layouts sem objetivo produz arte correta que não serve a nada.
-  ['estrategia', Target, 'Estratégia'],
-  ['formato', Maximize2, 'Formato'], ['layouts', LayoutTemplate, 'Layouts'],
-  ['midia', ImageIcon, 'Mídia'], ['texto', Type, 'Texto'],
-  ['elementos', Shapes, 'Elementos'], ['legenda', MessageSquareText, 'Legenda'],
-  ['config', Settings2, 'Config.'], ['publicar', Send, 'Publicar']
+  ['criar', Sparkles, 'Criar'],
+  ['layout', LayoutTemplate, 'Layout'],
+  ['midia', ImageIcon, 'Mídia'],
+  ['texto', Type, 'Texto'],
+  ['elementos', Shapes, 'Elementos'],
+  ['camadas', Layers3, 'Camadas'],
+  ['legenda', MessageSquareText, 'Legenda'],
+  ['publicar', Send, 'Publicar']
 ];
+// `config` não é botão da barra (abre pelo chip da marca), então o título dela
+// não sai de TOOLS.
+const PANEL_TITLES = { ...Object.fromEntries(TOOLS.map(([id, , label]) => [id, label])), config: 'Publicação' };
 const ELEMENT_CATEGORIES = ['Formas', 'Linhas e setas', 'Ícones', 'Stickers', 'Emojis'];
 const FONT_GROUPS = fontsByCategory();
 const ELEMENT_DRAG_TYPE = 'application/x-socialhub-element';
@@ -161,13 +178,13 @@ function targetIsActive(state, target) {
     && (target.format !== 'carrossel' || state.doc.carrossel.active === target.slide);
 }
 
-function baseState(initialDraft) {
+function baseState(initialDraft, initialFormat = null) {
   const restored = initialDraft?.editor_state;
   const lifecycleStatus = initialDraft?.isEphemeral
     ? 'Conteúdo do dia carregado'
     : initialDraft?.status === 'scheduled' ? 'Agendado' : initialDraft ? 'Rascunho salvo' : 'Rascunho';
   return {
-    theme: 'light', format: 'post', ratio: '1:1', doc: makeComposerDocument(),
+    theme: 'light', format: initialFormat || 'post', ratio: '1:1', doc: makeComposerDocument(),
     caption: '', hashtags: '', firstComment: '', altText: '', location: '', tags: '',
     hideLikes: false, showFeed: true,
     schedDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10), schedTime: '20:00',
@@ -179,15 +196,25 @@ function IconButton({ title, children, ...props }) {
   return <button type="button" className={styles.iconButton} title={title} aria-label={title} {...props}>{children}</button>;
 }
 
-export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = null, brandLabel = '', initialDraft = null }) {
-  const [state, setState] = useState(() => baseState(initialDraft));
-  const [tool, setTool] = useState('formato');
+export function VisualComposer({
+  brandId,
+  brandName = 'genkailabs',
+  brandKit = null,
+  brandLabel = '',
+  initialDraft = null,
+  studioBrand = null,
+  studioDraft = null,
+  initialFormat = null
+}) {
+  const [state, setState] = useState(() => baseState(initialDraft, initialFormat));
+  // Abre em "Criar": o Composer começa numa decisão de conteúdo, não numa de
+  // formato — o formato agora mora na barra de cima e está sempre visível.
+  const [tool, setTool] = useState('criar');
   const [elementCategory, setElementCategory] = useState('Formas');
   const [elementSearch, setElementSearch] = useState('');
   const [emojiCategory, setEmojiCategory] = useState('recentes');
   const [recentEmojis, setRecentEmojis] = useState([]);
   const [previewOpen, setPreviewOpen] = useState(true);
-  const [layersOpen, setLayersOpen] = useState(true);
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState('');
   const [uploading, setUploading] = useState(null);
@@ -208,6 +235,9 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   const [structureId, setStructureId] = useState('');
   const [styleId, setStyleId] = useState('');
   const [generation, setGeneration] = useState({ status: 'idle', message: '', detail: '', mode: null });
+  // Etapa 3 do "Criar": o que o motor escolheu e por quê. Antes a decisão saía
+  // só como frase do mascote no meio de uma coluna de campos.
+  const [lastResult, setLastResult] = useState(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [mascot, setMascot] = useState([]);
@@ -278,10 +308,11 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
 
   useEffect(() => {
     const enforceSinglePanel = () => {
-      if (window.innerWidth < 1250 && tool) {
-        setPreviewOpen(false);
-        setLayersOpen(false);
-      }
+      // Camadas virou seção da barra única, então não há mais um segundo painel
+      // lateral para fechar aqui — sobrou só a prévia. A chamada a
+      // `setLayersOpen` ficou para trás na reorg e quebrava a tela abaixo de
+      // 1250px com ReferenceError.
+      if (window.innerWidth < 1250 && tool) setPreviewOpen(false);
     };
     enforceSinglePanel();
     window.addEventListener('resize', enforceSinglePanel);
@@ -289,12 +320,12 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   }, [tool]);
 
   useEffect(() => {
-    if (initialDraft?.editor_state) return;
+    if (initialDraft?.editor_state || initialFormat === 'carrossel') return;
     try {
       const cached = localStorage.getItem(`composer:draft:${brandId}`);
       if (cached) setState((current) => ({ ...current, ...JSON.parse(cached), undoStack: [], redoStack: [], sel: null, editing: null }));
     } catch {}
-  }, [brandId, initialDraft]);
+  }, [brandId, initialDraft, initialFormat]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -318,7 +349,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
     const observer = new ResizeObserver(update);
     if (regionRef.current) observer.observe(regionRef.current);
     return () => observer.disconnect();
-  }, [cw, ch, state.format, previewOpen, layersOpen, tool]);
+  }, [cw, ch, state.format, previewOpen, selected, tool]);
 
   // Relógio único do Reel: o <video> do canvas manda o tempo; timeline e
   // prévia apenas leem, então nunca divergem (§3, §6).
@@ -488,6 +519,18 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   function applyLayoutResult(result) {
     setMascot(result.mascot || []);
     setIssues(result.issues || []);
+    // A escolha do motor vira informação da tela, não só recado do mascote.
+    const first = result.slides?.[0];
+    if (first) {
+      setLastResult({
+        structureId: first.structureId,
+        structureLabel: first.structureLabel,
+        styleId: first.styleId,
+        styleLabel: first.styleLabel,
+        contentType: first.contentType,
+        slides: result.slides.length
+      });
+    }
     applyLayoutSurfaces(result.slides.map((slide) => slide.surface));
     flash(result.slides.length > 1 ? `${result.slides.length} slides montados` : 'Arte montada no canvas');
   }
@@ -498,12 +541,12 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
     const topic = fields.title.trim() || String(state.caption || '').trim();
     if (mode === 'content' && !fields.title.trim()) {
       setLayoutError('Escreva ao menos um título.');
-      setTool('layouts');
+      setTool('criar');
       return;
     }
     if (mode === 'ai' && !topic) {
       setLayoutError('Escreva um tema ou uma legenda para a IA partir de algum lugar.');
-      setTool('layouts');
+      setTool('criar');
       return;
     }
 
@@ -608,6 +651,33 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
   // ---- Toolbar do canvas (§9) ---------------------------------------------
   function applyZoom(percent) {
     setZoomMode(Math.min(400, Math.max(25, Math.round(percent))));
+  }
+
+  /**
+   * Reenquadra a foto na moldura em que ela vive (§3 da reorg).
+   *
+   * `cover` preenche e corta a sobra; `contain` mostra a foto inteira e deixa
+   * respiro. A moldura é `surface.bgClip` quando a estrutura reservou um quadro
+   * e o canvas quando a foto é livre — a mesma conta dos dois lados.
+   */
+  function fitMediaMode(mode) {
+    mutateDoc((doc, current) => {
+      const target = getSurface(doc, current.format);
+      const media = target?.media;
+      if (!media?.width || !media?.height) return;
+      const canvas = canvasSize(current.format, current.ratio);
+      const frame = target.bgClip || { x: 0, y: 0, w: canvas[0], h: canvas[1] };
+      const factor = mode === 'cover'
+        ? Math.max(frame.w / media.width, frame.h / media.height)
+        : Math.min(frame.w / media.width, frame.h / media.height);
+      const w = Math.max(1, Math.round(media.width * factor));
+      const h = Math.max(1, Math.round(media.height * factor));
+      target.bg = {
+        x: Math.round(frame.x + (frame.w - w) / 2),
+        y: Math.round(frame.y + (frame.h - h) / 2),
+        w, h, scale: 1, rot: 0
+      };
+    });
   }
 
   function alignSelected(mode) {
@@ -1161,50 +1231,96 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
 
   return (
     <div className={styles.root}>
+      {/* Barra superior: formato, proporção, histórico, zoom e as três ações de
+          saída. Nada mais. Título "Composer" e chip de status saíram — a tela
+          inteira já é o Composer, e o status voltou para o botão de rascunho,
+          que é onde ele muda. */}
       <header className={styles.topbar}>
-        <div className={styles.title}>Composer</div>
-        <div className={`${styles.chip} ${styles.brandChip}`}>{brandName} · @{brandName.replace(/^@/, '')}</div>
-        <div className={`${styles.chip} ${styles.status}`}>{state.status}</div>
-        <div className={styles.spacer} />
-        {/* Desfazer/refazer saíram do header e viraram o primeiro grupo da
-            toolbar do canvas, junto do resto da edição. */}
-        <div className={`${styles.segment} ${styles.themeToggle}`}>
-          <button className={state.theme === 'light' ? styles.selected : ''} onClick={() => { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); setState((v) => ({ ...v, theme: 'light' })); }}>Claro</button>
-          <button className={state.theme === 'dark' ? styles.selected : ''} onClick={() => { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); setState((v) => ({ ...v, theme: 'dark' })); }}>Escuro</button>
+        <div className={styles.segment} role="group" aria-label="Formato">
+          {Object.entries(FORMAT_META).map(([id, meta]) => <button
+            key={id}
+            className={state.format === id ? styles.selected : ''}
+            title={meta[1]}
+            onClick={() => setFormat(id)}
+          >{meta[0]}</button>)}
         </div>
+        {state.format === 'carrossel' ? <>
+          <div className={styles.spacer} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--vc-sub)', whiteSpace: 'nowrap' }}>Editor visual do Carrossel Studio</span>
+        </> : <>
+        {Object.keys(COMPOSER_FORMATS[state.format].ratios).length > 1 && <div className={styles.ratioChips} role="group" aria-label="Proporção">
+          {Object.keys(COMPOSER_FORMATS[state.format].ratios).map((ratio) => <button
+            key={ratio}
+            type="button"
+            className={state.ratio === ratio ? styles.chipActive : styles.chip2}
+            onClick={() => setRatio(ratio)}
+          >{ratio}</button>)}
+        </div>}
+        <span className={styles.barDivider} aria-hidden="true" />
+        <IconButton title="Desfazer" disabled={!state.undoStack.length} onClick={undo}><Undo2 size={16} /></IconButton>
+        <IconButton title="Refazer" disabled={!state.redoStack.length} onClick={redo}><Redo2 size={16} /></IconButton>
+        <span className={styles.barDivider} aria-hidden="true" />
+        <IconButton title="Reduzir zoom" onClick={() => applyZoom(Math.round(scale * 100) - 10)}><Minus size={16} /></IconButton>
+        <span className={styles.tbZoom} data-testid="canvas-zoom">{Math.round(scale * 100)}%</span>
+        <IconButton title="Aumentar zoom" onClick={() => applyZoom(Math.round(scale * 100) + 10)}><Plus size={16} /></IconButton>
+        <button type="button" className={styles.tbTextButton} onClick={() => setZoomMode('fit')}>Ajustar</button>
+        <div className={styles.spacer} />
+        {/* O chip da marca vira a porta da configuração da publicação e do
+            Brand Kit: era rótulo decorativo e agora é o único lugar deles. */}
+        <button
+          type="button"
+          className={`${styles.chip} ${styles.brandChip}`}
+          onClick={() => setTool(tool === 'config' ? null : 'config')}
+          title={brandKit ? 'Brand Kit aplicado · abrir opções da publicação' : 'Sem Brand Kit · abrir opções da publicação'}
+        ><Palette size={12} /> @{brandName.replace(/^@/, '')}</button>
         {draftId && contentStatus === 'draft' && <IconButton title="Excluir rascunho" onClick={() => setModal('delete-draft')}><Trash2 size={16} /></IconButton>}
-        <button className={`${styles.button} ${styles.outline}`} onClick={persistDraft} disabled={!!busy}><Save size={14} /> <span>{busy === 'draft' ? 'Salvando…' : contentStatus === 'scheduled' ? 'Atualizar agendamento' : 'Salvar rascunho'}</span></button>
+        <button className={`${styles.button} ${styles.outline}`} onClick={persistDraft} disabled={!!busy}><Save size={14} /> <span>{busy === 'draft' ? 'Salvando…' : contentStatus === 'scheduled' ? 'Atualizar agendamento' : 'Salvar'}</span></button>
         <button className={`${styles.button} ${styles.soft}`} onClick={() => setModal('schedule')}>Agendar</button>
         <button className={`${styles.button} ${styles.primary}`} onClick={() => setModal('publish')}>Publicar</button>
+        </>}
       </header>
 
-      <div className={styles.workspace}>
+      {state.format === 'carrossel' ? (
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <CarouselStudioClient
+            brandId={brandId}
+            brand={studioBrand}
+            draft={studioDraft}
+            embedded
+            onClose={() => setFormat('post')}
+          />
+        </div>
+      ) : <div className={styles.workspace}>
         <nav className={styles.rail} aria-label="Ferramentas do Composer">
           {TOOLS.map(([id, Icon, label]) => (
-            <button key={id} className={`${styles.railButton} ${tool === id ? styles.railActive : ''}`} onClick={() => { setTool(tool === id ? null : id); if (window.innerWidth < 1250) { setPreviewOpen(false); setLayersOpen(false); } }}>
+            <button key={id} className={`${styles.railButton} ${tool === id ? styles.railActive : ''}`} onClick={() => { setTool(tool === id ? null : id); if (window.innerWidth < 1250) setPreviewOpen(false); }}>
               <Icon size={17} /><span>{label}</span>
             </button>
           ))}
           <div className={styles.railBottom} />
-          <button className={`${styles.railButton} ${previewOpen ? styles.railActive : ''}`} onClick={() => { setPreviewOpen(!previewOpen); if (window.innerWidth < 1250) { setTool(null); setLayersOpen(false); } }}><Smartphone size={17} /><span>Prévia</span></button>
-          <button className={`${styles.railButton} ${layersOpen ? styles.railActive : ''}`} onClick={() => { setLayersOpen(!layersOpen); if (window.innerWidth < 1250) { setTool(null); setPreviewOpen(false); } }}><Layers3 size={17} /><span>Camadas</span></button>
+          {/* Camadas saiu daqui e virou seção da barra. Sobra a prévia, que é a
+              única coisa que a direita mostra por conta própria. */}
+          <button className={`${styles.railButton} ${previewOpen ? styles.railActive : ''}`} onClick={() => { setPreviewOpen(!previewOpen); if (window.innerWidth < 1250) setTool(null); }}><Smartphone size={17} /><span>Prévia</span></button>
         </nav>
 
         {tool && <aside className={styles.panel}>
           <div className={styles.panelHead}>
             <span>
-              <strong>{TOOLS.find(([id]) => id === tool)?.[2]}</strong>
-              {tool === 'estrategia' && <small>Para que esta peça existe</small>}
-              {tool === 'layouts' && <small>Escreva o conteúdo, a IA monta a arte</small>}
-              {tool === 'texto' && selectedIsText && <small>Texto selecionado</small>}
+              <strong>{PANEL_TITLES[tool]}</strong>
+              {tool === 'criar' && <small>Do tema à arte, em três passos</small>}
+              {tool === 'layout' && <small>A forma da peça</small>}
+              {tool === 'config' && <small>Opções da publicação</small>}
             </span>
             <IconButton title="Fechar painel" onClick={() => setTool(null)}><X size={14} /></IconButton>
           </div>
-          {tool === 'estrategia' ? <StrategyPanel
+          {tool === 'criar' ? <CreatePanel
             format={state.format}
             mode={creationMode}
             objective={objective}
             pieceType={pieceType}
+            caption={state.caption}
+            fields={layoutFields}
+            onFields={(patch) => setLayoutFields((current) => ({ ...current, ...patch }))}
             onMode={setCreationMode}
             onObjective={setObjective}
             onPieceType={(id) => {
@@ -1215,33 +1331,42 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
               const permitidas = structuresForPieceType(id);
               if (structureId && permitidas.length && !permitidas.includes(structureId)) setStructureId('');
             }}
-          /> : tool === 'layouts' ? <LayoutsPanel
+            busy={generation.status === 'running'}
+            error={layoutError}
+            result={lastResult}
+            mascot={mascot}
+            issues={issues}
+            structureId={structureId}
+            onGenerate={runGeneration}
+            onOpenLayouts={() => setTool('layout')}
+          /> : tool === 'layout' ? <LayoutsPanel
             ratio={state.ratio}
             format={state.format}
             pieceType={pieceType}
-            usesAi={modeById(creationMode).usesAi}
-            caption={state.caption}
-            fields={layoutFields}
-            onFields={(patch) => setLayoutFields((current) => ({ ...current, ...patch }))}
+            content={contentFromFields()}
             structureId={structureId}
-            onStructure={setStructureId}
+            onStructure={(id) => { setStructureId(id); if (surface.layers.length) runGeneration('content', { structureId: id }); }}
             styleId={styleId}
             onStyle={setStyleId}
             busy={generation.status === 'running'}
-            mascot={mascot}
-            issues={issues}
             error={layoutError}
-            onGenerate={runGeneration}
             onOpenLibrary={() => setLibraryOpen(true)}
             onSaveCurrent={saveCurrentAsLayout}
             canSaveCurrent={Boolean(surface.layers.length) && busy !== 'save-layout'}
+          /> : tool === 'camadas' ? <LayersPanel
+            surface={surface}
+            selected={state.sel}
+            onSelect={(id) => setState((current) => ({ ...current, sel: id, editing: null }))}
+            onPatch={updateLayer}
+            onReorder={moveLayerInStack}
+            onReorderTo={moveLayerToStackIndex}
+            onDuplicate={duplicateLayer}
+            onDelete={deleteLayerById}
+            onAddText={() => addPreset({ text: 'Adicionar título', fs: 32, weight: 800, h: 52 })}
+            onAddImage={() => setTool('midia')}
+            onAddShape={() => addPreset(ELEMENT_SHAPES[0]?.preset || { type: 'shape', shape: 'rect', w: 160, h: 90, fill: '#3b82f6' })}
+            onAddEmoji={() => { setTool('elementos'); setElementCategory('Emojis'); }}
           /> : <div className={styles.panelScroll}>
-          {tool === 'formato' && <>
-            {Object.entries(FORMAT_META).map(([id, meta]) => <button key={id} className={`${styles.formatCard} ${state.format === id ? styles.activeCard : ''}`} onClick={() => setFormat(id)}><strong>{meta[0]}</strong><span>{meta[1]}</span></button>)}
-            {/* A proporção mora na barra acima do canvas. Repetir os mesmos
-                chips aqui era parte do "muitas opções misturadas" do PRD. */}
-            <p className={styles.panelHintText}>A proporção fica na barra acima do canvas, junto do formato.</p>
-          </>}
           {tool === 'midia' && <>
             {!surface.media ? (
               <label className={styles.upload} aria-label="Importar mídia"><Upload size={22} /><strong>Adicionar mídia</strong><small>{state.format === 'reel' ? 'MP4 ou MOV · 9:16' : state.format === 'story' ? 'JPG, PNG, WEBP, MP4 ou MOV' : 'JPG, PNG ou WEBP'}</small><input type="file" accept={mediaAccept(state.format)} onChange={(event) => uploadFiles(event.target.files)} /></label>
@@ -1320,9 +1445,10 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
                 }}>{style.label}</span>
               </button>)}
             </div>
-            {selectedIsText
-              ? <TextProperties layer={selected} onPatch={(patch, history) => updateLayer(selected.id, patch, history)} onHistory={pushHistory} />
-              : <p style={{ fontSize: 11, color: 'var(--vc-faint)', lineHeight: 1.5 }}>Clique duas vezes no texto para editar. Arraste, gire e redimensione pelas alças. Selecione um texto para ver todas as propriedades.</p>}
+            {/* As propriedades moraram aqui e agora moram na direita, junto da
+                prévia: mudar a cor de um texto não pode exigir voltar para a
+                seção que o criou. Esta seção só ADICIONA. */}
+            <p className={styles.panelHintText}>Clique duas vezes no texto para editar. Ajustes rápidos ficam na barra acima do canvas; o resto, no painel da direita.</p>
           </>}
           {tool === 'elementos' && <>
             <div className={styles.elementSearch}>
@@ -1380,8 +1506,6 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
             </>}
             {elementQuery && !matchingShapes.length && !matchingLines.length && !matchingIcons.length && !matchingStickers.length && !matchingEmojis.length
               && <p style={{ fontSize: 11, color: 'var(--vc-faint)' }}>Nada encontrado para “{elementSearch}”.</p>}
-            {selected && GRAPHIC_TYPES.has(selected.type)
-              && <ElementProperties layer={selected} onPatch={(patch, history) => updateLayer(selected.id, patch, history)} onHistory={pushHistory} />}
             {state.format === 'story' && <div className={styles.error} style={{ color: 'var(--vc-warn)' }}>GIFs, enquetes e música ficam disponíveis apenas na publicação manual pelo Instagram.</div>}
           </>}
           {tool === 'legenda' && <>
@@ -1391,6 +1515,15 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
             <div className={styles.sectionLabel}>PRIMEIRO COMENTÁRIO</div><textarea className={styles.textarea} value={state.firstComment} onChange={(e) => updateField('firstComment', e.target.value)} placeholder="Opcional" />
           </>}
           {tool === 'config' && <>
+            {/* O resumo do Brand Kit vinha grudado no topo da coluna da direita,
+                acima da prévia, em todo momento. Ele pertence a este painel: é
+                configuração, não é a peça. */}
+            <BrandKitSummary brandName={brandName} brandLabel={brandLabel} brandKit={brandKit} />
+            <div className={styles.sectionLabel}>APARÊNCIA DO EDITOR</div>
+            <div className={styles.segment}>
+              <button className={state.theme === 'light' ? styles.selected : ''} onClick={() => { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); setState((v) => ({ ...v, theme: 'light' })); }}>Claro</button>
+              <button className={state.theme === 'dark' ? styles.selected : ''} onClick={() => { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); setState((v) => ({ ...v, theme: 'dark' })); }}>Escuro</button>
+            </div>
             <div className={styles.sectionLabel}>LOCALIZAÇÃO</div><div style={{ position: 'relative' }}><MapPin size={14} style={{ position: 'absolute', left: 9, top: 10 }} /><input className={styles.field} style={{ paddingLeft: 29 }} value={state.location} onChange={(e) => updateField('location', e.target.value)} placeholder="Adicionar localização" /></div>
             <div className={styles.sectionLabel}>MARCAR PESSOAS</div><div style={{ position: 'relative' }}><UserRoundPlus size={14} style={{ position: 'absolute', left: 9, top: 10 }} /><input className={styles.field} style={{ paddingLeft: 29 }} value={state.tags} onChange={(e) => updateField('tags', e.target.value)} placeholder="@usuario" /></div>
             <div className={styles.sectionLabel}>ALT TEXT {state.format === 'carrossel' ? `— SLIDE ${state.doc.carrossel.active + 1}` : ''}</div><textarea className={styles.textarea} value={state.altText} onChange={(e) => updateField('altText', e.target.value)} />
@@ -1402,42 +1535,33 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
         </aside>}
 
         <main className={styles.stage}>
-          <div className={styles.formatBar} role="group" aria-label="Formato e proporção">
-            <div className={styles.segment}>{Object.entries(FORMAT_META).map(([id, meta]) => <button key={id} className={state.format === id ? styles.selected : ''} onClick={() => setFormat(id)}>{meta[0]}</button>)}</div>
-            {Object.keys(COMPOSER_FORMATS[state.format].ratios).length > 1 && <>
-              <span className={styles.barDivider} aria-hidden="true" />
-              <span className={styles.barLabel}>PROPORÇÃO</span>
-              <div className={styles.ratioChips}>
-                {Object.keys(COMPOSER_FORMATS[state.format].ratios).map((ratio) => <button
-                  key={ratio}
-                  type="button"
-                  className={state.ratio === ratio ? styles.chipActive : styles.chip2}
-                  onClick={() => setRatio(ratio)}
-                >{ratio}</button>)}
-              </div>
-            </>}
-            {state.format === 'carrossel' && <span className={styles.chip}>Slide {state.doc.carrossel.active + 1} de {state.doc.carrossel.slides.length}</span>}
-            <span className={styles.spacer} />
-            <span className={styles.chip} title={brandKit ? undefined : 'Configure o Brand Kit para a arte sair na identidade da marca'}>
-              <Palette size={12} /> {brandKit ? 'Brand Kit aplicado' : 'Sem Brand Kit'}
-            </span>
-          </div>
+          {/* Formato e proporção subiram para a barra de cima: eram os mesmos
+              controles em duas fileiras, uma acima da outra. Sobra aqui o que é
+              da peça aberta — a posição no carrossel. */}
+          {state.format === 'carrossel' && <div className={styles.formatBar} role="group" aria-label="Slide aberto">
+            <span className={styles.chip}>Slide {state.doc.carrossel.active + 1} de {state.doc.carrossel.slides.length}</span>
+          </div>}
+          {/* Barra contextual: só aparece com algo selecionado, e mostra o que
+              serve àquele algo. Antes era uma fileira fixa de botões cinzas. */}
           <CanvasToolbar
-            canUndo={Boolean(state.undoStack.length)}
-            canRedo={Boolean(state.redoStack.length)}
-            onUndo={undo}
-            onRedo={redo}
-            zoomPercent={Math.round(scale * 100)}
-            onZoomIn={() => applyZoom(Math.round(scale * 100) + 10)}
-            onZoomOut={() => applyZoom(Math.round(scale * 100) - 10)}
-            onZoomFit={() => setZoomMode('fit')}
             selection={{ layer: selected, label: selectionLabel }}
+            onPatch={(patch, history) => selected && updateLayer(selected.id, patch, history)}
+            onHistory={pushHistory}
             onDuplicate={() => selected && duplicateLayer(selected.id)}
             onAlign={alignSelected}
             onToggleLock={() => selected && updateLayer(selected.id, { locked: !selected.locked })}
             onBringToFront={() => sendSelectedTo('front')}
             onSendToBack={() => sendSelectedTo('back')}
             onDelete={() => selected && deleteLayerById(selected.id)}
+            mediaSelected={state.sel === 'bg' && surface.media ? surface.media : null}
+            mediaActions={{
+              onFitCover: () => fitMediaMode('cover'),
+              onFitContain: () => fitMediaMode('contain'),
+              onReposition: () => setState((current) => ({ ...current, sel: 'bg' })),
+              onOpacity: () => {},
+              onReplace: () => setTool('midia'),
+              repositioning: state.sel === 'bg'
+            }}
           />
           <div className={styles.canvasRegion} ref={regionRef} onPointerDown={() => setState((current) => ({ ...current, sel: null, editing: null }))}>
             <div className={styles.scaleWrap} style={{ width: cw * scale, height: ch * scale }}>
@@ -1498,7 +1622,7 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
               format={FORMAT_META[state.format][0]}
               ratio={state.ratio}
               size={`${cw} × ${ch} px`}
-              onGenerate={() => { setTool('layouts'); setLayoutError(''); }}
+              onGenerate={() => { setTool('criar'); setLayoutError(''); }}
               onMedia={() => setTool('midia')}
               onLayout={() => setLibraryOpen(true)}
             />}
@@ -1520,25 +1644,21 @@ export function VisualComposer({ brandId, brandName = 'genkailabs', brandKit = n
           </div>
         </main>
 
-        {(previewOpen || layersOpen) && <aside className={styles.rightPanel} aria-label="Prévia e camadas">
-          <BrandKitSummary brandName={brandName} brandLabel={brandLabel} brandKit={brandKit} onOpen={() => setTool('config')} />
+        {/* Direita: prévia e propriedades do que está selecionado. Só isso.
+            Camadas foi para a barra da esquerda e o resumo do Brand Kit para o
+            chip da marca — eram três coisas disputando uma coluna. */}
+        {(previewOpen || selected) && <aside className={styles.rightPanel} aria-label="Prévia e propriedades">
           {previewOpen && <PreviewPanel state={state} surface={surface} brandName={brandName} currentTime={state.format === 'reel' ? playhead : undefined} />}
-          {layersOpen && <LayersPanel
-            surface={surface}
-            selected={state.sel}
-            onSelect={(id) => setState((current) => ({ ...current, sel: id, editing: null }))}
-            onPatch={updateLayer}
-            onReorder={moveLayerInStack}
-            onReorderTo={moveLayerToStackIndex}
-            onDuplicate={duplicateLayer}
-            onDelete={deleteLayerById}
-            onAddText={() => addPreset({ text: 'Adicionar título', fs: 32, weight: 800, h: 52 })}
-            onAddImage={() => setTool('midia')}
-            onAddShape={() => addPreset(ELEMENT_SHAPES[0]?.preset || { type: 'shape', shape: 'rect', w: 160, h: 90, fill: '#3b82f6' })}
-            onAddEmoji={() => { setTool('elementos'); setElementCategory('Emojis'); }}
-          />}
+          {selected && <section className={styles.panelSection} aria-label="Propriedades do elemento">
+            <div className={styles.rightHead}><span className={styles.rightTitle}>PROPRIEDADES</span><span className={styles.chip}>{selectionLabel}</span></div>
+            {selectedIsText
+              ? <TextProperties layer={selected} onPatch={(patch, history) => updateLayer(selected.id, patch, history)} onHistory={pushHistory} />
+              : GRAPHIC_TYPES.has(selected.type)
+                ? <ElementProperties layer={selected} onPatch={(patch, history) => updateLayer(selected.id, patch, history)} onHistory={pushHistory} />
+                : <p className={styles.panelHintText}>Este elemento não tem propriedades editáveis.</p>}
+          </section>}
         </aside>}
-      </div>
+      </div>}
 
       {libraryOpen && <LayoutLibrary
         templates={templates}
@@ -1767,7 +1887,7 @@ function brandPaletteColors(brandKit) {
     .slice(0, 4);
 }
 
-function BrandKitSummary({ brandName, brandLabel, brandKit, onOpen }) {
+function BrandKitSummary({ brandName, brandLabel, brandKit }) {
   const name = brandLabel || brandName || 'Marca';
   const initials = name.replace(/^@/, '').slice(0, 2).toUpperCase();
   const colors = brandPaletteColors(brandKit);
@@ -1782,7 +1902,6 @@ function BrandKitSummary({ brandName, brandLabel, brandKit, onOpen }) {
         ? colors.map((color, index) => <i key={`${color}-${index}`} style={{ background: color }} />)
         : <i style={{ background: 'var(--vc-accent)' }} />}
     </span>
-    <IconButton title="Configurações da peça" onClick={onOpen}><SlidersHorizontal size={14} /></IconButton>
   </div>;
 }
 
@@ -1795,7 +1914,7 @@ function CanvasEmptyState({ format, ratio, size, onGenerate, onMedia, onLayout }
       <h2>Comece sua criação</h2>
       <p>Escreva o conteúdo e deixe a IA montar, ou comece de uma mídia ou de um layout pronto.</p>
       <div className={styles.emptyActions}>
-        {/* Este botão abre o painel Layouts — não dispara geração nenhuma. O
+        {/* Este botão abre o painel Criar — não dispara geração nenhuma. O
             rótulo anterior ("Gerar com IA") prometia o que ele não faz. */}
         <button type="button" className={`${styles.button} ${styles.primary} ${styles.emptyPrimary}`} onClick={onGenerate}>
           <Sparkles size={16} /> Escrever conteúdo

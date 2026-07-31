@@ -211,7 +211,7 @@ describe('researchContext', () => {
     expect(supabase.upserts).toHaveLength(0);
   });
 
-  it('cache miss → chama Pollinations e grava sucesso', async () => {
+  it('cache miss sem fonte validada → consulta Pollinations sem gravar um cache inútil', async () => {
     mocks.pollinationsSearch.mockResolvedValue({
       summary: 'fresco', sources: [], usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'gemini-search'
     });
@@ -221,9 +221,7 @@ describe('researchContext', () => {
 
     expect(out.cached).toBe(false);
     expect(mocks.pollinationsSearch).toHaveBeenCalledTimes(1);
-    expect(supabase.upserts).toHaveLength(1);
-    expect(supabase.upserts[0]).toMatchObject({ summary: 'fresco' });
-    expect(supabase.upserts[0].query_hash).toBeTruthy();
+    expect(supabase.upserts).toHaveLength(0);
   });
 
   it('falha na pesquisa nunca grava cache', async () => {

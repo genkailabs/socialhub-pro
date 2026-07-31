@@ -75,6 +75,8 @@ describe('editor de Reel (PRD Reels §3, §4, §6, §7)', () => {
 
   it('lista o vídeo como camada e mantém a seleção sincronizada', async () => {
     await renderReelWithVideo();
+    // Camadas virou seção da barra única: a lista só existe depois de abrir.
+    fireEvent.click(screen.getByRole('button', { name: 'Camadas' }));
     const videoLayer = await screen.findByRole('button', { name: 'Selecionar camada Vídeo' });
     fireEvent.click(videoLayer);
     await waitFor(() => expect(screen.getByTestId('canvas-media').className).toContain('selectedMedia'));
@@ -106,7 +108,9 @@ describe('editor de Reel (PRD Reels §3, §4, §6, §7)', () => {
     await renderReelWithVideo();
     await waitFor(() => expect(screen.getByLabelText('Fim do corte')).toBeTruthy());
     fireEvent.change(screen.getByLabelText('Fim do corte'), { target: { value: '15' } });
-    fireEvent.click(screen.getByRole('button', { name: /Salvar rascunho/ }));
+    // O botão da barra de cima passou a se chamar só "Salvar"; "Salvar
+    // rascunho" ficou dentro da seção Publicar.
+    fireEvent.click(screen.getByRole('button', { name: /^Salvar$/ }));
     await waitFor(() => expect(mocks.saveDraft).toHaveBeenCalled());
     const payload = mocks.saveDraft.mock.calls.at(-1)[0];
     expect(payload.editorState.doc.reel.video.end).toBe(15);

@@ -44,42 +44,75 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 const rail = () => within(screen.getByLabelText('Ferramentas do Composer'));
 
-function openLayouts() {
-  render(<VisualComposer brandId="brand-1" brandName="genkailabs" />);
-  fireEvent.click(rail().getByRole('button', { name: /Layouts/ }));
+/**
+ * A reorg separou as duas decisões: o conteúdo é escrito em "Criar" (que abre
+ * sozinha) e a forma é escolhida em "Layout". O popover "Gerar arte" com dois
+ * menuitens deu lugar a um par de chips de modo (Manual / Com IA) e a um botão
+ * só, cujo rótulo muda com o modo.
+ */
+function abrir(secao) {
+  fireEvent.click(rail().getByRole('button', { name: secao }));
 }
 
-/** Abre o popover do botão único e escolhe um dos dois caminhos (§6). */
-function gerar(opcao) {
-  fireEvent.click(screen.getByRole('button', { name: /Gerar arte/ }));
-  fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(opcao) }));
+function montar(props = {}) {
+  render(<VisualComposer brandId="brand-1" brandName="genkailabs" {...props} />);
 }
 
-describe('Composer — painel de Layouts', () => {
+/** Modo Manual: os campos da peça viram o conteúdo, e nada vai para a IA. */
+function modoManual() {
+  fireEvent.click(screen.getByRole('button', { name: 'Manual' }));
+}
+
+const montarComMeuConteudo = () => fireEvent.click(screen.getByRole('button', { name: /Montar com meu conteúdo/ }));
+const escreverComIA = () => fireEvent.click(screen.getByRole('button', { name: /Escrever com IA e montar/ }));
+
+describe('Composer — painel Layout (forma)', () => {
   it('oferece escolha automática de estrutura e de estilo', () => {
-    openLayouts();
-    expect(screen.getByText(/manchete, lista, comparação ou citação/)).toBeTruthy();
+    montar();
+    abrir('Layout');
+    expect(screen.getByText(/O Hub lê o conteúdo e decide/)).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /Escolher por mim/ }).length).toBe(2);
   });
 
-  it('mostra as estruturas manuais só quando o usuário pede', () => {
-    openLayouts();
-    expect(screen.queryByRole('button', { name: 'Citação' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Manual' }));
-    expect(screen.getByRole('button', { name: 'Citação' })).toBeTruthy();
+  // O catálogo inteiro não cabe no painel: ele mostra poucas recomendações e
+  // manda o resto para a Biblioteca.
+  it('o catálogo completo fica atrás da Biblioteca', () => {
+    montar();
+    abrir('Layout');
+    expect(screen.getByRole('button', { name: /Ver todos os layouts/ })).toBeTruthy();
   });
 
-  it('um único botão primário abre as duas formas de montar', () => {
-    openLayouts();
-    expect(screen.queryByRole('menuitem')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Gerar arte/ }));
-    expect(screen.getByRole('menuitem', { name: /Montar com o conteúdo atual/ })).toBeTruthy();
-    expect(screen.getByRole('menuitem', { name: /Escrever o conteúdo e montar/ })).toBeTruthy();
+  it('repassa o estilo escolhido à mão', async () => {
+    actions.buildLayoutForContent.mockResolvedValue({ ok: true, slides: [{ surface: builtSurface }], mascot: [], issues: [] });
+    montar();
+    abrir('Layout');
+    fireEvent.click(screen.getByRole('button', { name: /^Premium$/ }));
+
+    abrir('Criar');
+    modoManual();
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Titulo' } });
+    montarComMeuConteudo();
+
+    await waitFor(() => expect(actions.buildLayoutForContent).toHaveBeenCalled());
+    expect(actions.buildLayoutForContent.mock.calls[0][0].styleId).toBe('premium');
+  });
+});
+
+describe('Composer — painel Criar (conteúdo)', () => {
+  it('o modo escolhe o botão, e só existe um', () => {
+    montar();
+    expect(screen.getByRole('button', { name: /Escrever com IA e montar/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Montar com meu conteúdo/ })).toBeNull();
+
+    modoManual();
+    expect(screen.getByRole('button', { name: /Montar com meu conteúdo/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Escrever com IA e montar/ })).toBeNull();
   });
 
   it('não monta sem título e diz o porquê', async () => {
-    openLayouts();
-    gerar('Montar com o conteúdo atual');
+    montar();
+    modoManual();
+    montarComMeuConteudo();
     expect((await screen.findByRole('alert')).textContent).toMatch(/título/);
     expect(actions.buildLayoutForContent).not.toHaveBeenCalled();
   });
@@ -88,28 +121,15 @@ describe('Composer — painel de Layouts', () => {
     actions.buildLayoutForContent.mockResolvedValue({
       ok: true, slides: [{ surface: builtSurface }], mascot: ['Este conteúdo é uma notícia.'], issues: []
     });
-    openLayouts();
+    montar();
+    modoManual();
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Nova regra do imposto' } });
-    gerar('Montar com o conteúdo atual');
+    montarComMeuConteudo();
 
     await waitFor(() => expect(actions.buildLayoutForContent).toHaveBeenCalledTimes(1));
     expect(actions.buildLayoutForContent.mock.calls[0][0].content.title).toBe('Nova regra do imposto');
     expect(actions.buildLayoutForContent.mock.calls[0][0].structureId).toBeNull();
     expect(await screen.findByText(/Este conteúdo é uma notícia/)).toBeTruthy();
-  });
-
-  it('repassa a escolha manual de estrutura e de estilo', async () => {
-    actions.buildLayoutForContent.mockResolvedValue({ ok: true, slides: [{ surface: builtSurface }], mascot: [], issues: [] });
-    openLayouts();
-    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Titulo' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Manual' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Citação' }));
-    fireEvent.click(screen.getByRole('button', { name: /^Premium$/ }));
-    gerar('Montar com o conteúdo atual');
-
-    await waitFor(() => expect(actions.buildLayoutForContent).toHaveBeenCalled());
-    expect(actions.buildLayoutForContent.mock.calls[0][0].structureId).toBe('citacao');
-    expect(actions.buildLayoutForContent.mock.calls[0][0].styleId).toBe('premium');
   });
 
   it('mostra o que ainda precisa do usuário quando a validação não fecha', async () => {
@@ -119,39 +139,39 @@ describe('Composer — painel de Layouts', () => {
       mascot: [],
       issues: [{ id: 'cta_ausente', message: 'A peça exige chamada para ação.', fix: 'Adicionar um CTA curto.' }]
     });
-    openLayouts();
+    montar();
+    modoManual();
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Titulo' } });
-    gerar('Montar com o conteúdo atual');
+    montarComMeuConteudo();
     expect(await screen.findByText(/chamada para ação/)).toBeTruthy();
   });
 
   // O campo de itens escondia a regra: 2 linhas viram comparação, 3 viram
   // lista, e em carrossel cada linha vira um slide. Nada disso aparecia.
   it('o campo de itens diz o que os itens provocam, e acompanha o formato', () => {
-    openLayouts();
+    montar();
+    modoManual();
     expect(screen.getByText(/Sem itens: a arte sai com título e subtítulo/)).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText(/Itens/), { target: { value: 'um\ndois\ntrês' } });
     expect(screen.getByText('3 itens · habilita o layout de Lista.')).toBeTruthy();
-
-    // Trocar o formato muda o efeito dos mesmos itens.
-    fireEvent.click(within(screen.getByRole('group', { name: 'Formato e proporção' }))
-      .getByRole('button', { name: 'Carrossel' }));
-    expect(screen.getByText('3 itens · viram 4 slides (capa + 3).')).toBeTruthy();
   });
 
-  it('avisa quando a estrutura escolhida à mão não tem itens suficientes', () => {
-    openLayouts();
-    fireEvent.change(screen.getByLabelText(/Itens/), { target: { value: 'só um' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Manual' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }));
+  // A parte de carrossel desta regra saiu daqui de propósito: escolher
+  // "Carrossel" não abre mais o painel Criar, abre o Carrossel Studio. O texto
+  // por formato continua coberto em layouts-bullets-hint.test.js.
+  it('escolher Carrossel troca o Composer pelo Studio', () => {
+    montar();
+    fireEvent.click(within(screen.getByRole('group', { name: 'Formato' }))
+      .getByRole('button', { name: 'Carrossel' }));
 
-    expect(screen.getByText(/precisa de 3 itens — você tem 1/)).toBeTruthy();
+    expect(screen.queryByLabelText(/Itens/)).toBeNull();
+    expect(screen.getByText('Editor visual do Carrossel Studio')).toBeTruthy();
   });
 
   it('preenche os campos a partir da legenda existente', () => {
-    render(<VisualComposer brandId="brand-1" brandName="genkailabs" initialDraft={{ editor_state: { caption: 'Primeira linha do post\nSegunda linha explicando' } }} />);
-    fireEvent.click(rail().getByRole('button', { name: /Layouts/ }));
+    montar({ initialDraft: { editor_state: { caption: 'Primeira linha do post\nSegunda linha explicando' } } });
+    modoManual();
     fireEvent.click(screen.getByRole('button', { name: /Preencher com a legenda/ }));
     expect(screen.getByLabelText('Título').value).toBe('Primeira linha do post');
     expect(screen.getByLabelText('Subtítulo').value).toBe('Segunda linha explicando');
@@ -165,9 +185,9 @@ describe('Composer — falha da IA (§8)', () => {
       code: 'AI_INVALID_JSON',
       detail: 'AI_INVALID_JSON · resposta truncada em 1842 tokens'
     });
-    openLayouts();
-    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Tema qualquer' } });
-    gerar('Escrever o conteúdo e montar');
+    montar();
+    fireEvent.change(screen.getByLabelText('Tema'), { target: { value: 'Tema qualquer' } });
+    escreverComIA();
 
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText('Não foi possível montar a arte. Tente novamente.')).toBeTruthy();
@@ -180,9 +200,9 @@ describe('Composer — falha da IA (§8)', () => {
 
   it('tentar novamente refaz a mesma chamada', async () => {
     actions.generateLayoutFromBrief.mockResolvedValue({ error: 'Não foi possível montar a arte. Tente novamente.', code: 'AI_INVALID_JSON' });
-    openLayouts();
-    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Tema qualquer' } });
-    gerar('Escrever o conteúdo e montar');
+    montar();
+    fireEvent.change(screen.getByLabelText('Tema'), { target: { value: 'Tema qualquer' } });
+    escreverComIA();
 
     const dialog = await screen.findByRole('alertdialog');
     fireEvent.click(within(dialog).getByRole('button', { name: /Tentar novamente/ }));
@@ -202,9 +222,11 @@ describe('Composer — biblioteca de layouts (§12)', () => {
 
   it('aplica um layout salvo sem ida ao servidor', async () => {
     actions.getLayoutTemplates.mockResolvedValue({ templates: [saved] });
-    openLayouts();
+    montar();
+    modoManual();
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Assunto novo' } });
-    fireEvent.click(screen.getByRole('button', { name: /Biblioteca de layouts/ }));
+    abrir('Layout');
+    fireEvent.click(screen.getByRole('button', { name: /Ver todos os layouts/ }));
 
     const card = await screen.findByRole('button', { name: 'Aplicar layout Manchete da marca' });
     fireEvent.click(card);
@@ -216,8 +238,9 @@ describe('Composer — biblioteca de layouts (§12)', () => {
 
   it('filtra por categoria e por busca', async () => {
     actions.getLayoutTemplates.mockResolvedValue({ templates: [saved] });
-    openLayouts();
-    fireEvent.click(screen.getByRole('button', { name: /Biblioteca de layouts/ }));
+    montar();
+    abrir('Layout');
+    fireEvent.click(screen.getByRole('button', { name: /Ver todos os layouts/ }));
     await screen.findByRole('button', { name: 'Aplicar layout Manchete da marca' });
 
     fireEvent.change(screen.getByLabelText('Buscar layout'), { target: { value: 'manchete da marca' } });
@@ -230,8 +253,9 @@ describe('Composer — biblioteca de layouts (§12)', () => {
   it('renomeia um layout salvo reaproveitando a mesma linha', async () => {
     actions.getLayoutTemplates.mockResolvedValue({ templates: [saved] });
     actions.renameLayoutTemplate.mockResolvedValue({ ok: true, name: 'Outro nome' });
-    openLayouts();
-    fireEvent.click(screen.getByRole('button', { name: /Biblioteca de layouts/ }));
+    montar();
+    abrir('Layout');
+    fireEvent.click(screen.getByRole('button', { name: /Ver todos os layouts/ }));
 
     fireEvent.click(await screen.findByRole('button', { name: 'Renomear layout Manchete da marca' }));
     const input = screen.getByLabelText('Novo nome para Manchete da marca');
@@ -245,9 +269,11 @@ describe('Composer — biblioteca de layouts (§12)', () => {
 
   it('aplicar uma estrutura padrão monta com o conteúdo atual', async () => {
     actions.buildLayoutForContent.mockResolvedValue({ ok: true, slides: [{ surface: builtSurface }], mascot: [], issues: [] });
-    openLayouts();
+    montar();
+    modoManual();
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Tema' } });
-    fireEvent.click(screen.getByRole('button', { name: /Biblioteca de layouts/ }));
+    abrir('Layout');
+    fireEvent.click(screen.getByRole('button', { name: /Ver todos os layouts/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Aplicar layout Manchete' }));
 
     await waitFor(() => expect(actions.buildLayoutForContent).toHaveBeenCalled());

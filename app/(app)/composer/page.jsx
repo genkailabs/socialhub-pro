@@ -7,6 +7,7 @@ import { resolveActive } from '@/lib/brands';
 import { listConnectedPlatforms } from '@/lib/social-tokens-data';
 import { getComposerPost, getLatestComposerDraft } from '@/lib/posts-data';
 import { getBrandKit } from '@/lib/brand-kit-data';
+import { brandKitToStudioBrand, getLatestStudioDraft } from '@/lib/carrossel-studio-data';
 
 // Só o que a montagem da arte usa — nada de DNA bruto no cliente.
 function publicBrandKit(kit) {
@@ -27,14 +28,20 @@ export default async function ComposerPage({ searchParams }) {
     getActiveBrandId()
   ]);
   const active = resolveActive(brands, activeBrandId);
-  const [connected, brandKit] = active
-    ? await Promise.all([listConnectedPlatforms(active.id), getBrandKit(active.id)])
-    : [{}, null];
+  const [connected, brandKit, studioDraft] = active
+    ? await Promise.all([listConnectedPlatforms(active.id), getBrandKit(active.id), getLatestStudioDraft(active.id)])
+    : [{}, null, null];
   const requestedPostId = typeof searchParams?.post === 'string' ? searchParams.post : null;
+  const initialFormat = searchParams?.format === 'carrossel' ? 'carrossel' : null;
   const initialDraft = active
-    ? requestedPostId
+    ? initialFormat === 'carrossel'
+      ? null
+      : requestedPostId
       ? await getComposerPost(active.id, requestedPostId)
       : await getLatestComposerDraft(active.id)
+    : null;
+  const studioBrand = active
+    ? brandKitToStudioBrand(brandKit, active.name, connected.instagram?.platform_username || active.name)
     : null;
 
   return (
@@ -49,6 +56,9 @@ export default async function ComposerPage({ searchParams }) {
             brandLabel={active.name}
             brandKit={publicBrandKit(brandKit)}
             initialDraft={initialDraft}
+            studioBrand={studioBrand}
+            studioDraft={studioDraft}
+            initialFormat={initialFormat}
           />
           {/* Composer não tem cabeçalho: o mascote fica numa bolha fixa, fechada por padrão. */}
           <MascotTip
