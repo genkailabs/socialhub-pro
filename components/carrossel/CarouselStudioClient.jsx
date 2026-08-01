@@ -354,8 +354,28 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                   <p className="font-semibold text-ink">Vamos montar o seu carrossel</p>
                   <p className="mt-0.5 text-xs leading-relaxed text-muted">Me diga o assunto. Eu proponho as capas e só envio o roteiro ao Studio depois da sua aprovação.</p>
                   <label className="sr-only" htmlFor="carousel-topic">Assunto do carrossel</label>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <input id="carousel-topic" value={topic} onChange={(event) => setTopic(event.target.value)} maxLength={280} placeholder="Ex.: Como pequenas empresas podem usar IA sem perder qualidade" className="min-w-0 flex-1 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink" />
+                  {/* Empilhado sempre: `sm:flex-row` olhava a largura da JANELA,
+                      não a da gaveta. Numa tela larga ele punha campo e botão
+                      lado a lado dentro de 380px e sobrava um campo de dedo. */}
+                  <div className="mt-3 flex flex-col gap-2">
+                    {/* Textarea e não input: o assunto aceita 280 caracteres e
+                        numa linha só eles rolavam para o lado, escondendo o que
+                        a pessoa acabou de escrever. */}
+                    <textarea
+                      id="carousel-topic"
+                      value={topic}
+                      onChange={(event) => setTopic(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                          event.preventDefault();
+                          createDirections(event);
+                        }
+                      }}
+                      maxLength={280}
+                      rows={3}
+                      placeholder="Ex.: Como pequenas empresas podem usar IA sem perder qualidade"
+                      className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm leading-relaxed text-ink"
+                    />
                     <button type="submit" disabled={briefBusy || !topic.trim()} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{briefBusy ? 'Criando…' : 'Gerar 5 ideias'} <Sparkles size={14} /></button>
                   </div>
                   <details className="mt-2 text-xs text-muted">
