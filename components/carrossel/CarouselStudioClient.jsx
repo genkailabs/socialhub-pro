@@ -4,10 +4,10 @@
 // roteiro editorial já aprovado para edição visual e exportação.
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CalendarClock, CheckCircle2, ChevronLeft, FileText, Loader2, PanelLeft, Sparkles } from 'lucide-react';
+import { ArrowRight, CalendarClock, CheckCircle2, ChevronLeft, FileText, Loader2, PanelLeft, Sparkles, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { uploadTempMedia } from '@/lib/posts-media';
-import { saveDraft } from '@/lib/posts-actions';
+import { deleteComposerDraft, saveDraft } from '@/lib/posts-actions';
 import { Mascot } from '@/components/onboarding/Mascot';
 import { CarouselStudioFrame } from './CarouselStudioFrame';
 
@@ -70,6 +70,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   const [initialScript, setInitialScript] = useState(scriptForBrief(editorial?.brief));
   const [studioKey, setStudioKey] = useState(0);
   const [editorialOpen, setEditorialOpen] = useState(!editorial?.approvedAt);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const changeTimer = useRef(null);
   const saveChain = useRef(Promise.resolve());
   const draftIdRef = useRef(draft?.id || null);
@@ -240,6 +241,44 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
     }
   }
 
+  // O carrossel nasce como rascunho salvo, e até aqui não havia como jogar fora
+  // o que não presta: a barra do Composer que traz "Excluir rascunho" some
+  // quando o formato é carrossel, e o rascunho do carrossel é deste componente,
+  // não do Composer. Descartar limpa o roteiro, o documento e remonta o Studio
+  // do zero — senão o iframe continuaria mostrando a arte que acabou de sumir.
+  async function discardDraft() {
+    if (!draftId) return;
+    setBusy(true);
+    setConfirmDiscard(false);
+    try {
+      const result = await deleteComposerDraft({ brandId, draftId });
+      if (result?.error) {
+        setMessage(result.error);
+        return;
+      }
+      draftIdRef.current = null;
+      mediaUrlsRef.current = [];
+      setDraftId(null);
+      setDoc(null);
+      setDirections(null);
+      setBrief(null);
+      setSources([]);
+      setSelectedHeadlineId(null);
+      setApprovedEditorial(null);
+      setInitialScript('');
+      setTopic('');
+      setSourceMaterial('');
+      setSavedAt(null);
+      setEditorialOpen(true);
+      setStudioKey((value) => value + 1);
+      setMessage('Rascunho descartado. Comece um novo carrossel.');
+    } catch (error) {
+      setMessage(error.message || 'Não foi possível descartar o rascunho.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const selectedHeadline = directions?.headlineOptions?.find((item) => item.id === selectedHeadlineId);
   const step = brief ? 3 : directions ? 2 : 1;
 
@@ -261,9 +300,28 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           {(busy || briefBusy) && <Loader2 className="animate-spin" size={16} />}
           {!busy && !briefBusy && savedAt && <CheckCircle2 size={16} className="text-success" />}
           {message && <span className="max-w-md text-muted">{message}</span>}
+          {draftId && <button
+            type="button"
+            onClick={() => setConfirmDiscard(true)}
+            disabled={busy}
+            title="Descartar este rascunho"
+            aria-label="Descartar este rascunho"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-muted hover:border-danger/40 hover:bg-surface-2 hover:text-danger disabled:opacity-50"
+          ><Trash2 size={15} /></button>}
           <Link href="/calendar" className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-ink hover:bg-surface-2"><CalendarClock size={15} /> Calendário</Link>
         </div>
       </div>
+
+      {confirmDiscard && <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="descartar-carrossel">
+        <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+          <h2 id="descartar-carrossel" className="text-base font-semibold text-ink">Descartar este rascunho?</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">O roteiro aprovado, os slides e as imagens enviadas somem. Não dá para desfazer.</p>
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setConfirmDiscard(false)} className="rounded-xl border border-line px-3 py-2 text-xs font-bold text-ink hover:bg-surface-2">Manter</button>
+            <button type="button" onClick={discardDraft} disabled={busy} className="rounded-xl bg-danger px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{busy ? 'Descartando…' : 'Descartar'}</button>
+          </div>
+        </div>
+      </div>}
 
       {/* O Studio ocupa o palco inteiro e a guia editorial entra por cima. Antes
           a guia era uma faixa empilhada aqui: com cinco cards de ideia ou oito
