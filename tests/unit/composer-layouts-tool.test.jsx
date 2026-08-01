@@ -16,8 +16,6 @@ vi.mock('@/lib/posts-actions', () => ({
   publishNow: vi.fn(), saveDraft: vi.fn(), schedulePost: vi.fn(), deleteComposerDraft: vi.fn()
 }));
 vi.mock('@/lib/layout-actions', () => ({
-  buildLayoutForContent: vi.fn(),
-  generateLayoutFromBrief: vi.fn(),
   getLayoutTemplates: vi.fn(async () => ({ templates: [] })),
   saveLayoutTemplate: vi.fn(),
   deleteLayoutTemplate: vi.fn(),
@@ -38,14 +36,12 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 // O Composer tinha três caminhos de arte convivendo: copiar prompt para uma IA
-// externa, o painel de notícia e o motor de layouts. Só o motor ficou — este
-// teste existe para que nenhum dos outros volte sem querer.
-describe('Composer: um único caminho de arte', () => {
-  // "Estratégia" e "Layouts" viraram "Criar" e "Layout": o conteúdo é escrito
-  // num, a forma é escolhida no outro.
-  it('oferece as seções Criar e Layout na barra', () => {
+// externa, o painel de notícia e o motor de layouts. Nenhum ficou — o post é um
+// editor manual, e este teste existe para que nenhum deles volte sem querer.
+describe('Composer: nenhum caminho de geração de arte', () => {
+  it('a barra vai direto para a forma da peça, sem seção de conteúdo', () => {
     render(<VisualComposer brandId="brand-1" brandName="Marca" />);
-    expect(rail().getByRole('button', { name: 'Criar' })).toBeTruthy();
+    expect(rail().queryByRole('button', { name: 'Criar' })).toBeNull();
     expect(rail().getByRole('button', { name: 'Layout' })).toBeTruthy();
   });
 
@@ -58,19 +54,16 @@ describe('Composer: um único caminho de arte', () => {
     expect(screen.getByLabelText('Importar mídia')).toBeTruthy();
   });
 
-  // "Criar" é a seção que abre sozinha: a primeira decisão da peça é o
-  // conteúdo. Modo padrão é "Com IA", então o primeiro campo pede o tema.
-  it('o conteúdo é escrito em Criar, que já abre aberta', () => {
+  // O campo "Tema" era a entrada do motor de IA. Ele saiu com a seção "Criar".
+  it('não existe mais campo de tema pedindo o que a IA deve escrever', () => {
     render(<VisualComposer brandId="brand-1" brandName="Marca" />);
-    expect(screen.getByLabelText('Tema')).toBeTruthy();
+    expect(screen.queryByLabelText('Tema')).toBeNull();
   });
 
-  it('Layout abre com a escolha automática de estrutura e de estilo', () => {
+  // Layout é a seção que abre sozinha agora: era "Criar" que ocupava esse lugar.
+  it('Layout abre sozinho nos layouts salvos, sem catálogo nem estilo', () => {
     render(<VisualComposer brandId="brand-1" brandName="Marca" />);
-    fireEvent.click(rail().getByRole('button', { name: 'Layout' }));
-    // "Escolher por mim" é o padrão nos dois: sem ele o usuário precisaria
-    // entender o catálogo interno antes de conseguir a primeira arte.
-    expect(screen.getAllByRole('button', { name: /Escolher por mim/ }).length).toBe(2);
-    expect(screen.getByText(/O Hub lê o conteúdo e decide/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Escolher por mim/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Ver todos os layouts/ })).toBeTruthy();
   });
 });

@@ -11,7 +11,6 @@ import { addLayer, makeComposerDocument } from '@/lib/composer-editor';
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ storage: { from: () => ({}) } }) }));
 vi.mock('@/lib/posts-actions', () => ({ publishNow: vi.fn(), saveDraft: vi.fn(), schedulePost: vi.fn(), deleteComposerDraft: vi.fn() }));
 vi.mock('@/lib/layout-actions', () => ({
-  buildLayoutForContent: vi.fn(), generateLayoutFromBrief: vi.fn(),
   getLayoutTemplates: vi.fn(async () => ({ templates: [] })),
   saveLayoutTemplate: vi.fn(), deleteLayoutTemplate: vi.fn(), renameLayoutTemplate: vi.fn()
 }));
@@ -50,24 +49,14 @@ describe('markup do Composer para inspeção', () => {
     }));
     const vazio = renderToStaticMarkup(React.createElement(VisualComposer, base));
 
-    // O painel Layouts não aparece nos dois de cima (o Composer abre em
-    // "Formato"), e é justamente ali que o aviso de itens precisa caber sem
-    // empurrar o rodapé fixo de "Gerar arte". Renderizado à parte, dentro do
-    // mesmo <aside> que o painel usa na tela real.
+    // O painel Layout à parte, dentro do mesmo <aside> que ele ocupa na tela
+    // real: os campos e o rodapé de "Gerar arte" saíram com a seção "Criar", e
+    // é aqui que se vê se o que sobrou ainda ocupa a coluna de forma decente.
     const { LayoutsPanel } = await import('@/components/composer/LayoutsPanel');
     const painel = (props) => renderToStaticMarkup(React.createElement(
       'div',
       { className: 'shell' },
       React.createElement(LayoutsPanel, {
-        format: 'post',
-        caption: '',
-        fields: { title: 'Meta transforma sua IA em um agente', subtitle: 'o que muda para quem usa', bullets: '', cta: '' },
-        onFields: () => {},
-        structureId: '',
-        onStructure: () => {},
-        styleId: '',
-        onStyle: () => {},
-        onGenerate: () => {},
         onOpenLibrary: () => {},
         onSaveCurrent: () => {},
         canSaveCurrent: false,
@@ -77,13 +66,7 @@ describe('markup do Composer para inspeção', () => {
 
     fs.mkdirSync(OUT, { recursive: true });
     fs.writeFileSync(path.join(OUT, 'painel-vazio.html'), painel({}));
-    fs.writeFileSync(path.join(OUT, 'painel-3itens.html'), painel({
-      fields: { title: 'Três erros que derrubam seu alcance', subtitle: '', bullets: 'Não responda comentário com link\nPoste sempre no mesmo horário\nUse 3 hashtags, não 30', cta: 'salve para depois' }
-    }));
-    fs.writeFileSync(path.join(OUT, 'painel-alerta.html'), painel({
-      structureId: 'lista',
-      fields: { title: 'Três erros que derrubam seu alcance', subtitle: '', bullets: 'só um item', cta: '' }
-    }));
+    fs.writeFileSync(path.join(OUT, 'painel-com-peca.html'), painel({ canSaveCurrent: true }));
 
     // O CSS do build tem hashes diferentes dos que o bundler do teste gera:
     // usar um com o outro produz um PNG sem estilo nenhum, que mente sobre a

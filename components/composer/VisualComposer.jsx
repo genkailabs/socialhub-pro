@@ -30,17 +30,12 @@ import {
 import { GRAPHIC_TYPES, isTextLayer, layerBoxStyle, layerLineBgStyle } from '@/lib/composer-layer-style';
 import { clampTrim, getReelState } from '@/lib/composer-reel';
 import {
-  buildLayoutForContent, deleteLayoutTemplate, generateLayoutFromBrief,
-  getLayoutTemplates, renameLayoutTemplate, saveLayoutTemplate
+  deleteLayoutTemplate, getLayoutTemplates, renameLayoutTemplate, saveLayoutTemplate
 } from '@/lib/layout-actions';
 import { applyLayoutTemplate } from '@/lib/layouts/templates';
 import { LayoutsPanel } from './LayoutsPanel';
-import { CreatePanel, EMPTY_FIELDS } from './CreatePanel';
 import { StockPanel } from './StockPanel';
-import { DEFAULT_MODE_ID, goalForPrompt, pieceTypeById, structuresForPieceType } from '@/lib/composer-strategy';
-import { structureById } from '@/lib/layouts/structures';
 import { CanvasToolbar, alignedPosition } from './CanvasToolbar';
-import { GenerationErrorModal, GenerationProgressModal } from './GenerationModal';
 import { LayoutLibrary } from './LayoutLibrary';
 import { ArrowGraphic, IconGraphic, LineGraphic, ShapeGraphic } from './ElementGraphics';
 import { ReelTimeline } from './ReelTimeline';
@@ -55,12 +50,12 @@ const FORMAT_META = {
   story: ['Story', 'Vertical 9:16'],
   reel: ['Reel', 'Vídeo vertical']
 };
-// Uma barra só, oito seções, na ordem em que a peça acontece (§3 da reorg).
+// Uma barra só, sete seções, na ordem em que a peça acontece (§3 da reorg).
 //
 // O que saiu e por quê:
-// - "Estratégia" e "Layouts" viraram "Criar" e "Layout": a pessoa decidia o
-//   objetivo num painel e escrevia o conteúdo em outro, com a geração no
-//   segundo — dois painéis para uma decisão só.
+// - "Criar" saiu inteira, e com ela a geração de arte no Composer de post: o
+//   painel escrevia conteúdo e chamava o motor, e o post passou a ser um
+//   editor manual. Quem quer peça montada por IA usa o Carrossel Studio.
 // - "Formato" subiu para a barra de cima, onde já moravam formato e proporção
 //   em outra fileira. Eram os mesmos controles em dois lugares.
 // - "Camadas" desceu da direita para cá: dois painéis laterais disputando a
@@ -68,7 +63,6 @@ const FORMAT_META = {
 // - "Config." sai da barra e passa a abrir pelo chip da marca lá em cima, que
 //   até aqui só decorava.
 const TOOLS = [
-  ['criar', Sparkles, 'Criar'],
   ['layout', LayoutTemplate, 'Layout'],
   ['midia', ImageIcon, 'Mídia'],
   ['texto', Type, 'Texto'],
@@ -207,9 +201,9 @@ export function VisualComposer({
   initialFormat = null
 }) {
   const [state, setState] = useState(() => baseState(initialDraft, initialFormat));
-  // Abre em "Criar": o Composer começa numa decisão de conteúdo, não numa de
-  // formato — o formato agora mora na barra de cima e está sempre visível.
-  const [tool, setTool] = useState('criar');
+  // Abre em "Layout": sem a seção "Criar" a primeira porta é a forma da peça —
+  // o formato mora na barra de cima e está sempre visível.
+  const [tool, setTool] = useState('layout');
   const [elementCategory, setElementCategory] = useState('Formas');
   const [elementSearch, setElementSearch] = useState('');
   const [emojiCategory, setEmojiCategory] = useState('recentes');
@@ -224,25 +218,8 @@ export function VisualComposer({
   // usuário escolheu na toolbar e vale até ele pedir "Ajustar" de novo.
   const [fitScale, setFitScale] = useState(1);
   const [zoomMode, setZoomMode] = useState('fit');
-  // Estratégia da peça (PRD 01 §3/§4/§5). Vazio = "ainda não decidi": objetivo
-  // e tipo são opcionais, e sem eles o Composer se comporta como antes.
-  // `creationMode`, não `mode`: `runGeneration(mode, …)` já usa esse nome para
-  // outra coisa ('content' | 'ai') e o sombreamento passaria despercebido.
-  const [creationMode, setCreationMode] = useState(DEFAULT_MODE_ID);
-  const [objective, setObjective] = useState('');
-  const [pieceType, setPieceType] = useState('');
-  const [layoutFields, setLayoutFields] = useState(EMPTY_FIELDS);
-  const [structureId, setStructureId] = useState('');
-  const [styleId, setStyleId] = useState('');
-  const [generation, setGeneration] = useState({ status: 'idle', message: '', detail: '', mode: null });
-  // Etapa 3 do "Criar": o que o motor escolheu e por quê. Antes a decisão saía
-  // só como frase do mascote no meio de uma coluna de campos.
-  const [lastResult, setLastResult] = useState(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [templates, setTemplates] = useState([]);
-  const [mascot, setMascot] = useState([]);
-  const [issues, setIssues] = useState([]);
-  const [layoutError, setLayoutError] = useState('');
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [busy, setBusy] = useState('');
@@ -490,9 +467,10 @@ export function VisualComposer({
     setState((current) => ({ ...current, sel: null, editing: null }));
   }
 
-  // ---- Layouts e geração (PRD §6, §7, §12) --------------------------------
-  // A geração vive aqui, e não dentro do painel: o modal de progresso é da
-  // tela inteira e o estado vazio do canvas dispara exatamente o mesmo fluxo.
+  // ---- Layouts salvos (PRD §6, §7, §12) -----------------------------------
+  // A geração de arte saiu do Composer de post junto com a seção "Criar": o
+  // que resta aqui é aplicar layout salvo, que é montado no cliente e não
+  // depende do motor.
   useEffect(() => {
     let alive = true;
     getLayoutTemplates(brandId)
@@ -501,130 +479,46 @@ export function VisualComposer({
     return () => { alive = false; };
   }, [brandId]);
 
-  function contentFromFields(fields = layoutFields) {
+  // Sem a seção "Criar" não existem mais campos de conteúdo: o único texto que
+  // o Composer conhece é a legenda. Primeira linha vale como título e a segunda
+  // como apoio — a mesma leitura que o painel fazia ao "preencher com a
+  // legenda". Elemento dinâmico sem texto correspondente o template descarta.
+  function contentFromCaption() {
+    const lines = String(state.caption || '').split('\n').map((line) => line.trim()).filter(Boolean);
     return {
-      title: fields.title,
-      subtitle: fields.subtitle,
-      bullets: fields.bullets.split('\n').map((line) => line.trim()).filter(Boolean),
-      cta: fields.cta,
-      // Rascunho salvo antes destes campos existir não traz as chaves.
-      highlight: fields.highlight || '',
-      source: fields.source || '',
-      date: fields.date || '',
+      title: lines[0] || '',
+      subtitle: lines[1] || '',
+      bullets: [],
+      cta: '',
+      highlight: '',
+      source: '',
+      date: '',
       brand: brandName,
       caption: state.caption
     };
   }
 
-  function applyLayoutResult(result) {
-    setMascot(result.mascot || []);
-    setIssues(result.issues || []);
-    // A escolha do motor vira informação da tela, não só recado do mascote.
-    const first = result.slides?.[0];
-    if (first) {
-      setLastResult({
-        structureId: first.structureId,
-        structureLabel: first.structureLabel,
-        styleId: first.styleId,
-        styleLabel: first.styleLabel,
-        contentType: first.contentType,
-        slides: result.slides.length
-      });
-    }
-    applyLayoutSurfaces(result.slides.map((slide) => slide.surface));
-    flash(result.slides.length > 1 ? `${result.slides.length} slides montados` : 'Arte montada no canvas');
-  }
-
-  async function runGeneration(mode, overrides = {}) {
-    const fields = overrides.fields || layoutFields;
-    const structure = overrides.structureId !== undefined ? overrides.structureId : structureId;
-    const topic = fields.title.trim() || String(state.caption || '').trim();
-    if (mode === 'content' && !fields.title.trim()) {
-      setLayoutError('Escreva ao menos um título.');
-      setTool('criar');
-      return;
-    }
-    if (mode === 'ai' && !topic) {
-      setLayoutError('Escreva um tema ou uma legenda para a IA partir de algum lugar.');
-      setTool('criar');
-      return;
-    }
-
-    setLayoutError('');
-    setLibraryOpen(false);
-    setGeneration({ status: 'running', message: '', detail: '', mode, structureId: structure });
-    try {
-      const result = mode === 'ai'
-        ? await generateLayoutFromBrief({
-          // §4/§5: objetivo vira `brief.goal` (o prompt já lia e nunca recebia) e
-          // o tipo de peça vira `brief.pieceType`, que é o que liga as regras de
-          // notícia e a pesquisa. Estrutura e estilo vão junto: a IA escreve o
-          // texto, a forma continua sendo escolha de quem está no Composer.
-          brandId, brandName,
-          brief: {
-            topic, format: state.format,
-            goal: goalForPrompt(objective) || undefined,
-            pieceType: pieceTypeById(pieceType)?.label || undefined
-          },
-          format: state.format, ratio: state.ratio, media: surface?.media || null,
-          structureId: structure || null, styleId: styleId || null, objective: objective || null,
-          highlight: fields.highlight || ''
-        })
-        : await buildLayoutForContent({
-          brandId, content: contentFromFields(fields), format: state.format, ratio: state.ratio,
-          media: surface?.media || null, structureId: structure || null,
-          styleId: styleId || null, objective: objective || null
-        });
-
-      if (result.error) {
-        setGeneration({ status: 'error', message: result.error, detail: result.detail || '', mode, structureId: structure });
-        return;
-      }
-      if (mode === 'ai' && result.spec) {
-        const spec = result.spec;
-        // O destaque agora vem junto (§1.2). Quem já tinha escrito um destaque à
-        // mão continua mandando: a IA reescreve o texto, não a escolha da pessoa.
-        setLayoutFields((current) => ({
-          ...current,
-          title: spec.imageTitle || spec.headline || '',
-          subtitle: spec.subtext || '',
-          bullets: (spec.bullets || []).join('\n'),
-          cta: spec.cta || '',
-          highlight: current.highlight?.trim() ? current.highlight : (spec.highlight || '')
-        }));
-      }
-      applyLayoutResult(result);
-      setGeneration({ status: 'idle', message: '', detail: '', mode: null });
-    } catch (error) {
-      setGeneration({
-        status: 'error', mode, structureId: structure,
-        message: 'Não foi possível montar a arte. Tente novamente.',
-        detail: error?.message || ''
-      });
-    }
-  }
-
   function applyTemplateFromLibrary(template) {
     const built = applyLayoutTemplate(template.template, {
-      content: contentFromFields(),
+      content: contentFromCaption(),
       canvas: [cw, ch],
       media: surface?.media || null
     });
     applyLayoutSurfaces([built]);
-    setMascot([`Apliquei o layout "${template.name}" com o conteúdo atual.`]);
-    setIssues([]);
     setLibraryOpen(false);
     flash(`Layout "${template.name}" aplicado`);
   }
 
   async function saveCurrentAsLayout() {
-    const name = window.prompt('Nome do layout', layoutFields.title.trim() || 'Meu layout');
+    const name = window.prompt('Nome do layout', contentFromCaption().title || 'Meu layout');
     if (name === null) return;
     setBusy('save-layout');
     try {
       const result = await saveLayoutTemplate({
         brandId, name, surface, canvas: [cw, ch], format: state.format, ratio: state.ratio,
-        structureId: structureId || null, styleId: styleId || null
+        // Estrutura e estilo eram escolhas do fluxo de geração, que saiu junto
+        // com "Criar": o layout salvo agora é só a peça como ela está.
+        structureId: null, styleId: null
       });
       if (result.error) throw new Error(result.error);
       setTemplates((current) => [result.template, ...current]);
@@ -728,16 +622,12 @@ export function VisualComposer({
           license: metadata.license || null
         } : {})
       };
-      // §10: a estrutura escolhida diz se a peça é feita para foto ocupar o
-      // quadro e onde o rosto costuma ficar. Sem estrutura escolhida, nada
-      // muda — o encaixe segue sendo a foto inteira, centralizada.
-      const estrutura = structureById(structureId);
+      // O enquadramento por estrutura saiu com a seção "Criar": não há mais
+      // estrutura escolhida no post. A foto entra inteira e centralizada, e
+      // quem quiser outra coisa reenquadra à mão no canvas.
       targetSurface.bg = fitMediaToCanvas(
         { width: metadata.width, height: metadata.height },
-        canvasSize(target.format, effectiveRatio),
-        estrutura?.faceZone || estrutura?.inkOverImage
-          ? { mode: 'cover', anchor: estrutura.faceZone === 'topo' ? 'topo' : 'centro' }
-          : {}
+        canvasSize(target.format, effectiveRatio)
       );
     });
     setState((current) => targetIsActive(current, target)
@@ -1307,52 +1197,16 @@ export function VisualComposer({
           <div className={styles.panelHead}>
             <span>
               <strong>{PANEL_TITLES[tool]}</strong>
-              {tool === 'criar' && <small>Do tema à arte, em três passos</small>}
-              {tool === 'layout' && <small>A forma da peça</small>}
+              {tool === 'layout' && <small>Layouts salvos por você</small>}
               {tool === 'config' && <small>Opções da publicação</small>}
             </span>
             <IconButton title="Fechar painel" onClick={() => setTool(null)}><X size={14} /></IconButton>
           </div>
-          {tool === 'criar' ? <CreatePanel
-            format={state.format}
-            mode={creationMode}
-            objective={objective}
-            pieceType={pieceType}
-            caption={state.caption}
-            fields={layoutFields}
-            onFields={(patch) => setLayoutFields((current) => ({ ...current, ...patch }))}
-            onMode={setCreationMode}
-            onObjective={setObjective}
-            onPieceType={(id) => {
-              setPieceType(id);
-              // O tipo carrega as estruturas compatíveis (§5): se a estrutura
-              // fixada não é uma delas, volta para "escolher por mim" em vez de
-              // montar uma peça que contraria o tipo recém-escolhido.
-              const permitidas = structuresForPieceType(id);
-              if (structureId && permitidas.length && !permitidas.includes(structureId)) setStructureId('');
-            }}
-            busy={generation.status === 'running'}
-            error={layoutError}
-            result={lastResult}
-            mascot={mascot}
-            issues={issues}
-            structureId={structureId}
-            onGenerate={runGeneration}
-            onOpenLayouts={() => setTool('layout')}
-          /> : tool === 'layout' ? <LayoutsPanel
-            ratio={state.ratio}
-            format={state.format}
-            pieceType={pieceType}
-            content={contentFromFields()}
-            structureId={structureId}
-            onStructure={(id) => { setStructureId(id); if (surface.layers.length) runGeneration('content', { structureId: id }); }}
-            styleId={styleId}
-            onStyle={setStyleId}
-            busy={generation.status === 'running'}
-            error={layoutError}
+          {tool === 'layout' ? <LayoutsPanel
             onOpenLibrary={() => setLibraryOpen(true)}
             onSaveCurrent={saveCurrentAsLayout}
             canSaveCurrent={Boolean(surface.layers.length) && busy !== 'save-layout'}
+            busy={busy === 'save-layout'}
           /> : tool === 'camadas' ? <LayersPanel
             surface={surface}
             selected={state.sel}
@@ -1412,7 +1266,7 @@ export function VisualComposer({
             {/* Vídeo não vem de banco de foto: no Reel o canvas é o vídeo. */}
             {state.format !== 'reel' && <StockPanel
               format={state.format}
-              subject={layoutFields.title || ''}
+              subject={contentFromCaption().title}
               onPick={(photo) => pickMedia(photo.full, 'image', {
                 name: photo.alt || `Foto de ${photo.photographer}`,
                 width: photo.width,
@@ -1622,9 +1476,9 @@ export function VisualComposer({
               format={FORMAT_META[state.format][0]}
               ratio={state.ratio}
               size={`${cw} × ${ch} px`}
-              onGenerate={() => { setTool('criar'); setLayoutError(''); }}
               onMedia={() => setTool('midia')}
               onLayout={() => setLibraryOpen(true)}
+              onText={() => setTool('texto')}
             />}
             {state.format === 'carrossel' && <CarouselStrip state={state} setState={setState} onAction={carouselAction} onReorder={reorderSlide} />}
             {state.format === 'reel' && <>
@@ -1663,23 +1517,11 @@ export function VisualComposer({
       {libraryOpen && <LayoutLibrary
         templates={templates}
         onClose={() => setLibraryOpen(false)}
-        onApplyStructure={(id) => { setStructureId(id); runGeneration('content', { structureId: id }); }}
         onApplyTemplate={applyTemplateFromLibrary}
         onRename={renameTemplate}
         onDelete={removeTemplate}
         onSaveCurrent={saveCurrentAsLayout}
         canSaveCurrent={Boolean(surface.layers.length)}
-      />}
-      {generation.status === 'running' && <GenerationProgressModal
-        subtitle={`${FORMAT_META[state.format][0]} ${state.ratio}${styleId ? ` · estilo ${styleId}` : ''}`}
-        onCancel={() => setGeneration({ status: 'idle', message: '', detail: '', mode: null })}
-      />}
-      {generation.status === 'error' && <GenerationErrorModal
-        message={generation.message}
-        detail={generation.detail}
-        onRetry={() => runGeneration(generation.mode, { structureId: generation.structureId })}
-        onLibrary={() => { setGeneration({ status: 'idle', message: '', detail: '', mode: null }); setLibraryOpen(true); }}
-        onClose={() => setGeneration({ status: 'idle', message: '', detail: '', mode: null })}
       />}
 
       {modal === 'delete-draft'
@@ -1907,21 +1749,23 @@ function BrandKitSummary({ brandName, brandLabel, brandKit }) {
 
 // Estado vazio do canvas (§7): as três portas de entrada, cada uma abrindo a
 // função que já existe. Some assim que a primeira camada ou mídia entra.
-function CanvasEmptyState({ format, ratio, size, onGenerate, onMedia, onLayout }) {
+//
+// A porta "Escrever conteúdo" saiu com a seção "Criar": não existe mais
+// geração de arte no post, então prometer isso aqui seria mentir. Sobram as
+// portas que fazem o que dizem — mídia, layout salvo e texto.
+function CanvasEmptyState({ format, ratio, size, onMedia, onLayout, onText }) {
   return <div className={styles.emptyOverlay} data-testid="composer-empty-state">
     <div className={styles.emptyCard}>
       <span className={styles.emptyBadge}><Sparkles size={24} /></span>
       <h2>Comece sua criação</h2>
-      <p>Escreva o conteúdo e deixe a IA montar, ou comece de uma mídia ou de um layout pronto.</p>
+      <p>Comece de uma mídia, de um layout que você salvou ou de um texto no canvas.</p>
       <div className={styles.emptyActions}>
-        {/* Este botão abre o painel Criar — não dispara geração nenhuma. O
-            rótulo anterior ("Gerar com IA") prometia o que ele não faz. */}
-        <button type="button" className={`${styles.button} ${styles.primary} ${styles.emptyPrimary}`} onClick={onGenerate}>
-          <Sparkles size={16} /> Escrever conteúdo
+        <button type="button" className={`${styles.button} ${styles.primary} ${styles.emptyPrimary}`} onClick={onMedia}>
+          <ImageIcon size={16} /> Adicionar mídia
         </button>
         <div className={styles.emptyRow}>
-          <button type="button" className={`${styles.button} ${styles.outline}`} onClick={onMedia}><ImageIcon size={14} /> Mídia</button>
           <button type="button" className={`${styles.button} ${styles.outline}`} onClick={onLayout}><LayoutGrid size={14} /> Layout</button>
+          <button type="button" className={`${styles.button} ${styles.outline}`} onClick={onText}><Type size={14} /> Texto</button>
         </div>
       </div>
       <small>{format} · {ratio} · {size}</small>

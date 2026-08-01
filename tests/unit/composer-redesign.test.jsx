@@ -13,8 +13,6 @@ vi.mock('@/lib/posts-actions', () => ({
   publishNow: vi.fn(), saveDraft: vi.fn(), schedulePost: vi.fn(), deleteComposerDraft: vi.fn()
 }));
 vi.mock('@/lib/layout-actions', () => ({
-  buildLayoutForContent: vi.fn(),
-  generateLayoutFromBrief: vi.fn(),
   getLayoutTemplates: vi.fn(async () => ({ templates: [] })),
   saveLayoutTemplate: vi.fn(),
   deleteLayoutTemplate: vi.fn(),
@@ -23,8 +21,6 @@ vi.mock('@/lib/layout-actions', () => ({
 
 import { VisualComposer } from '@/components/composer/VisualComposer';
 import { alignedPosition } from '@/components/composer/CanvasToolbar';
-import * as GenerationModal from '@/components/composer/GenerationModal';
-import { GENERATION_STEPS } from '@/components/composer/GenerationModal';
 import { buildLibraryItems } from '@/components/composer/LayoutLibrary';
 
 beforeAll(() => {
@@ -63,9 +59,9 @@ describe('Composer — estado vazio do canvas (§5)', () => {
     render(<VisualComposer brandId="b1" brandName="marca" />);
     const empty = screen.getByTestId('composer-empty-state');
     expect(within(empty).getByText('Comece sua criação')).toBeTruthy();
-    expect(within(empty).getByRole('button', { name: /Escrever conteúdo/ })).toBeTruthy();
-    expect(within(empty).getByRole('button', { name: /Mídia/ })).toBeTruthy();
+    expect(within(empty).getByRole('button', { name: /Adicionar mídia/ })).toBeTruthy();
     expect(within(empty).getByRole('button', { name: /Layout/ })).toBeTruthy();
+    expect(within(empty).getByRole('button', { name: /Texto/ })).toBeTruthy();
   });
 
   it('some assim que existe um elemento', () => {
@@ -74,16 +70,14 @@ describe('Composer — estado vazio do canvas (§5)', () => {
     expect(screen.queryByTestId('composer-empty-state')).toBeNull();
   });
 
-  // O conteúdo saiu do painel de Layouts e passou a ter seção própria: "Criar".
-  // No modo padrão (IA) o primeiro campo é o tema, não o título pronto.
-  it('"Escrever conteúdo" abre o painel Criar, que é onde o conteúdo é escrito', () => {
+  // "Escrever conteúdo" abria o painel Criar, que sumiu junto com a geração.
+  it('"Adicionar mídia" abre o painel de Mídia', () => {
     render(<VisualComposer brandId="b1" brandName="marca" />);
-    // Criar abre sozinha; sair dela primeiro é o que faz o teste poder falhar.
-    openTool('Mídia');
-    expect(screen.queryByLabelText('Tema')).toBeNull();
+    openTool('Layout');
+    expect(screen.queryByLabelText('Importar mídia')).toBeNull();
 
-    fireEvent.click(within(screen.getByTestId('composer-empty-state')).getByRole('button', { name: /Escrever conteúdo/ }));
-    expect(screen.getByLabelText('Tema')).toBeTruthy();
+    fireEvent.click(within(screen.getByTestId('composer-empty-state')).getByRole('button', { name: /Adicionar mídia/ }));
+    expect(screen.getByLabelText('Importar mídia')).toBeTruthy();
   });
 
   it('"Layout" abre a biblioteca', async () => {
@@ -211,44 +205,18 @@ describe('Composer — Brand Kit e prévia (§13, §14)', () => {
   });
 });
 
-describe('Geração: descreve o trabalho sem medir o que não mede (§7)', () => {
-  // O backend não emite progresso. As etapas descrevem o que a geração faz; não
-  // existe mais porcentagem nem etapa "concluída" avançando por timer.
-  it('lista as etapas sem expor progresso numérico', () => {
-    expect(GENERATION_STEPS.length).toBeGreaterThan(0);
-    expect(GenerationModal.generationProgress).toBeUndefined();
-    expect(GenerationModal.GENERATION_STALL_STEP).toBeUndefined();
-  });
-});
-
-describe('Biblioteca: catálogo interno + salvos, sem segunda estrutura no banco (§12)', () => {
-  it('junta os layouts salvos da marca com as estruturas padrão', () => {
+describe('Biblioteca: só os layouts salvos (§12)', () => {
+  // O catálogo de estruturas saía daqui direto para o motor de geração, que foi
+  // removido do Composer de post. Oferecer um card que não monta nada seria
+  // pior que não oferecer card nenhum.
+  it('lista os layouts salvos da marca e nada do catálogo', () => {
     const items = buildLibraryItems([{ id: 't1', name: 'Meu', category: 'jornalistico', template: { canvas: [430, 430], elements: [] } }]);
+    expect(items.length).toBe(1);
     expect(items[0]).toMatchObject({ saved: true, templateId: 't1' });
-    expect(items.filter((item) => !item.saved).length).toBeGreaterThan(5);
     expect(items.every((item) => Array.isArray(item.blocks))).toBe(true);
   });
 
-  // PRD 02 §11: o card mostra o que a peça exige. A ficha só existe para as
-  // estruturas do catálogo — layout salvo não tem contrato para derivar dela,
-  // e é isso que faz o filtro de foto escondê-lo em vez de mostrá-lo sem
-  // atender ao que foi pedido.
-  it('anexa a ficha as estruturas do catalogo, e nao aos layouts salvos', () => {
-    const items = buildLibraryItems([{ id: 't1', name: 'Meu', category: 'jornalistico', template: { canvas: [430, 430], elements: [] } }]);
-    const salvo = items.find((item) => item.saved);
-    const catalogo = items.filter((item) => !item.saved);
-
-    expect(salvo.card).toBeUndefined();
-    for (const item of catalogo) {
-      expect(item.card, item.name).toBeTruthy();
-      expect(typeof item.card.needsPhoto, item.name).toBe('boolean');
-      expect(['pouco', 'medio', 'muito'], item.name).toContain(item.card.textLevel);
-      expect(item.card.recommendedFor, item.name).toBeTruthy();
-    }
-    // Os templates de alto impacto entraram e pedem foto.
-    const hero = catalogo.find((item) => item.structureId === 'hero-editorial');
-    expect(hero.card.needsPhoto).toBe(true);
-    const pessoa = catalogo.find((item) => item.structureId === 'manchete-pessoa');
-    expect(pessoa.card.withPerson).toBe(true);
+  it('sem layout salvo, a biblioteca fica vazia', () => {
+    expect(buildLibraryItems([])).toEqual([]);
   });
 });

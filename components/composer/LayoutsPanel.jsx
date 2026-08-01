@@ -1,33 +1,15 @@
 'use client';
 
-import { LayoutGrid, Sparkles } from 'lucide-react';
-import {
-  STRUCTURES, shapeOf, structureCard, eligibleStructures, structureById
-} from '@/lib/layouts/structures';
-import { VISUAL_STYLES } from '@/lib/layouts/styles';
+import { LayoutGrid } from 'lucide-react';
+import { STRUCTURES, shapeOf, eligibleStructures } from '@/lib/layouts/structures';
 import { canvasSize } from '@/lib/composer-editor';
 import { structuresForPieceType } from '@/lib/composer-strategy';
 import styles from './VisualComposer.module.css';
 
-// Reexportados daqui porque o Composer e os testes já importavam por este
-// caminho quando os campos moravam neste painel. O dono deles agora é o
-// CreatePanel — a peça é escrita lá.
-export { EMPTY_FIELDS, fieldsFromCaption } from './CreatePanel';
-
-// Swatch por estilo (§5 do handoff). Cor só de identificação na lista — a
-// paleta real da peça continua vindo do Brand Kit e do estilo.
-const STYLE_SWATCH = {
-  editorial: '#8b7bd6',
-  jornalistico: '#e0483c',
-  tecnologia: '#3ccfb0',
-  minimalista: '#c9cfd8',
-  corporativo: '#6ea8fe',
-  premium: '#c9a227',
-  acolhedor: '#f0a03c',
-  comercial: '#f05c5c'
-};
-
-const TEXT_LEVEL_LABEL = { pouco: 'pouco texto', medio: 'texto médio', muito: 'muito texto' };
+// As três funções abaixo consultam o catálogo de estruturas. O painel não as
+// usa mais — a lista de estruturas saiu com a geração —, mas elas continuam
+// sendo a leitura do catálogo que o motor faz, e é por elas que o teste de
+// fiação verifica se as duas listas ainda concordam.
 
 // Quantas estruturas entram em "recomendadas". Acima disso já é catálogo, e
 // catálogo tem lugar próprio (a Biblioteca).
@@ -77,95 +59,27 @@ export function recommendedStructures({ format, ratio, pieceType, content }) {
   return (cabem.length ? cabem : doTipo).slice(0, MAX_RECOMENDADAS);
 }
 
-function StructureCard({ structure, active, onSelect }) {
-  const card = structureCard(structure);
-  return <button
-    type="button"
-    className={`${styles.layoutCard} ${active ? styles.layoutCardActive : ''}`}
-    onClick={() => onSelect(structure.id)}
-  >
-    {/* Miniatura desenhada dos próprios slots: nada de imagem de catálogo que
-        envelhece separada da estrutura. */}
-    <span className={styles.layoutThumb} aria-hidden="true">
-      {structure.slots.filter((slot) => slot.component !== 'sobreposicao').slice(0, 7).map((slot, index) => <span
-        key={`${slot.component}-${index}`}
-        className={slot.component === 'imagem-principal' ? styles.thumbMedia : styles.thumbBlock}
-        style={{ left: `${slot.x * 100}%`, top: `${slot.y * 100}%`, width: `${slot.w * 100}%`, height: `${Math.max(0.02, slot.h) * 100}%` }}
-      />)}
-    </span>
-    <span className={styles.layoutCardBody}>
-      <strong>{card.label}</strong>
-      <em>{card.recommendedFor}</em>
-      <span className={styles.layoutTags}>
-        <span className={card.needsPhoto ? styles.tagOn : styles.tag}>{card.needsPhoto ? 'precisa de foto' : 'sem foto'}</span>
-        <span className={styles.tag}>{TEXT_LEVEL_LABEL[card.textLevel]}</span>
-        {card.withPerson && <span className={styles.tag}>pessoa</span>}
-      </span>
-    </span>
-  </button>;
-}
-
 /**
- * Seção "Layout" (§5 da reorg): estrutura primeiro, estilo depois.
+ * Seção "Layout": os layouts que a pessoa salvou.
  *
- * O painel antigo misturava campos de texto, estrutura e estilo na mesma
- * coluna. Aqui só existe a FORMA — o conteúdo é escrito em "Criar".
+ * O catálogo de estruturas e a lista de estilos saíram junto com a seção
+ * "Criar". Os dois só faziam sentido alimentando o motor de geração, que não
+ * existe mais no Composer de post: estrutura escolhida sem motor não monta
+ * peça nenhuma, e um seletor que não muda nada é pior que nenhum. O que sobra
+ * aplica de verdade, no cliente — um layout salvo por você.
  */
-export function LayoutsPanel({
-  format, ratio = '1:1', pieceType = '', content = {},
-  structureId, onStructure, styleId, onStyle,
-  busy, error = '', onOpenLibrary, onSaveCurrent, canSaveCurrent
-}) {
-  const recomendadas = recommendedStructures({ format, ratio, pieceType, content });
-  // A estrutura fixada pela pessoa entra na lista mesmo fora da recomendação:
-  // some dali seria esconder a escolha dela.
-  const fixada = structureId && !recomendadas.some((s) => s.id === structureId) ? structureById(structureId) : null;
-  const lista = fixada ? [fixada, ...recomendadas] : recomendadas;
-
+export function LayoutsPanel({ busy, onOpenLibrary, onSaveCurrent, canSaveCurrent }) {
   return (
     <>
       <div className={styles.panelBody}>
-        <div className={styles.sectionLabel}>ESTRUTURAS RECOMENDADAS</div>
-        <button
-          type="button"
-          className={`${styles.layoutAuto} ${structureId ? '' : styles.layoutCardActive}`}
-          onClick={() => onStructure('')}
-        ><Sparkles size={14} /> Escolher por mim
-          <em>O Hub lê o conteúdo e decide entre as {lista.length} abaixo.</em>
-        </button>
-        <div className={styles.layoutList}>
-          {lista.map((structure) => <StructureCard
-            key={structure.id}
-            structure={structure}
-            active={structureId === structure.id}
-            onSelect={onStructure}
-          />)}
-        </div>
+        <div className={styles.sectionLabel}>LAYOUTS SALVOS</div>
+        <p className={styles.fieldHint}>
+          Monte a peça no canvas, salve como layout e reaproveite a mesma forma
+          nos próximos posts.
+        </p>
         <button type="button" className={styles.linkButton} onClick={onOpenLibrary}>
           <LayoutGrid size={13} /> Ver todos os layouts
         </button>
-
-        {/* Estilo DEPOIS da estrutura: escolher a roupa antes do corpo era
-            parte da mistura que deixava a tela confusa. */}
-        <div className={styles.sectionLabel}>ESTILO VISUAL</div>
-        <div className={styles.styleList}>
-          <button
-            type="button"
-            className={styleId ? styles.styleItem : `${styles.styleItem} ${styles.styleItemActive}`}
-            onClick={() => onStyle('')}
-          ><span className={styles.styleSwatch} style={{ background: 'var(--vc-accent)' }} />Escolher por mim</button>
-          {VISUAL_STYLES.map((style) => <button
-            key={style.id}
-            type="button"
-            className={styleId === style.id ? `${styles.styleItem} ${styles.styleItemActive}` : styles.styleItem}
-            onClick={() => onStyle(style.id)}
-          >
-            <span className={styles.styleSwatch} style={{ background: STYLE_SWATCH[style.id] || 'var(--vc-faint)' }} />
-            {style.label}
-          </button>)}
-        </div>
-
-        {error && <div className={styles.error} role="alert">{error}</div>}
       </div>
 
       <div className={styles.panelFooter}>

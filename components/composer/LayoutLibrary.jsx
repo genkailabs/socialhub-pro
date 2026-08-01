@@ -2,33 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { Check, Pencil, Search, Trash2, X } from 'lucide-react';
-import { STRUCTURES, structureCard } from '@/lib/layouts/structures';
 import styles from './VisualComposer.module.css';
 
-// Miniatura desenhada a partir do próprio layout (§12): os slots da estrutura
-// e as camadas do template salvo já trazem posição e tamanho. Um placeholder
-// genérico faria todos os cards parecerem iguais.
-const BLOCK_TONE = {
-  'selo-categoria': 'accent',
-  'destaque-palavra': 'accent',
-  'divisor': 'accent',
-  'imagem-principal': 'media',
-  'sobreposicao': 'veil',
-  'titulo': 'strong',
-  'numero': 'strong'
-};
-
-function structureBlocks(structure) {
-  return structure.slots.map((slot, index) => ({
-    key: `${slot.component}-${index}`,
-    x: slot.x * 100,
-    y: slot.y * 100,
-    w: slot.w * 100,
-    h: Math.max(slot.h * 100, 1.6),
-    tone: BLOCK_TONE[slot.component] || 'soft'
-  }));
-}
-
+// Miniatura desenhada a partir do próprio layout (§12): as camadas do template
+// salvo já trazem posição e tamanho. Um placeholder genérico faria todos os
+// cards parecerem iguais.
 function templateBlocks(template) {
   const [canvasW, canvasH] = template?.canvas || [430, 430];
   if (!canvasW || !canvasH) return [];
@@ -63,8 +41,16 @@ function fold(value) {
   return String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
+/**
+ * Só os layouts salvos pela pessoa.
+ *
+ * O catálogo de estruturas saía daqui direto para o motor de geração, que foi
+ * removido do Composer de post junto com a seção "Criar". Sem motor, clicar
+ * numa estrutura do catálogo não montava nada — então ela não é oferecida.
+ * Layout salvo continua: ele é aplicado no cliente, sem servidor.
+ */
 export function buildLibraryItems(templates = []) {
-  const saved = templates.map((template) => ({
+  return templates.map((template) => ({
     id: `saved:${template.id}`,
     templateId: template.id,
     name: template.name,
@@ -73,25 +59,13 @@ export function buildLibraryItems(templates = []) {
     template,
     blocks: templateBlocks(template.template)
   }));
-  const builtin = STRUCTURES.map((structure) => ({
-    id: `structure:${structure.id}`,
-    structureId: structure.id,
-    name: structure.label,
-    category: structure.category,
-    saved: false,
-    blocks: structureBlocks(structure),
-    // §11: a ficha vem derivada da própria estrutura, não redigitada aqui.
-    card: structureCard(structure)
-  }));
-  return [...saved, ...builtin];
 }
 
 export function LayoutLibrary({
-  templates, onClose, onApplyStructure, onApplyTemplate, onRename, onDelete, onSaveCurrent, canSaveCurrent
+  templates, onClose, onApplyTemplate, onRename, onDelete, onSaveCurrent, canSaveCurrent
 }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('todos');
-  const [photoFilter, setPhotoFilter] = useState('todos');
   const [renaming, setRenaming] = useState(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -100,23 +74,11 @@ export function LayoutLibrary({
     () => ['todos', ...Array.from(new Set(items.map((item) => item.category))).sort()],
     [items]
   );
-  const savedCount = items.filter((item) => item.saved).length;
   const visible = items.filter((item) => {
     if (category !== 'todos' && item.category !== category) return false;
-    // §11: filtros de foto e de pessoa. Layout salvo não tem ficha derivada,
-    // então some quando o filtro é sobre a ficha — em vez de aparecer sem
-    // atender ao que foi pedido.
-    if (photoFilter !== 'todos') {
-      if (!item.card) return false;
-      if (photoFilter === 'com-foto' && !item.card.needsPhoto) return false;
-      if (photoFilter === 'sem-foto' && item.card.needsPhoto) return false;
-      if (photoFilter === 'com-pessoa' && !item.card.withPerson) return false;
-    }
     if (!query.trim()) return true;
     const term = fold(query);
-    return fold(item.name).includes(term)
-      || fold(item.category).includes(term)
-      || fold(item.card?.recommendedFor).includes(term);
+    return fold(item.name).includes(term) || fold(item.category).includes(term);
   });
 
   function commitRename(item) {
@@ -130,7 +92,7 @@ export function LayoutLibrary({
       <div className={styles.libHead}>
         <div>
           <h2 id="library-title">Biblioteca de layouts</h2>
-          <p>{items.length} layouts · {savedCount} salvos por você</p>
+          <p>{items.length} {items.length === 1 ? 'layout salvo' : 'layouts salvos'} por você</p>
         </div>
         <div className={styles.libSearch}>
           <Search size={14} aria-hidden="true" />
@@ -150,18 +112,9 @@ export function LayoutLibrary({
         >{item === 'todos' ? 'Todos' : item}</button>)}
       </div>
 
-      {/* §11: filtrar pelo que a peça exige, não só pelo assunto dela. */}
-      <div className={styles.libFilters} role="tablist" aria-label="Necessidade de foto">
-        {[['todos', 'Qualquer foto'], ['com-foto', 'Precisa de foto'], ['sem-foto', 'Sem foto'], ['com-pessoa', 'Com pessoa']]
-          .map(([id, label]) => <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={photoFilter === id}
-            className={photoFilter === id ? styles.libFilterActive : ''}
-            onClick={() => setPhotoFilter(id)}
-          >{label}</button>)}
-      </div>
+      {/* O filtro de "precisa de foto / com pessoa" lia a ficha da estrutura
+          do catálogo. Sem catálogo não há ficha, e um filtro que esconde tudo
+          é pior que filtro nenhum. */}
 
       <div className={styles.libGrid}>
         {visible.map((item) => <div key={item.id} className={styles.libCard}>
@@ -169,10 +122,10 @@ export function LayoutLibrary({
             type="button"
             className={styles.libCardApply}
             aria-label={`Aplicar layout ${item.name}`}
-            onClick={() => (item.saved ? onApplyTemplate(item.template) : onApplyStructure(item.structureId))}
+            onClick={() => onApplyTemplate(item.template)}
           >
             <LayoutThumb blocks={item.blocks} />
-            {item.saved && <span className={styles.libBadge}>SALVO</span>}
+            <span className={styles.libBadge}>SALVO</span>
           </button>
           <div className={styles.libCardFoot}>
             {renaming === item.id
@@ -190,27 +143,19 @@ export function LayoutLibrary({
                 />
               : <span className={styles.libName} title={item.name}>{item.name}</span>}
             <span className={styles.libCategory}>{item.category}</span>
-            {item.saved && renaming !== item.id && <span className={styles.libCardActions}>
+            {renaming !== item.id && <span className={styles.libCardActions}>
               <button type="button" aria-label={`Renomear layout ${item.name}`} onClick={() => { setRenaming(item.id); setRenameValue(item.name); }}><Pencil size={12} /></button>
               <button type="button" aria-label={`Excluir layout ${item.name}`} onClick={() => onDelete(item.templateId)}><Trash2 size={12} /></button>
             </span>}
           </div>
-          {/* §11: o que a peça pede e para que serve, no próprio card. Sem
-              isso a escolha vira adivinhação a partir de um desenho pequeno. */}
-          {item.card && <div className={styles.libCardMeta}>
-            <span className={styles.libTags}>
-              <em>{item.card.needsPhoto ? 'Precisa de foto' : 'Sem foto'}</em>
-              {item.card.withPerson && <em>Com pessoa</em>}
-              <em>{{ pouco: 'Pouco texto', medio: 'Texto médio', muito: 'Muito texto' }[item.card.textLevel]}</em>
-            </span>
-            <small title={item.card.recommendedFor}>{item.card.recommendedFor}</small>
-          </div>}
         </div>)}
-        {!visible.length && <p className={styles.libEmpty}>Nenhum layout encontrado.</p>}
+        {!visible.length && <p className={styles.libEmpty}>
+          {items.length ? 'Nenhum layout encontrado.' : 'Você ainda não salvou nenhum layout. Monte uma peça no canvas e salve aqui.'}
+        </p>}
       </div>
 
       <div className={styles.libFoot}>
-        <span>Aplicar um layout usa o conteúdo escrito no painel Layouts.</span>
+        <span>Aplicar um layout reaproveita a forma e usa a legenda como texto.</span>
         <button
           type="button"
           className={`${styles.button} ${styles.outline}`}
