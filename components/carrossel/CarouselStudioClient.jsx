@@ -4,10 +4,11 @@
 // roteiro editorial já aprovado para edição visual e exportação.
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CalendarClock, CheckCircle2, ChevronLeft, FileText, Loader2, PanelLeft, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowRight, CalendarClock, CheckCircle2, ChevronLeft, ExternalLink, FileText, Loader2, PanelLeft, Sparkles, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, saveDraft } from '@/lib/posts-actions';
+import { carouselPrompt, gptUrl, headlinePrompt } from '@/lib/carrossel-gpts';
 import { Mascot } from '@/components/onboarding/Mascot';
 import { CarouselStudioFrame } from './CarouselStudioFrame';
 
@@ -378,6 +379,16 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                     />
                     <button type="submit" disabled={briefBusy || !topic.trim()} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{briefBusy ? 'Criando…' : 'Gerar 5 ideias'} <Sparkles size={14} /></button>
                   </div>
+                  {/* Saída manual para o GPT próprio: não gasta token do Hub,
+                      porque GPT customizado não tem API e quem conversa é a
+                      pessoa, não o servidor. */}
+                  {gptUrl('carrossel', carouselPrompt({ brandName: brand?.name, topic, context: sourceMaterial })) && <a
+                    href={gptUrl('carrossel', carouselPrompt({ brandName: brand?.name, topic, context: sourceMaterial }))}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-ink"
+                  ><ExternalLink size={13} /> Pedir também ao meu GPT</a>}
+
                   <details className="mt-2 text-xs text-muted">
                     <summary className="cursor-pointer hover:text-ink">Adicionar contexto da marca (opcional)</summary>
                     <textarea value={sourceMaterial} onChange={(event) => setSourceMaterial(event.target.value)} maxLength={6000} rows={2} placeholder="Público, serviço, exemplo, restrição ou tom de voz." className="mt-2 w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink" />
@@ -400,6 +411,12 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                   {selectedHeadlineId === option.id && <span className="mt-2 block text-[11px] leading-relaxed text-muted">Por que funciona: {option.rationale}</span>}
                 </label>)}
               </div>
+              {selectedHeadline && <a
+                href={gptUrl('headline', headlinePrompt({ headline: selectedHeadline.headline, subheadline: selectedHeadline.subheadline, topic }))}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-ink"
+              ><ExternalLink size={13} /> Diagnosticar esta capa no meu GPT</a>}
               <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-muted"><span className="mr-1 font-semibold text-ink">Sequência:</span>{directions.narrative.map((slide) => <span key={slide.order} className="rounded-full bg-surface-2 px-2 py-1">{STEP_LABEL[slide.role] || 'Página'}</span>)}</div>
               {message && <p role="alert" className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">{message}</p>}
               <div className="mt-3 flex justify-end"><button type="button" onClick={createFullBrief} disabled={briefBusy || !selectedHeadlineId} className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{briefBusy ? 'Criando roteiro…' : 'Criar roteiro com esta ideia'} <ArrowRight size={14} /></button></div>
