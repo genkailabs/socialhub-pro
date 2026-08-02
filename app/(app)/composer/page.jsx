@@ -1,7 +1,6 @@
 import { Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { VisualComposer } from '@/components/composer/VisualComposer';
-import { MascotTip } from '@/components/onboarding/MascotTip';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listConnectedPlatforms } from '@/lib/social-tokens-data';
@@ -49,30 +48,16 @@ export default async function ComposerPage({ searchParams }) {
       {!active ? (
         <div className="p-8"><EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState></div>
       ) : (
-        <>
-          <VisualComposer
-            brandId={active.id}
-            brandName={connected.instagram?.platform_username || active.name}
-            brandLabel={active.name}
-            brandKit={publicBrandKit(brandKit)}
-            initialDraft={initialDraft}
-            studioBrand={studioBrand}
-            studioDraft={studioDraft}
-            initialFormat={initialFormat}
-          />
-          {/* Composer não tem cabeçalho: o mascote fica numa bolha fixa, fechada por padrão. */}
-          <MascotTip
-            variant="floating"
-            id="composer"
-            title="Composer: onde o post vira arte."
-            lines={[
-              'Abra Layouts e o Hub monta a peça com a estrutura e o estilo da sua marca.',
-              'Mídia, texto e formas no canvas — a edição é não destrutiva, dá para voltar.',
-              'Ao terminar, salve: o post vai para o Calendário, onde você escolhe a data.'
-            ]}
-            cta={{ label: 'Abrir Calendário', href: '/calendar' }}
-          />
-        </>
+        <VisualComposer
+          brandId={active.id}
+          brandName={connected.instagram?.platform_username || active.name}
+          brandLabel={active.name}
+          brandKit={publicBrandKit(brandKit)}
+          initialDraft={initialDraft}
+          studioBrand={studioBrand}
+          studioDraft={studioDraft}
+          initialFormat={initialFormat}
+        />
       )}
     </div>
   );

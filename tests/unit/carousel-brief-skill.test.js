@@ -58,6 +58,21 @@ describe('motor editorial próprio de carrossel', () => {
     }).success).toBe(true);
   });
 
+  it('aceita integralmente um assunto longo colado pelo usuário', () => {
+    const topic = Array.from({ length: 10 }, (_, index) => (
+      `${index + 1}. Ângulo editorial detalhado com headline, apoio e contexto para orientar o carrossel.`
+    )).join('\n');
+    const parsed = carouselDirectionsSkill.inputSchema.safeParse({
+      brandName: 'GenkaiLabs',
+      brandContext: 'Consultoria de IA',
+      topic
+    });
+
+    expect(topic.length).toBeGreaterThan(280);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.topic).toBe(topic);
+  });
+
   it('aceita roteiro prático atemporal sem fonte', () => {
     const practicalDirections = {
       ...directions,
@@ -97,6 +112,40 @@ describe('motor editorial próprio de carrossel', () => {
     expect(fullBriefSchema.safeParse(brief).success).toBe(true);
     expect(fullBriefMatchesSelection(brief, directions, 'headline-2')).toBe(true);
     expect(fullBriefMatchesSelection(brief, directions, 'headline-1')).toBe(false);
+  });
+
+  it('aceita o roteiro com e sem a dica de imagem', () => {
+    const comDica = structuredClone(brief);
+    comDica.slides[0].imageIdea = { scene: 'mesa de trabalho vazia com café', searchTerms: ['empty desk', 'morning coffee'], avoid: 'foto com texto na tela' };
+
+    expect(fullBriefSchema.safeParse(comDica).success).toBe(true);
+    expect(fullBriefSchema.safeParse(brief).success).toBe(true);
+  });
+
+  it('recusa dica de imagem sem termos de busca suficientes', () => {
+    const poucosTermos = structuredClone(brief);
+    poucosTermos.slides[0].imageIdea = { scene: 'mesa de trabalho', searchTerms: ['desk'] };
+    const termosDemais = structuredClone(brief);
+    termosDemais.slides[0].imageIdea = { scene: 'mesa', searchTerms: ['a', 'b', 'c', 'd', 'e'] };
+
+    expect(fullBriefSchema.safeParse(poucosTermos).success).toBe(false);
+    expect(fullBriefSchema.safeParse(termosDemais).success).toBe(false);
+  });
+
+  it('ensina ao modelo o formato da dica de imagem', () => {
+    const prompt = carouselFullBriefSkill.buildPrompt({
+      brandName: 'GenkaiLabs',
+      brandContext: 'Consultoria de IA',
+      topic: 'Como reduzir tarefas repetitivas',
+      sourceMaterial: '',
+      research: { summary: '', sources: [] },
+      directions,
+      selectedHeadlineId: 'headline-2'
+    });
+
+    expect(prompt.system).toContain('"imageIdea"');
+    expect(prompt.system).toContain('"searchTerms"');
+    expect(prompt.system).toContain('termos de busca em inglês');
   });
 
   it('rejeita fonte inexistente antes de o roteiro chegar ao Studio', () => {

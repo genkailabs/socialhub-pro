@@ -4,12 +4,16 @@
 // roteiro editorial já aprovado para edição visual e exportação.
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CalendarClock, CheckCircle2, ChevronLeft, ExternalLink, FileText, Loader2, PanelLeft, Sparkles, Trash2 } from 'lucide-react';
+import NextImage from 'next/image';
+import { ArrowRight, CalendarClock, Camera, CheckCircle2, ChevronLeft, ClipboardPaste, Copy, ExternalLink, FileText, ImagePlus, Loader2, PanelLeft, RotateCcw, Sparkles, Trash2, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { uploadTempMedia } from '@/lib/posts-media';
+import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, saveDraft } from '@/lib/posts-actions';
 import { carouselPrompt, gptUrl, headlinePrompt } from '@/lib/carrossel-gpts';
+import { preparePastedCarouselScript, serializeCarouselBrief } from '@/lib/carrossel-script-import';
+import { GENERIC_AVOID, imageHintForSlide, imageHintsForBlocks } from '@/lib/carrossel-image-hint';
 import { Mascot } from '@/components/onboarding/Mascot';
+import { MascotTip } from '@/components/onboarding/MascotTip';
 import { CarouselStudioFrame } from './CarouselStudioFrame';
 
 function dataUrlToFile(dataUrl, name) {
@@ -26,6 +30,34 @@ function sourceList(sources) {
   return <ul className="mt-2 list-inside list-disc text-muted">
     {sources.map((source) => <li key={source.id}><a href={source.url} target="_blank" rel="noreferrer" className="underline">{source.title}</a></li>)}
   </ul>;
+}
+
+// Que foto procurar para este slide.
+//
+// A cena vem em português, porque é a pessoa que lê. Os termos de busca vão em
+// inglês, porque o acervo é indexado em inglês — o mesmo motivo já registrado
+// no topo de lib/photo-direction.js. A tela diz isso em uma linha para ninguém
+// achar que é descuido.
+function ImageHint({ hint, onCopy }) {
+  return <div className="mt-2 rounded-lg border border-dashed border-line bg-surface p-2">
+    <p className="flex items-start gap-1.5 leading-relaxed text-ink">
+      <Camera size={13} className="mt-[3px] shrink-0 text-accent" />
+      <span><strong className="font-semibold">Procure uma foto de:</strong> {hint.scene}</span>
+    </p>
+    <div className="mt-1.5 flex items-start gap-1.5">
+      <code className="min-w-0 flex-1 break-words rounded bg-surface-2 px-1.5 py-1 text-[11px] text-muted">{hint.query}</code>
+      <button
+        type="button"
+        onClick={() => onCopy(hint.query)}
+        aria-label="Copiar os termos de busca"
+        className="shrink-0 rounded-lg border border-line px-1.5 py-1 text-muted hover:border-accent/40 hover:text-ink"
+      ><Copy size={12} /></button>
+    </div>
+    <p className="mt-1 text-[10px] leading-relaxed text-muted">Termos em inglês: é assim que o banco de imagens acha mais.</p>
+    {/* A regra genérica já está no topo da lista. Aqui só entra o "evite"
+        específico daquele slide, quando a IA escreveu um. */}
+    {hint.avoid && hint.avoid !== GENERIC_AVOID && <p className="mt-1 text-[10px] leading-relaxed text-muted">Evite: {hint.avoid}</p>}
+  </div>;
 }
 
 // Uma chamada editorial custa entre 25 e 31 segundos medidos, e `runSkill`
@@ -62,13 +94,18 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   const [savedAt, setSavedAt] = useState(null);
   const [topic, setTopic] = useState('');
   const [sourceMaterial, setSourceMaterial] = useState('');
+  const [entryMode, setEntryMode] = useState(editorial?.source === 'pasted-script' ? 'paste' : 'ai');
+  const [pastedScript, setPastedScript] = useState(editorial?.rawScript || '');
   const [directions, setDirections] = useState(editorial?.directions || null);
   const [brief, setBrief] = useState(editorial?.brief || null);
   const [sources, setSources] = useState(editorial?.sources || []);
   const [selectedHeadlineId, setSelectedHeadlineId] = useState(editorial?.selectedHeadlineId || null);
   const [briefBusy, setBriefBusy] = useState(false);
   const [approvedEditorial, setApprovedEditorial] = useState(editorial);
-  const [initialScript, setInitialScript] = useState(scriptForBrief(editorial?.brief));
+  const [briefMedia, setBriefMedia] = useState(Array.isArray(editorial?.media) ? editorial.media : []);
+  const [imageBusyOrder, setImageBusyOrder] = useState(null);
+  const [initialScript, setInitialScript] = useState(scriptForEditorial(editorial));
+  const [initialSlideCount, setInitialSlideCount] = useState(slideCountForEditorial(editorial));
   const [studioKey, setStudioKey] = useState(0);
   const [editorialOpen, setEditorialOpen] = useState(!editorial?.approvedAt);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -96,7 +133,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
 
   function saveEditorDoc(nextDoc, nextMediaUrls = mediaUrlsRef.current, nextEditorial = approvedEditorial) {
     const save = async () => {
-      const caption = firstHeadline(nextDoc) || nextDoc?.name || 'Rascunho de carrossel';
+      const caption = firstHeadline(nextDoc) || nextDoc?.name || nextEditorial?.headline || 'Rascunho de carrossel';
       const result = await saveDraft({
         brandId,
         draftId: draftIdRef.current,
@@ -159,6 +196,21 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
     }
   }
 
+  async function handleMediaUpload(file) {
+    const supabase = createClient();
+    const uploaded = await uploadTempMedia(supabase, brandId, file);
+    return {
+      url: uploaded.publicUrl,
+      path: uploaded.path,
+      kind: file.type === 'application/zip' ? 'archive' : file.type.startsWith('video/') ? 'video' : 'image',
+      name: file.name
+    };
+  }
+
+  async function handleMediaDelete(path) {
+    return removeTempMedia(createClient(), [path]);
+  }
+
   async function requestEditorial(stage, extra = {}) {
     const controller = new AbortController();
     briefRequest.current = controller;
@@ -207,12 +259,124 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
     try {
       const result = await requestEditorial('full-brief', { directions, selectedHeadlineId });
       setBrief(result.brief);
+      setBriefMedia([]);
       setSources(result.sources || sources);
       setMessage('Roteiro pronto para sua revisão. Nada foi aplicado ao Studio ainda.');
     } catch (error) {
       setMessage(error?.name === 'AbortError' ? 'A busca de fontes demorou mais que o esperado. Tente novamente.' : error.message || 'Não foi possível criar o roteiro.');
     } finally {
       setBriefBusy(false);
+    }
+  }
+
+  async function applyPastedScript(event) {
+    event.preventDefault();
+    const prepared = preparePastedCarouselScript(pastedScript);
+    if (!prepared.ok) {
+      setMessage(prepared.error);
+      return;
+    }
+
+    const nextEditorial = {
+      version: 2,
+      source: 'pasted-script',
+      rawScript: pastedScript.trim(),
+      script: prepared.script,
+      headline: prepared.blocks[0],
+      blockCount: prepared.blockCount,
+      slideCount: prepared.slideCount,
+      approvedAt: new Date().toISOString()
+    };
+
+    clearTimeout(changeTimer.current);
+    changeTimer.current = null;
+    const previousMediaUrls = [...mediaUrlsRef.current];
+    setBusy(true);
+    setMessage(`Aplicando ${prepared.blockCount} campos em ${prepared.slideCount} slides…`);
+    try {
+      await saveChain.current;
+      await saveEditorDoc(null, [], nextEditorial);
+      setApprovedEditorial(nextEditorial);
+      setDirections(null);
+      setBrief(null);
+      setSources([]);
+      setSelectedHeadlineId(null);
+      setBriefMedia([]);
+      setDoc(null);
+      setInitialScript(prepared.script);
+      setInitialSlideCount(prepared.slideCount);
+      setStudioKey((value) => value + 1);
+      setEditorialOpen(false);
+      setMessage(`${prepared.slideCount} slides preenchidos com o texto colado. Revise o visual no Studio.`);
+      if (previousMediaUrls.length) {
+        try {
+          await removeTempMedia(createClient(), previousMediaUrls);
+        } catch {
+          // O roteiro já foi salvo. Falha de limpeza não desfaz a importação.
+        }
+      }
+    } catch (error) {
+      setMessage(error.message || 'Não foi possível aplicar o roteiro no Studio.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generateSlideImage(slide) {
+    if (!slide?.headline || imageBusyOrder !== null) return;
+    const order = Number(slide.order);
+    const current = briefMedia.find((item) => item.slideOrder === order);
+    setImageBusyOrder(order);
+    setMessage(current ? `Gerando outra imagem para o slide ${order}…` : `Gerando imagem para o slide ${order}…`);
+    try {
+      const response = await fetch('/api/carrossel/image', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          brandId,
+          slide: { headline: slide.headline, body: slide.body || slide.readerTakeaway || '' },
+          style: brand?.category ? `editorial premium para ${brand.category}` : 'editorial premium alinhado à marca',
+          aspectRatio: '4:5'
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || 'Não foi possível gerar a imagem.');
+      if (!result?.url || !result?.path || !result?.altText) throw new Error('A imagem gerada chegou incompleta. Tente novamente.');
+
+      const next = { slideOrder: order, url: result.url, path: result.path, altText: result.altText };
+      setBriefMedia((items) => [...items.filter((item) => item.slideOrder !== order), next].sort((a, b) => a.slideOrder - b.slideOrder));
+      if (current?.path && current.path !== next.path) {
+        await removeTempMedia(createClient(), [current.path]).catch(() => null);
+      }
+      setMessage(`Imagem de exemplo pronta para o slide ${order}.`);
+    } catch (error) {
+      setMessage(error.message || 'Não foi possível gerar a imagem.');
+    } finally {
+      setImageBusyOrder(null);
+    }
+  }
+
+  async function copySearchTerms(query) {
+    try {
+      await navigator.clipboard.writeText(query);
+      setMessage('Termos de busca copiados.');
+    } catch {
+      setMessage('Não foi possível copiar. Selecione os termos e copie à mão.');
+    }
+  }
+
+  async function removeSlideImage(item) {
+    if (!item?.path || imageBusyOrder !== null) return;
+    setImageBusyOrder(item.slideOrder);
+    try {
+      const result = await removeTempMedia(createClient(), [item.path]);
+      if (!result?.ok) throw new Error(result?.error || 'Não foi possível remover a imagem.');
+      setBriefMedia((items) => items.filter((media) => media.slideOrder !== item.slideOrder));
+      setMessage(`Imagem do slide ${item.slideOrder} removida.`);
+    } catch (error) {
+      setMessage(error.message || 'Não foi possível remover a imagem.');
+    } finally {
+      setImageBusyOrder(null);
     }
   }
 
@@ -224,14 +388,17 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       brief,
       sources,
       selectedHeadlineId,
+      media: briefMedia.map(({ slideOrder, url, path, altText }) => ({ slideOrder, url, path, altText })),
       approvedAt: new Date().toISOString()
     };
+    const nextMediaUrls = [...new Set([...mediaUrlsRef.current, ...briefMedia.map((item) => item.url)])];
     setBusy(true);
     try {
-      await saveEditorDoc(null, mediaUrlsRef.current, nextEditorial);
+      await saveEditorDoc(null, nextMediaUrls, nextEditorial);
       setApprovedEditorial(nextEditorial);
       setDoc(null);
       setInitialScript(scriptForBrief(brief));
+      setInitialSlideCount(brief.slides.length);
       setStudioKey((value) => value + 1);
       setEditorialOpen(false);
       setMessage('Roteiro aprovado por você e enviado ao Studio para edição.');
@@ -266,9 +433,13 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       setSources([]);
       setSelectedHeadlineId(null);
       setApprovedEditorial(null);
+      setBriefMedia([]);
       setInitialScript('');
+      setInitialSlideCount(undefined);
       setTopic('');
       setSourceMaterial('');
+      setEntryMode('ai');
+      setPastedScript('');
       setSavedAt(null);
       setEditorialOpen(true);
       setStudioKey((value) => value + 1);
@@ -281,7 +452,8 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   }
 
   const selectedHeadline = directions?.headlineOptions?.find((item) => item.id === selectedHeadlineId);
-  const step = brief ? 3 : directions ? 2 : 1;
+  const step = approvedEditorial?.approvedAt ? 4 : brief ? 3 : directions ? 2 : 1;
+  const pastedPreview = pastedScript.trim() ? preparePastedCarouselScript(pastedScript) : null;
 
   return (
     <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-56px)]'} flex-col`}>
@@ -329,7 +501,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           slides de roteiro ela comia a altura, e a arte 1080×1350 saía cortada
           embaixo. Sobrepor devolve a altura ao canvas em todos os passos. */}
       <div className="relative min-h-0 flex-1">
-        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brand={brand} initialDoc={doc} initialScript={initialScript} onChange={handleChange} onExport={handleExport} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
+        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
 
         <aside
           id="carousel-editorial"
@@ -348,20 +520,40 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3 text-sm">
-            {!directions && !brief && <form onSubmit={createDirections} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+            {/* O Hub explicava esta tela numa bolha fixa no canto inferior
+                direito, e ela cobria as miniaturas dos slides do Studio. Aqui
+                dentro ele só aparece com a gaveta aberta. A partir do passo 2
+                porque no passo 1 o formulário já tem o mascote no cabeçalho. */}
+            {step >= 2 && <div className="mb-3">
+              <MascotTip
+                id="carrossel-studio"
+                title="Carrossel: aqui o texto; ao lado, a arte."
+                lines={[
+                  'Cada slide diz que foto procurar e os termos para buscar no banco de imagens.',
+                  'Feche esta gaveta pelo botão "Roteiro" quando quiser o canvas inteiro.',
+                  'Em "Usar no post" os slides viram rascunho — a data você escolhe no Calendário.'
+                ]}
+                cta={{ label: 'Abrir Calendário', href: '/calendar' }}
+              />
+            </div>}
+            {!directions && !brief && <form onSubmit={entryMode === 'paste' ? applyPastedScript : createDirections} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
               <div className="flex gap-3">
                 <Mascot mood="guide" className="h-16 w-14 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-ink">Vamos montar o seu carrossel</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted">Me diga o assunto. Eu proponho as capas e só envio o roteiro ao Studio depois da sua aprovação.</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted">Gere o roteiro aqui ou cole um texto pronto do seu GPT.</p>
+                  <div className="mt-3 grid grid-cols-2 rounded-xl bg-surface-2 p-1" aria-label="Como criar o roteiro">
+                    <button type="button" onClick={() => setEntryMode('ai')} aria-pressed={entryMode === 'ai'} className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${entryMode === 'ai' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>Gerar com IA</button>
+                    <button type="button" onClick={() => setEntryMode('paste')} aria-pressed={entryMode === 'paste'} className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${entryMode === 'paste' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>Colar roteiro pronto</button>
+                  </div>
+                  {entryMode === 'ai' ? <>
                   <label className="sr-only" htmlFor="carousel-topic">Assunto do carrossel</label>
                   {/* Empilhado sempre: `sm:flex-row` olhava a largura da JANELA,
                       não a da gaveta. Numa tela larga ele punha campo e botão
                       lado a lado dentro de 380px e sobrava um campo de dedo. */}
                   <div className="mt-3 flex flex-col gap-2">
-                    {/* Textarea e não input: o assunto aceita 280 caracteres e
-                        numa linha só eles rolavam para o lado, escondendo o que
-                        a pessoa acabou de escrever. */}
+                    {/* Textarea e não input: o assunto pode receber uma seleção
+                        completa, com várias linhas, sem cortar o texto colado. */}
                     <textarea
                       id="carousel-topic"
                       value={topic}
@@ -372,7 +564,6 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                           createDirections(event);
                         }
                       }}
-                      maxLength={280}
                       rows={3}
                       placeholder="Ex.: Como pequenas empresas podem usar IA sem perder qualidade"
                       className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm leading-relaxed text-ink"
@@ -393,6 +584,33 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                     <summary className="cursor-pointer hover:text-ink">Adicionar contexto da marca (opcional)</summary>
                     <textarea value={sourceMaterial} onChange={(event) => setSourceMaterial(event.target.value)} maxLength={6000} rows={2} placeholder="Público, serviço, exemplo, restrição ou tom de voz." className="mt-2 w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink" />
                   </details>
+                  </> : <div className="mt-3">
+                    <label htmlFor="carousel-pasted-script" className="text-xs font-semibold text-ink">Cole o texto aqui</label>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted">Use pares: <strong>texto 1</strong> é o título da capa, <strong>texto 2</strong> é o apoio; depois título e texto de cada slide.</p>
+                    <textarea
+                      id="carousel-pasted-script"
+                      value={pastedScript}
+                      onChange={(event) => setPastedScript(event.target.value)}
+                      maxLength={12000}
+                      rows={10}
+                      placeholder={'texto 1 - MANCHETE DA CAPA\n\ntexto 2 - Linha de apoio\n\ntexto 3 - TÍTULO DO SLIDE 2\n\ntexto 4 - Explicação do slide 2'}
+                      className="mt-2 w-full resize-y rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink"
+                    />
+                    {pastedPreview && <p role={pastedPreview.ok ? undefined : 'alert'} className={`mt-2 text-[11px] ${pastedPreview.ok ? 'text-success' : 'text-danger'}`}>{pastedPreview.ok ? `${pastedPreview.blockCount} campos encontrados · ${pastedPreview.slideCount} slides` : pastedPreview.error}</p>}
+                    {/* Texto colado é texto de carrossel igual ao gerado aqui:
+                        merece a mesma dica de foto, montada localmente. */}
+                    {pastedPreview?.ok && <details className="mt-2 text-[11px] text-muted">
+                      <summary className="cursor-pointer font-semibold hover:text-ink">Que imagem procurar para cada slide</summary>
+                      <p className="mt-2 leading-relaxed">Em todas: {GENERIC_AVOID}</p>
+                      <ol className="mt-2 grid gap-2">
+                        {imageHintsForBlocks(pastedPreview.blocks).map((hint) => <li key={hint.order}>
+                          <span className="font-semibold text-ink">Slide {hint.order}</span>
+                          <ImageHint hint={hint} onCopy={copySearchTerms} />
+                        </li>)}
+                      </ol>
+                    </details>}
+                    <button type="submit" disabled={busy || !pastedPreview?.ok} className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{busy ? 'Aplicando…' : 'Aplicar texto no Studio'} <ClipboardPaste size={14} /></button>
+                  </div>}
                 </div>
               </div>
             </form>}
@@ -424,7 +642,30 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
 
             {brief && <div className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">Confira o roteiro antes de enviar ao Studio</p>{selectedHeadline && <p className="mt-1 text-xs text-muted">Capa escolhida: <strong className="text-ink">{selectedHeadline.headline}</strong></p>}</div>{sources.length > 0 ? <span className="rounded-full bg-success/10 px-2 py-1 text-[11px] font-semibold text-success">Fontes verificadas</span> : <span className="rounded-full bg-surface-2 px-2 py-1 text-[11px] font-semibold text-muted">Roteiro prático, sem dados factuais</span>}</div>
-              <ol className="mt-3 grid gap-2">{brief.slides.map((slide) => <li key={slide.order} className="rounded-xl border border-line bg-surface-2 p-2.5 text-xs"><span className="text-muted">{String(slide.order).padStart(2, '0')} · {STEP_LABEL[slide.role]}</span><strong className="mt-1 block text-ink">{slide.headline}</strong><span className="mt-1 block leading-relaxed text-muted">{slide.readerTakeaway}</span></li>)}</ol>
+              <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-2 text-[11px] leading-relaxed text-muted">Cada slide traz que foto procurar. Em todas: {GENERIC_AVOID}</p>
+              <ol className="mt-3 grid gap-2">{brief.slides.map((slide) => {
+                const media = briefMedia.find((item) => item.slideOrder === Number(slide.order));
+                const imageBusy = imageBusyOrder === Number(slide.order);
+                return <li key={slide.order} className="rounded-xl border border-line bg-surface-2 p-2.5 text-xs">
+                  <span className="text-muted">{String(slide.order).padStart(2, '0')} · {STEP_LABEL[slide.role]}</span>
+                  <strong className="mt-1 block text-ink">{slide.headline}</strong>
+                  <span className="mt-1 block leading-relaxed text-muted">{slide.readerTakeaway}</span>
+                  <ImageHint hint={imageHintForSlide(slide)} onCopy={copySearchTerms} />
+                  {media && <div className="relative mt-2 overflow-hidden rounded-xl border border-line bg-surface">
+                    <NextImage src={media.url} alt={media.altText} width={320} height={400} unoptimized className="h-36 w-full object-cover" />
+                    <button type="button" onClick={() => removeSlideImage(media)} disabled={imageBusyOrder !== null} aria-label={`Remover imagem do slide ${slide.order}`} className="absolute right-1.5 top-1.5 rounded-full bg-black/65 p-1 text-white disabled:opacity-50"><X size={13} /></button>
+                  </div>}
+                  <button
+                    type="button"
+                    onClick={() => generateSlideImage(slide)}
+                    disabled={imageBusyOrder !== null}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1.5 font-semibold text-ink hover:border-accent/40 disabled:opacity-50"
+                  >
+                    {imageBusy ? <Loader2 size={13} className="animate-spin" /> : media ? <RotateCcw size={13} /> : <ImagePlus size={13} />}
+                    {imageBusy ? 'Gerando…' : media ? 'Gerar novamente' : 'Gerar imagem de exemplo'}
+                  </button>
+                </li>;
+              })}</ol>
               {sourceList(sources)}
               <div className="mt-3 flex flex-wrap justify-between gap-2"><button type="button" onClick={() => setBrief(null)} className="rounded-xl border border-line px-3 py-2 text-xs font-bold text-ink hover:bg-surface-2">Voltar às ideias</button><button type="button" onClick={applyApprovedBrief} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Usar roteiro no Studio <FileText size={14} /></button></div>
             </div>}
@@ -442,6 +683,17 @@ function firstHeadline(doc) {
 }
 
 function scriptForBrief(brief) {
-  if (!brief?.slides?.length) return '';
-  return brief.slides.map((slide) => [slide.headline, slide.body].filter(Boolean).join('\n')).join('\n\n');
+  return serializeCarouselBrief(brief);
+}
+
+function scriptForEditorial(editorial) {
+  if (editorial?.source === 'pasted-script') return editorial.script || editorial.rawScript || '';
+  return scriptForBrief(editorial?.brief);
+}
+
+function slideCountForEditorial(editorial) {
+  const count = editorial?.source === 'pasted-script'
+    ? editorial.slideCount
+    : editorial?.brief?.slides?.length;
+  return Number.isInteger(count) && count >= 3 && count <= 10 ? count : undefined;
 }

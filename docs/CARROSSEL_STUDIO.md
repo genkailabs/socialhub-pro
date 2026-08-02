@@ -89,3 +89,26 @@ Só arquivos novos. Nada do Composer foi alterado:
 
 Falta (decisão de produto): colocar o link "Carrossel" na navegação e decidir se
 o botão Carrossel do Composer passa a apontar pra cá.
+
+## Dica de imagem (que foto procurar)
+
+Cada slide do roteiro mostra na gaveta que foto buscar. Isso é **host-side**: o
+editor é outra aplicação (`/embed-studio`), então a dica vive aqui, ao lado do
+texto que a originou.
+
+- **Quem escreve:** a própria IA do roteiro, no campo opcional `imageIdea` de
+  `lib/ai/skills/carousel-brief` (`scene` em PT-BR, `searchTerms` em inglês,
+  `avoid`). Opcional de propósito — roteiro salvo antes do campo continua
+  válido e um modelo que omita a dica não derruba a geração.
+- **Reserva:** `lib/carrossel-image-hint.js`, puro e sem I/O, monta a dica a
+  partir do texto do slide. Cobre roteiro antigo e roteiro colado de fora.
+- **Idiomas:** cena em português (quem lê é a pessoa), termos em inglês (o
+  acervo do Pexels é indexado em inglês) — mesma regra de
+  `lib/photo-direction.js`, cujo vocabulário editorial é reaproveitado na busca.
+
+## Onde o Hub explica esta tela
+
+Dentro da gaveta do roteiro, a partir do passo 2 (`MascotTip variant="inline"`).
+Era uma bolha `variant="floating"` fixa no canto inferior direito do Composer e
+cobria as miniaturas dos slides do Studio; a bolha flutuante não é mais usada em
+tela nenhuma.

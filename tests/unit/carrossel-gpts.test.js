@@ -21,8 +21,13 @@ describe('carrossel — segunda consulta em GPT próprio', () => {
 
   it('devolve a URL do GPT com a caixa preenchida', () => {
     const url = gptUrl('carrossel', 'Assunto: IA');
-    expect(url).toContain('chatgpt.com/g-6a6df245');
+    expect(url).toContain('https://chatgpt.com/g/g-6a6df245f5388191a38880b901975ddc-content-machine-carrosseis');
     expect(url).toContain(`q=${encodeURIComponent('Assunto: IA')}`);
+  });
+
+  it('usa os destinos exatos dos GPTs externos', () => {
+    expect(gptUrl('carrossel', 'IA')).toContain('https://chatgpt.com/g/g-6a6df245f5388191a38880b901975ddc-content-machine-carrosseis');
+    expect(gptUrl('headline', 'IA')).toContain('https://chatgpt.com/g/g-6a6df6c166bc81918316d84180574e20-headline-generator');
   });
 
   // Um prompt cortado no meio pelo navegador é pior do que nenhum: melhor abrir
