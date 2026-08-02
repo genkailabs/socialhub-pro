@@ -4,6 +4,7 @@
 // roteiro editorial já aprovado para edição visual e exportação.
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import { ArrowRight, CalendarClock, Camera, CheckCircle2, ChevronLeft, ClipboardPaste, Copy, ExternalLink, FileText, ImagePlus, Loader2, PanelLeft, RotateCcw, Sparkles, Trash2, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -57,6 +58,7 @@ const STEP_LABEL = {
 };
 
 export function CarouselStudioClient({ brandId, brand, draft, embedded = false, onClose }) {
+  const router = useRouter();
   const editorial = draft?.editorial || null;
   const [doc, setDoc] = useState(draft?.doc || null);
   const [draftId, setDraftId] = useState(draft?.id || null);
@@ -173,8 +175,18 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       }
       setMessage('Salvando rascunho…');
       await saveChain.current;
-      await saveEditorDoc(exportedDoc, urls);
+      const saved = await saveEditorDoc(exportedDoc, urls);
       setDoc(exportedDoc);
+      // "Usar no post" terminava com uma mensagem e a pessoa parada no editor,
+      // sem saber para onde ir. Agora ela cai na tela de revisão do próprio
+      // post, que é onde se aprova, escolhe o dia e a hora — ou se decide que
+      // ainda não.
+      const postId = saved?.draftId || draftIdRef.current;
+      if (postId) {
+        setMessage(`${urls.length} slides prontos. Abrindo a revisão para você aprovar…`);
+        router.push(`/content/${postId}/review`);
+        return;
+      }
       setMessage(`${urls.length} slides no rascunho. Ele está no Calendário, em "Sem data ainda".`);
     } catch (error) {
       setMessage(error.message || 'Falha ao enviar para o post.');

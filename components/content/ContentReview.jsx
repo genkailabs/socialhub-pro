@@ -108,6 +108,11 @@ export function ContentReview({ post }) {
   const [caption, setCaption] = useState(post.content || '');
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState(null);
+  // Post que publica sozinho precisa de data para publicar. Quem chega do
+  // Studio não tem nenhuma, e aprovar sem data criava um "agendado" que nunca
+  // saía e sumia da grade do Calendário.
+  const precisaDeData = !manual && !post.scheduled_at;
+  const [quando, setQuando] = useState('');
 
   async function salvar() {
     setBusy('save'); setMsg(null);
@@ -121,8 +126,15 @@ export function ContentReview({ post }) {
   async function aprovar() {
     setBusy('approve'); setMsg(null);
     try {
-      const res = await approveContent({ postId: post.id });
+      // A legenda editada vai junto: aprovar sem salvar antes publicava o
+      // texto velho, e ninguém espera ter que clicar em dois botões.
+      if (caption !== (post.content || '')) {
+        const salvo = await updateContent({ postId: post.id, patch: { content: caption } });
+        if (salvo?.error) throw new Error(salvo.error);
+      }
+      const res = await approveContent({ postId: post.id, scheduledAt: precisaDeData ? quando : null });
       if (res?.error) throw new Error(res.error);
+      router.push('/calendar');
       router.refresh();
     } catch (e) { setMsg({ type: 'err', text: e.message }); } finally { setBusy(''); }
   }
@@ -192,12 +204,34 @@ export function ContentReview({ post }) {
         </p>
       )}
 
+      {precisaDeData && (
+        <div className="rounded-2xl border border-line bg-surface-2 p-4">
+          <label htmlFor="quando" className="block text-xs font-bold text-ink">Quando este post sai</label>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+            Sem dia e hora ele não é publicado nem aparece na grade do Calendário.
+          </p>
+          <input
+            id="quando"
+            type="datetime-local"
+            value={quando}
+            onChange={(e) => setQuando(e.target.value)}
+            className={`${field} mt-2`}
+          />
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {post.format !== 'stories' && (
           <Button variant="ghost" onClick={salvar} disabled={busy === 'save'}>
             {busy === 'save' ? 'Salvando...' : 'Salvar alteracoes'}
           </Button>
         )}
+
+        {/* "Aprovar ou não" precisa das duas saídas na mesma tela. Não aprovar
+            não desfaz nada: o rascunho continua salvo, esperando. */}
+        <Button variant="ghost" onClick={() => router.push('/calendar')} disabled={!!busy}>
+          Ainda não
+        </Button>
 
         {post.status === 'ready_to_post' ? (
           <Button onClick={marcarPostado} disabled={busy === 'posted'}>

@@ -4,6 +4,7 @@ import { CarouselStudioClient } from '@/components/carrossel/CarouselStudioClien
 import { saveDraft } from '@/lib/posts-actions';
 import { removeTempMedia } from '@/lib/posts-media';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock('@/lib/posts-actions', () => ({
   saveDraft: vi.fn(async () => ({ id: 'draft-importado' })),
   deleteComposerDraft: vi.fn()

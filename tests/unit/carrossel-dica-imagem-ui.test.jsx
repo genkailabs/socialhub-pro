@@ -2,6 +2,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CarouselStudioClient } from '@/components/carrossel/CarouselStudioClient';
 
+// O componente navega para a revisão depois de exportar, então precisa de um
+// roteador — em jsdom ele não vem de graça.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock('@/lib/posts-actions', () => ({
   saveDraft: vi.fn(async () => ({ id: 'draft-1' })),
   deleteComposerDraft: vi.fn()

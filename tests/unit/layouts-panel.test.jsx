@@ -23,6 +23,9 @@ vi.mock('@/lib/posts-media', async (importOriginal) => ({
 vi.mock('@/lib/posts-actions', () => ({
   publishNow: vi.fn(), saveDraft: vi.fn(), schedulePost: vi.fn(), deleteComposerDraft: vi.fn()
 }));
+// O Composer monta o Carrossel Studio no formato carrossel, e ele navega para
+// a revisão depois de exportar: sem roteador, o render quebra em jsdom.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
 import { VisualComposer } from '@/components/composer/VisualComposer';
 
