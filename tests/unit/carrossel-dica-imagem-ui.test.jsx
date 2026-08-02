@@ -12,148 +12,159 @@ vi.mock('@/lib/posts-media', () => ({
   removeTempMedia: vi.fn(async () => ({ ok: true }))
 }));
 vi.mock('@/components/onboarding/Mascot', () => ({ Mascot: () => <div data-testid="mascot" /> }));
+
+// O Studio é outra aplicação, dentro de um iframe: aqui ele é substituído por
+// botões que disparam a mesma mensagem de seleção que a ponte entrega.
 vi.mock('@/components/carrossel/CarouselStudioFrame', () => ({
-  CarouselStudioFrame: () => <div data-testid="studio-frame" />
+  CarouselStudioFrame: ({ onSelection }) => (
+    <div data-testid="studio-frame">
+      <button type="button" onClick={() => onSelection?.({ slideIndex: 1, elementType: 'image', slot: 2 })}>
+        Selecionar imagem do slide 2
+      </button>
+      <button type="button" onClick={() => onSelection?.({ slideIndex: 0, elementType: 'text', slot: null })}>
+        Selecionar um texto
+      </button>
+      <button type="button" onClick={() => onSelection?.({ slideIndex: 1, elementType: null, slot: null })}>
+        Clicar no fundo
+      </button>
+    </div>
+  )
 }));
 
-const directions = {
-  problem: 'A equipe repete trabalho.',
-  learningOutcome: 'Escolher a primeira tarefa a automatizar.',
-  headlineOptions: [{ id: 'headline-1', headline: 'Capa escolhida', subheadline: 'Apoio', angle: 'erro', rationale: 'Funciona' }],
-  narrative: [{ order: 1, role: 'cover' }]
+const script = [
+  'CINCO ERROS AO USAR IA NO ESCRITÓRIO', 'A ferramenta nunca foi o problema.',
+  'O time adota a ferramenta sem combinar quem revisa', 'Sem revisor, o erro chega ao cliente.',
+  'Comece pela tarefa repetitiva', 'Meça o tempo antes e depois.'
+].map((bloco, index) => `texto ${index + 1} - ${bloco}`).join('\n\n');
+
+const pastedDraft = {
+  id: 'd1',
+  editorial: { source: 'pasted-script', script, slideCount: 3, approvedAt: '2026-08-01T00:00:00.000Z' }
 };
 
-const brief = {
-  selectedHeadlineId: 'headline-1',
-  slides: [
-    {
-      order: 1,
-      role: 'cover',
-      headline: 'Capa escolhida',
-      readerTakeaway: 'O tema em uma frase.',
-      imageIdea: { scene: 'sala de reunião vazia vista de cima', searchTerms: ['empty meeting room', 'overhead view'], avoid: 'gente posando para a câmera' }
-    },
-    {
-      order: 2,
-      role: 'teach',
-      headline: 'Cinco erros ao usar inteligência artificial no escritório',
-      body: 'A equipe adota a ferramenta sem combinar quem revisa o resultado.',
-      readerTakeaway: 'Defina o revisor antes de automatizar.'
-    }
-  ]
-};
-
-function renderComRoteiro() {
-  return render(<CarouselStudioClient
-    brandId="brand-1"
-    brand={{ name: 'GenkaiLabs' }}
-    draft={{ id: 'draft-1', editorial: { directions, brief, selectedHeadlineId: 'headline-1', sources: [] } }}
-    embedded
-  />);
+function renderStudio(draft = pastedDraft) {
+  return render(<CarouselStudioClient brandId="brand-1" brand={{ name: 'GenkaiLabs' }} draft={draft} embedded />);
 }
 
-describe('dica de imagem na gaveta do roteiro', () => {
+describe('dica de foto ao clicar na imagem do slide', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => {
     cleanup();
     localStorage.clear();
   });
 
-  it('mostra em cada slide que foto procurar', () => {
-    renderComRoteiro();
+  it('só abre depois que o Studio avisa que a imagem foi selecionada', () => {
+    renderStudio();
 
-    expect(screen.getAllByText('Procure uma foto de:')).toHaveLength(2);
-    expect(screen.getByText(/sala de reunião vazia vista de cima/)).toBeTruthy();
+    expect(screen.queryByText('Procure uma foto de:')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
+
+    const painel = screen.getByLabelText('Foto sugerida para este slide');
+    expect(within(painel).getByText('Slide 02 · imagem')).toBeTruthy();
+    expect(within(painel).getByText(/escritório pequeno/)).toBeTruthy();
   });
 
-  it('usa a dica da IA quando ela existe e monta a local quando falta', () => {
-    renderComRoteiro();
-    const termos = screen.getAllByLabelText('Copiar os termos de busca')
-      .map((button) => button.parentElement.querySelector('code').textContent);
+  it('ignora seleção de texto e fecha ao clicar no fundo', () => {
+    renderStudio();
 
-    expect(termos[0]).toContain('empty meeting room');
-    expect(termos[1]).toContain('artificial intelligence');
-    expect(termos.every((query) => query.includes('editorial magazine'))).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar um texto' }));
+    expect(screen.queryByLabelText('Foto sugerida para este slide')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
+    expect(screen.getByLabelText('Foto sugerida para este slide')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clicar no fundo' }));
+    expect(screen.queryByLabelText('Foto sugerida para este slide')).toBeNull();
   });
 
-  it('diz a regra genérica uma vez e o "evite" só quando ele é do slide', () => {
-    renderComRoteiro();
+  it('leva os termos em inglês para a busca do Pexels', () => {
+    renderStudio();
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
 
-    expect(screen.getAllByText(/foto com texto, logo ou gráfico/)).toHaveLength(1);
-    expect(screen.getAllByText(/^Evite:/)).toHaveLength(1);
-    expect(screen.getByText('Evite: gente posando para a câmera')).toBeTruthy();
+    const link = screen.getByRole('link', { name: /Buscar no Pexels/ });
+    expect(link.getAttribute('href')).toContain('pexels.com/search/');
+    expect(decodeURIComponent(link.getAttribute('href'))).toContain('small office');
   });
 
-  it('copia os termos de busca para a área de transferência', async () => {
+  it('copia os termos de busca', async () => {
     const writeText = vi.fn(async () => {});
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
-    renderComRoteiro();
+    renderStudio();
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
 
-    fireEvent.click(screen.getAllByLabelText('Copiar os termos de busca')[0]);
+    fireEvent.click(screen.getByLabelText('Copiar os termos de busca'));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(writeText.mock.calls[0][0]).toContain('empty meeting room');
-    expect(screen.getByText('Termos de busca copiados.')).toBeTruthy();
+    expect(writeText.mock.calls[0][0]).toContain('small office');
     vi.unstubAllGlobals();
   });
 
-  it('avisa quando o navegador não deixa copiar', async () => {
-    vi.stubGlobal('navigator', { ...navigator, clipboard: undefined });
-    renderComRoteiro();
+  it('fecha pelo botão de fechar', () => {
+    renderStudio();
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
 
-    fireEvent.click(screen.getAllByLabelText('Copiar os termos de busca')[0]);
+    fireEvent.click(screen.getByLabelText('Fechar a dica de foto'));
 
-    await waitFor(() => expect(screen.getByText(/copie à mão/)).toBeTruthy());
-    vi.unstubAllGlobals();
+    expect(screen.queryByLabelText('Foto sugerida para este slide')).toBeNull();
+  });
+
+  it('usa a dica escrita pela IA quando o roteiro veio dela', () => {
+    render(<CarouselStudioClient
+      brandId="brand-1"
+      brand={{ name: 'GenkaiLabs' }}
+      draft={{
+        id: 'd2',
+        editorial: {
+          approvedAt: '2026-08-01T00:00:00.000Z',
+          selectedHeadlineId: 'headline-1',
+          brief: {
+            slides: [
+              { order: 1, role: 'cover', headline: 'Capa', readerTakeaway: 'Tema.' },
+              {
+                order: 2,
+                role: 'teach',
+                headline: 'Segundo slide',
+                readerTakeaway: 'Passo.',
+                imageIdea: { scene: 'sala de reunião vazia vista de cima', searchTerms: ['empty meeting room', 'overhead'], avoid: 'gente posando' }
+              }
+            ]
+          }
+        }
+      }}
+      embedded
+    />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
+
+    const painel = screen.getByLabelText('Foto sugerida para este slide');
+    expect(within(painel).getByText(/sala de reunião vazia vista de cima/)).toBeTruthy();
+    expect(within(painel).getByText(/Evite gente posando/)).toBeTruthy();
   });
 });
 
-describe('o Hub explica dentro da gaveta, não sobre o canvas', () => {
+describe('a gaveta do roteiro deixou de carregar a dica', () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
   });
 
-  it('renderiza a explicação dentro da gaveta do roteiro', () => {
-    renderComRoteiro();
+  it('lista os slides e manda clicar na imagem, sem repetir a dica', () => {
+    renderStudio();
     const gaveta = document.getElementById('carousel-editorial');
 
-    expect(within(gaveta).getByText('Como esta tela funciona')).toBeTruthy();
+    expect(within(gaveta).getByText('Roteiro no Studio')).toBeTruthy();
+    expect(within(gaveta).getByText(/Clique na imagem de um slide no editor/)).toBeTruthy();
+    expect(within(gaveta).queryByText('Procure uma foto de:')).toBeNull();
     expect(document.querySelector('.fixed.bottom-5.right-5')).toBeNull();
   });
 
-  it('com o roteiro no Studio, a gaveta é consulta e não formulário', () => {
-    const script = ['CINCO ERROS COM IA NO ESCRITÓRIO', 'A ferramenta nunca foi o problema.', 'O time não combina quem revisa', 'Sem revisor, o erro chega ao cliente.', 'Comece pela tarefa mais chata', 'Meça o tempo antes e depois.']
-      .map((bloco, index) => `texto ${index + 1} - ${bloco}`).join('\n\n');
-    render(<CarouselStudioClient
-      brandId="brand-1"
-      brand={{ name: 'GenkaiLabs' }}
-      draft={{ id: 'd1', editorial: { source: 'pasted-script', script, slideCount: 3, approvedAt: '2026-08-01T00:00:00.000Z' } }}
-      embedded
-    />);
-
-    expect(screen.getByText('Que foto usar em cada slide')).toBeTruthy();
-    expect(screen.getByText('3 slides no Studio · roteiro colado por você')).toBeTruthy();
-    expect(screen.getAllByText('Procure uma foto de:')).toHaveLength(3);
-    expect(screen.queryByLabelText('Cole o texto aqui')).toBeNull();
-    expect(screen.getAllByTestId('mascot')).toHaveLength(1);
-  });
-
   it('"Trocar roteiro" devolve o formulário de entrada', () => {
-    const script = Array.from({ length: 6 }, (_, index) => `texto ${index + 1} - Bloco ${index + 1}`).join('\n\n');
-    render(<CarouselStudioClient
-      brandId="brand-1"
-      brand={{ name: 'GenkaiLabs' }}
-      draft={{ id: 'd1', editorial: { source: 'pasted-script', script, slideCount: 3, approvedAt: '2026-08-01T00:00:00.000Z' } }}
-      embedded
-    />);
+    renderStudio();
 
-    // A gaveta começa fechada (aria-hidden) quando o roteiro já está no
-    // Studio: getByRole não enxerga o que está fora da árvore acessível.
     fireEvent.click(screen.getByText('Trocar roteiro'));
 
     expect(screen.getByText('Vamos montar o seu carrossel')).toBeTruthy();
-    expect(screen.queryByText('Que foto usar em cada slide')).toBeNull();
+    expect(screen.queryByText('Roteiro no Studio')).toBeNull();
   });
 
   it('não repete o mascote no passo do assunto', () => {

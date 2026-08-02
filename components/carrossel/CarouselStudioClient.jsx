@@ -32,34 +32,6 @@ function sourceList(sources) {
   </ul>;
 }
 
-// Que foto procurar para este slide.
-//
-// A cena vem em português, porque é a pessoa que lê. Os termos de busca vão em
-// inglês, porque o acervo é indexado em inglês — o mesmo motivo já registrado
-// no topo de lib/photo-direction.js. A tela diz isso em uma linha para ninguém
-// achar que é descuido.
-function ImageHint({ hint, onCopy }) {
-  return <div className="mt-2 rounded-lg border border-dashed border-line bg-surface p-2">
-    <p className="flex items-start gap-1.5 leading-relaxed text-ink">
-      <Camera size={13} className="mt-[3px] shrink-0 text-accent" />
-      <span><strong className="font-semibold">Procure uma foto de:</strong> {hint.scene}</span>
-    </p>
-    <div className="mt-1.5 flex items-start gap-1.5">
-      <code className="min-w-0 flex-1 break-words rounded bg-surface-2 px-1.5 py-1 text-[11px] text-muted">{hint.query}</code>
-      <button
-        type="button"
-        onClick={() => onCopy(hint.query)}
-        aria-label="Copiar os termos de busca"
-        className="shrink-0 rounded-lg border border-line px-1.5 py-1 text-muted hover:border-accent/40 hover:text-ink"
-      ><Copy size={12} /></button>
-    </div>
-    <p className="mt-1 text-[10px] leading-relaxed text-muted">Termos em inglês: é assim que o banco de imagens acha mais.</p>
-    {/* A regra genérica já está no topo da lista. Aqui só entra o "evite"
-        específico daquele slide, quando a IA escreveu um. */}
-    {hint.avoid && hint.avoid !== GENERIC_AVOID && <p className="mt-1 text-[10px] leading-relaxed text-muted">Evite: {hint.avoid}</p>}
-  </div>;
-}
-
 // Uma chamada editorial custa entre 25 e 31 segundos medidos, e `runSkill`
 // ainda pode tentar de novo — o teto real passa de um minuto. O limite antigo
 // era 65s, então toda segunda tentativa virava "demorou mais que o esperado" e
@@ -109,6 +81,9 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   const [studioKey, setStudioKey] = useState(0);
   const [editorialOpen, setEditorialOpen] = useState(!editorial?.approvedAt);
   const [showEntry, setShowEntry] = useState(false);
+  // Qual elemento o usuário selecionou dentro do Studio. Chega pela ponte
+  // (cs:selection) porque clique dentro do iframe é invisível daqui.
+  const [selection, setSelection] = useState(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const changeTimer = useRef(null);
   const saveChain = useRef(Promise.resolve());
@@ -461,7 +436,12 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   // Com o roteiro no Studio a gaveta é consulta. Só volta a ser formulário
   // quando a pessoa pede outro roteiro.
   const applied = Boolean(approvedEditorial?.approvedAt) && !showEntry;
-  const appliedSlides = applied ? appliedItems(approvedEditorial) : [];
+  const studioSlides = appliedItems(approvedEditorial);
+  const appliedSlides = applied ? studioSlides : [];
+  // A dica abre ao lado do editor quando a pessoa clica na imagem de um slide.
+  const selectedHint = selection?.elementType === 'image'
+    ? studioSlides.find((item) => item.order === Number(selection.slideIndex) + 1) || null
+    : null;
 
   return (
     <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-56px)]'} flex-col`}>
@@ -508,8 +488,37 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           a guia era uma faixa empilhada aqui: com cinco cards de ideia ou oito
           slides de roteiro ela comia a altura, e a arte 1080×1350 saía cortada
           embaixo. Sobrepor devolve a altura ao canvas em todos os passos. */}
-      <div className="relative min-h-0 flex-1">
-        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
+      <div className="relative flex min-h-0 flex-1">
+        {/* A dica da foto entra por aqui, empurrando o editor para a direita em
+            vez de cobri-lo: o canvas é o que a pessoa está olhando. Ela abre
+            quando o Studio avisa que a imagem de um slide foi selecionada. */}
+        {selectedHint && <aside aria-label="Foto sugerida para este slide" className="flex w-[280px] shrink-0 flex-col border-r border-line bg-surface">
+          <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+            <Camera size={14} className="text-accent" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Slide {String(selectedHint.order).padStart(2, '0')} · imagem</span>
+            <button type="button" onClick={() => setSelection(null)} aria-label="Fechar a dica de foto" className="ml-auto rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-ink"><X size={14} /></button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 text-sm">
+            <p className="text-[11px] font-semibold text-muted">{selectedHint.headline}</p>
+            <p className="mt-2 leading-relaxed text-ink"><strong className="font-semibold">Procure uma foto de:</strong> {selectedHint.hint.scene}</p>
+            <div className="mt-3 flex items-start gap-1.5">
+              <code className="min-w-0 flex-1 break-words rounded bg-surface-2 px-2 py-1.5 text-[11px] leading-relaxed text-muted">{selectedHint.hint.query}</code>
+              <button type="button" onClick={() => copySearchTerms(selectedHint.hint.query)} aria-label="Copiar os termos de busca" className="shrink-0 rounded-lg border border-line px-1.5 py-1 text-muted hover:border-accent/40 hover:text-ink"><Copy size={12} /></button>
+            </div>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-muted">Termos em inglês: é assim que o banco de imagens acha mais.</p>
+            <a
+              href={`https://www.pexels.com/search/${encodeURIComponent(selectedHint.hint.query)}/`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold text-ink hover:border-accent/40"
+            >Buscar no Pexels <ExternalLink size={13} /></a>
+            <p className="mt-3 rounded-lg bg-surface-2 px-2.5 py-2 text-[10px] leading-relaxed text-muted">Evite {selectedHint.hint.avoid || GENERIC_AVOID}</p>
+            <p className="mt-3 text-[10px] leading-relaxed text-muted">Arraste a foto da sua pasta direto para cima da imagem no editor.</p>
+          </div>
+        </aside>}
+
+        <div className="relative min-h-0 min-w-0 flex-1">
+        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onSelection={setSelection} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
 
         <aside
           id="carousel-editorial"
@@ -537,16 +546,18 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
             {applied ? <div className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-ink">Que foto usar em cada slide</p>
-                  <p className="mt-0.5 text-xs text-muted">{appliedSlides.length} slides no Studio · roteiro {approvedEditorial?.source === 'pasted-script' ? 'colado por você' : 'aprovado por você'}</p>
+                  <p className="font-semibold text-ink">Roteiro no Studio</p>
+                  <p className="mt-0.5 text-xs text-muted">{appliedSlides.length} slides · {approvedEditorial?.source === 'pasted-script' ? 'colado por você' : 'aprovado por você'}</p>
                 </div>
                 <button type="button" onClick={() => setShowEntry(true)} className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-bold text-ink hover:bg-surface-2">Trocar roteiro</button>
               </div>
-              <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-2 text-[11px] leading-relaxed text-muted">Em todas: {GENERIC_AVOID}</p>
+              <p className="mt-2 flex gap-1.5 rounded-lg bg-surface-2 px-2.5 py-2 text-[11px] leading-relaxed text-muted">
+                <Camera size={13} className="mt-[2px] shrink-0 text-accent" />
+                <span>Clique na imagem de um slide no editor: a foto sugerida abre aqui do lado.</span>
+              </p>
               <ol className="mt-3 grid gap-2">{appliedSlides.map((slide) => <li key={slide.order} className="rounded-xl border border-line bg-surface-2 p-2.5 text-xs">
                 <span className="text-muted">{String(slide.order).padStart(2, '0')}{slide.role ? ` · ${STEP_LABEL[slide.role] || 'Página'}` : ''}</span>
                 <strong className="mt-1 block text-ink">{slide.headline}</strong>
-                <ImageHint hint={slide.hint} onCopy={copySearchTerms} />
               </li>)}</ol>
             </div> : null}
 
@@ -647,7 +658,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
 
             {!applied && brief && <div className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">Confira o roteiro antes de enviar ao Studio</p>{selectedHeadline && <p className="mt-1 text-xs text-muted">Capa escolhida: <strong className="text-ink">{selectedHeadline.headline}</strong></p>}</div>{sources.length > 0 ? <span className="rounded-full bg-success/10 px-2 py-1 text-[11px] font-semibold text-success">Fontes verificadas</span> : <span className="rounded-full bg-surface-2 px-2 py-1 text-[11px] font-semibold text-muted">Roteiro prático, sem dados factuais</span>}</div>
-              <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-2 text-[11px] leading-relaxed text-muted">Cada slide traz que foto procurar. Em todas: {GENERIC_AVOID}</p>
+              <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-2 text-[11px] leading-relaxed text-muted">Depois de enviar ao Studio, clique na imagem de um slide para ver que foto procurar.</p>
               <ol className="mt-3 grid gap-2">{brief.slides.map((slide) => {
                 const media = briefMedia.find((item) => item.slideOrder === Number(slide.order));
                 const imageBusy = imageBusyOrder === Number(slide.order);
@@ -655,7 +666,6 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                   <span className="text-muted">{String(slide.order).padStart(2, '0')} · {STEP_LABEL[slide.role]}</span>
                   <strong className="mt-1 block text-ink">{slide.headline}</strong>
                   <span className="mt-1 block leading-relaxed text-muted">{slide.readerTakeaway}</span>
-                  <ImageHint hint={imageHintForSlide(slide)} onCopy={copySearchTerms} />
                   {media && <div className="relative mt-2 overflow-hidden rounded-xl border border-line bg-surface">
                     <NextImage src={media.url} alt={media.altText} width={320} height={400} unoptimized className="h-36 w-full object-cover" />
                     <button type="button" onClick={() => removeSlideImage(media)} disabled={imageBusyOrder !== null} aria-label={`Remover imagem do slide ${slide.order}`} className="absolute right-1.5 top-1.5 rounded-full bg-black/65 p-1 text-white disabled:opacity-50"><X size={13} /></button>
@@ -692,6 +702,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
             </div>}
           </div>
         </aside>
+        </div>
       </div>
     </div>
   );

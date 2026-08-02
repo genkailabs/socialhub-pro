@@ -68,5 +68,24 @@ describe('markup da gaveta do carrossel para inspeção', () => {
     fs.mkdirSync(OUT, { recursive: true });
     fs.writeFileSync(path.join(OUT, 'gaveta.html'), markup);
     fs.writeFileSync(path.join(OUT, 'gaveta-aplicada.html'), aplicado);
+
+    // O painel da foto abre com a seleção que vem do Studio. Como o markup
+    // estático não recebe postMessage, o mesmo estado é montado por um mock do
+    // iframe que dispara a seleção na primeira renderização.
+    vi.doMock('@/components/carrossel/CarouselStudioFrame', () => ({
+      CarouselStudioFrame: ({ onSelection }) => {
+        onSelection?.({ slideIndex: 1, elementType: 'image', slot: 2 });
+        return React.createElement('div', { style: { height: '100%', background: '#0b0d10' } });
+      }
+    }));
+    vi.resetModules();
+    const { CarouselStudioClient: ComSelecao } = await import('@/components/carrossel/CarouselStudioClient');
+    const comPainel = renderToStaticMarkup(React.createElement(ComSelecao, {
+      brandId: 'b1',
+      brand: { name: 'GenkaiLabs' },
+      embedded: true,
+      draft: { id: 'd3', editorial: { source: 'pasted-script', script, slideCount: 4, approvedAt: '2026-08-01T00:00:00.000Z' } }
+    }));
+    fs.writeFileSync(path.join(OUT, 'gaveta-dica-lateral.html'), comPainel);
   });
 });

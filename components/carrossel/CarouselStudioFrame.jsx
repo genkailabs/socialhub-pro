@@ -33,6 +33,7 @@ export function CarouselStudioFrame({
   onExport,
   onMediaUpload,
   onMediaDelete,
+  onSelection,
   onDraftSaved,
   onError,
   onClose,
@@ -69,6 +70,14 @@ export function CarouselStudioFrame({
       if (!isStudioMessage(data, channelId.current)) return;
 
       try {
+        if (data.type === 'cs:selection') {
+          onSelection?.({
+            slideIndex: data.slideIndex,
+            elementType: data.elementType,
+            slot: typeof data.slot === 'number' ? data.slot : null
+          });
+          return;
+        }
         if (data.type === 'cs:media-delete-request') {
           if (!brandId || !data.path.startsWith(`temp/${brandId}/`)) throw new Error('Caminho temporário inválido para esta marca.');
           if (!onMediaDelete) throw new Error('Remoção de mídia indisponível no host.');

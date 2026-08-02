@@ -101,6 +101,17 @@ describe('Carrossel Studio bridge contract V1', () => {
     });
   });
 
+  it('aceita a seleção feita dentro do Studio e recusa índice ou slot fora da faixa', () => {
+    const selecao = { type: 'cs:selection', version: 1, channelId, slideIndex: 2, elementId: 'el-9', elementType: 'image', slot: 3 };
+
+    expect(isStudioMessage(selecao, channelId)).toBe(true);
+    expect(isStudioMessage({ ...selecao, elementId: null, elementType: null, slot: undefined }, channelId)).toBe(true);
+    expect(isStudioMessage({ ...selecao, slot: 9 }, channelId)).toBe(false);
+    expect(isStudioMessage({ ...selecao, slideIndex: -1 }, channelId)).toBe(false);
+    expect(isStudioMessage({ ...selecao, slideIndex: 1.5 }, channelId)).toBe(false);
+    expect(isStudioMessage({ ...selecao, channelId: 'cs-other' }, channelId)).toBe(false);
+  });
+
   it('resolve somente origens HTTP(S) válidas para o iframe', () => {
     expect(studioOrigin('https://studio.example.com/embed-studio')).toBe('https://studio.example.com');
     expect(studioOrigin('ftp://studio.example.com/embed-studio')).toBeNull();
