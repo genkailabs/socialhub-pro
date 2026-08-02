@@ -73,6 +73,13 @@ describe('motor editorial próprio de carrossel', () => {
     if (parsed.success) expect(parsed.data.topic).toBe(topic);
   });
 
+  it('recusa assunto sem fim, que só queimaria token no prompt', () => {
+    expect(carouselDirectionsSkill.inputSchema.safeParse({
+      brandName: 'GenkaiLabs',
+      topic: 'a'.repeat(2001)
+    }).success).toBe(false);
+  });
+
   it('aceita roteiro prático atemporal sem fonte', () => {
     const practicalDirections = {
       ...directions,

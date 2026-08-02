@@ -35,7 +35,7 @@ export async function POST(request) {
   const sourceMaterial = typeof body?.sourceMaterial === 'string' ? body.sourceMaterial.trim() : '';
   const brandId = typeof body?.brandId === 'string' ? body.brandId : '';
   if (!stage) return badRequest('Etapa editorial inválida.');
-  if (!brandId || !topic || sourceMaterial.length > 6000) {
+  if (!brandId || !topic || topic.length > 2000 || sourceMaterial.length > 6000) {
     return badRequest('Tema, contexto ou marca inválidos.');
   }
 
