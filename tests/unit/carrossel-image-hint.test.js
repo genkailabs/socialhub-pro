@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { imageHintForSlide, imageHintsForBlocks } from '@/lib/carrossel-image-hint';
+import { imageHintForSlide, imageHintsForBlocks, imageHintsForSlides } from '@/lib/carrossel-image-hint';
 
 describe('dica de imagem do slide', () => {
   it('usa a dica escrita pela IA quando ela vem inteira', () => {
@@ -68,6 +68,40 @@ describe('dica de imagem do slide', () => {
 
     expect(hint.query).toContain('editorial magazine');
     expect(hint.query).toContain('blurred background');
+  });
+});
+
+describe('o carrossel inteiro não repete a mesma foto', () => {
+  const mesmoTema = [
+    { order: 1, role: 'cover', headline: 'Cinco erros ao usar IA no escritório' },
+    { order: 2, role: 'traction', headline: 'A equipe adota a IA sem revisar', body: 'O erro chega ao cliente.' },
+    { order: 3, role: 'teach', headline: 'A IA no escritório acelera quem sabe o caminho', body: 'A equipe ganha tempo.' },
+    { order: 4, role: 'apply', headline: 'Escolha a tarefa de IA mais repetitiva da equipe' },
+    { order: 5, role: 'cta', headline: 'Comece esta semana' }
+  ];
+
+  it('dá uma cena diferente para cada slide, mesmo falando do mesmo assunto', () => {
+    const hints = imageHintsForSlides(mesmoTema);
+    const cenas = new Set(hints.map((hint) => hint.scene));
+    const buscas = new Set(hints.map((hint) => hint.query));
+
+    expect(hints).toHaveLength(5);
+    expect(cenas.size).toBe(5);
+    expect(buscas.size).toBe(5);
+  });
+
+  it('mantém a dica escrita pela IA intacta no meio da lista', () => {
+    const comIa = structuredClone(mesmoTema);
+    comIa[2].imageIdea = { scene: 'mesa de reunião vazia', searchTerms: ['empty boardroom', 'daylight'] };
+    const hints = imageHintsForSlides(comIa);
+
+    expect(hints[2].source).toBe('ai');
+    expect(hints[2].scene).toBe('mesa de reunião vazia');
+  });
+
+  it('não quebra com entrada vazia', () => {
+    expect(imageHintsForSlides([])).toEqual([]);
+    expect(imageHintsForSlides(null)).toEqual([]);
   });
 });
 

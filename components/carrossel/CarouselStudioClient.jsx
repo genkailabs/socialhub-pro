@@ -11,7 +11,7 @@ import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, saveDraft } from '@/lib/posts-actions';
 import { carouselPrompt, gptUrl, headlinePrompt } from '@/lib/carrossel-gpts';
 import { preparePastedCarouselScript, serializeCarouselBrief } from '@/lib/carrossel-script-import';
-import { GENERIC_AVOID, imageHintForSlide, imageHintsForBlocks } from '@/lib/carrossel-image-hint';
+import { GENERIC_AVOID, imageHintsForBlocks, imageHintsForSlides } from '@/lib/carrossel-image-hint';
 import { Mascot } from '@/components/onboarding/Mascot';
 import { MascotTip } from '@/components/onboarding/MascotTip';
 import { CarouselStudioFrame } from './CarouselStudioFrame';
@@ -746,11 +746,13 @@ function appliedItems(editorial) {
       hint
     }));
   }
-  return (editorial?.brief?.slides || []).map((slide) => ({
+  const slides = editorial?.brief?.slides || [];
+  const hints = imageHintsForSlides(slides);
+  return slides.map((slide, index) => ({
     order: slide.order,
     role: slide.role,
     headline: slide.headline,
-    hint: imageHintForSlide(slide)
+    hint: hints[index]
   }));
 }
 
