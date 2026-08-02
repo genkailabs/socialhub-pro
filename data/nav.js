@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Stethoscope, Compass, CalendarRange, PenLine, Sparkles,
-  CalendarDays, CheckSquare, BarChart3, Coins, Plug
+  CalendarDays, CheckSquare, BarChart3, Coins, Plug, TrendingUp
 } from 'lucide-react';
 
 // Navegação agrupada por fluxo de trabalho (redesign 2026-07):
@@ -14,6 +14,7 @@ export const NAV_GROUPS = [
   { label: 'Criar', items: [
     { href: '/instagram/diagnostico', label: 'Diagnostico', icon: Stethoscope },
     { href: '/strategy', label: 'Estrategia', icon: Compass },
+    { href: '/trends', label: 'Tendencias', icon: TrendingUp },
     { href: '/planning', label: 'Planejamento', icon: CalendarRange },
     { href: '/composer', label: 'Composer', icon: PenLine },
     { href: '/brand-kit', label: 'Brand Kit', icon: Sparkles }

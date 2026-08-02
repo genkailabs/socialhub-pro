@@ -18,6 +18,8 @@ dist/
 dist-ssr/
 build/
 .next/
+# Build do Carrossel Studio importado para conferência local, não é fonte.
+.next-carrossel-import/
 .cache/
 .parcel-cache/
 
