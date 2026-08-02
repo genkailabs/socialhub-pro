@@ -37,11 +37,24 @@ describe('aprovar conteúdo que ainda não tem data', () => {
     expect(await approveContent({ postId: 'p1' })).toEqual({ error: 'Escolha o dia e a hora da publicação.' });
   });
 
-  it('recusa data no passado', async () => {
-    supabaseCom({ id: 'p1', format: 'carousel', brand_id: 'b1', scheduled_at: null });
-    const ontem = new Date(Date.now() - 60_000).toISOString();
+  // O publicador leva tudo com `scheduled_at <= now()` no ciclo seguinte, então
+  // "agora" é um pedido válido — era o que estava sendo recusado.
+  it('aceita agora, que sai no próximo ciclo do publicador', async () => {
+    const updates = supabaseCom({ id: 'p1', format: 'carousel', brand_id: 'b1', scheduled_at: null });
+    const agora = new Date().toISOString();
 
-    expect(await approveContent({ postId: 'p1', scheduledAt: ontem })).toEqual({ error: 'Escolha uma data/hora no futuro.' });
+    const res = await approveContent({ postId: 'p1', scheduledAt: agora });
+
+    expect(res).toEqual({ ok: true, status: 'scheduled' });
+    expect(updates[0].scheduled_at).toBe(agora);
+  });
+
+  it('recusa data claramente vencida', async () => {
+    supabaseCom({ id: 'p1', format: 'carousel', brand_id: 'b1', scheduled_at: null });
+    const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    expect(await approveContent({ postId: 'p1', scheduledAt: ontem }))
+      .toEqual({ error: 'Essa data já passou. Escolha outra ou use "Sair agora" para o próximo ciclo.' });
   });
 
   it('grava a data junto do status quando ela é escolhida', async () => {

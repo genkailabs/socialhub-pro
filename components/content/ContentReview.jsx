@@ -8,6 +8,15 @@ import { Button } from '@/components/ui/Button';
 
 const field = 'w-full rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors focus:border-accent focus:ring-4 focus:ring-accent/15';
 
+// `datetime-local` fala no fuso do navegador, não em UTC: converter pelo ISO
+// jogaria a hora escolhida para outro horário.
+function agoraLocal() {
+  const agora = new Date();
+  const doisDigitos = (valor) => String(valor).padStart(2, '0');
+  return `${agora.getFullYear()}-${doisDigitos(agora.getMonth() + 1)}-${doisDigitos(agora.getDate())}`
+    + `T${doisDigitos(agora.getHours())}:${doisDigitos(agora.getMinutes())}`;
+}
+
 const VEREDITO = {
   aprovado: { icon: CheckCircle2, cor: 'text-success', borda: 'border-success/40 bg-success/5', titulo: 'A revisao nao encontrou problemas' },
   atencao: { icon: AlertTriangle, cor: 'text-warning', borda: 'border-warning/40 bg-warning/10', titulo: 'Vale ajustar antes de publicar' },
@@ -217,6 +226,15 @@ export function ContentReview({ post }) {
             onChange={(e) => setQuando(e.target.value)}
             className={`${field} mt-2`}
           />
+          {/* Publicar já é pedido comum, e o publicador roda a cada 5 minutos:
+              basta marcar a hora atual que ele leva no próximo ciclo. */}
+          <button
+            type="button"
+            onClick={() => setQuando(agoraLocal())}
+            className="mt-2 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-bold text-ink transition-colors hover:border-accent/40 hover:text-accent"
+          >
+            Sair agora (no próximo ciclo, até 5 min)
+          </button>
         </div>
       )}
 

@@ -71,6 +71,21 @@ describe('revisar e aprovar o carrossel que veio do Studio', () => {
     expect(mocks.push).toHaveBeenCalledWith('/calendar');
   });
 
+  it('o atalho "Sair agora" preenche a hora atual, no fuso de quem está olhando', async () => {
+    render(<ContentReview post={carrossel} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Sair agora/ }));
+
+    const valor = screen.getByLabelText('Quando este post sai').value;
+    expect(valor).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    const escolhido = new Date(valor).getTime();
+    expect(Math.abs(escolhido - Date.now())).toBeLessThan(120_000);
+
+    fireEvent.click(screen.getByRole('button', { name: /Aprovar e agendar/ }));
+    await waitFor(() => expect(mocks.approveContent).toHaveBeenCalledTimes(1));
+    expect(mocks.approveContent.mock.calls[0][0].scheduledAt).toBe(valor);
+  });
+
   it('post que já tem data não pede data de novo', () => {
     render(<ContentReview post={{ ...carrossel, scheduled_at: '2026-09-01T10:00:00Z' }} />);
 
