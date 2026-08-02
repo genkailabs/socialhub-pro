@@ -118,14 +118,48 @@ describe('o Hub explica dentro da gaveta, não sobre o canvas', () => {
     renderComRoteiro();
     const gaveta = document.getElementById('carousel-editorial');
 
-    expect(within(gaveta).getByText('Carrossel: aqui o texto; ao lado, a arte.')).toBeTruthy();
+    expect(within(gaveta).getByText('Como esta tela funciona')).toBeTruthy();
     expect(document.querySelector('.fixed.bottom-5.right-5')).toBeNull();
+  });
+
+  it('com o roteiro no Studio, a gaveta é consulta e não formulário', () => {
+    const script = ['CINCO ERROS COM IA NO ESCRITÓRIO', 'A ferramenta nunca foi o problema.', 'O time não combina quem revisa', 'Sem revisor, o erro chega ao cliente.', 'Comece pela tarefa mais chata', 'Meça o tempo antes e depois.']
+      .map((bloco, index) => `texto ${index + 1} - ${bloco}`).join('\n\n');
+    render(<CarouselStudioClient
+      brandId="brand-1"
+      brand={{ name: 'GenkaiLabs' }}
+      draft={{ id: 'd1', editorial: { source: 'pasted-script', script, slideCount: 3, approvedAt: '2026-08-01T00:00:00.000Z' } }}
+      embedded
+    />);
+
+    expect(screen.getByText('Que foto usar em cada slide')).toBeTruthy();
+    expect(screen.getByText('3 slides no Studio · roteiro colado por você')).toBeTruthy();
+    expect(screen.getAllByText('Procure uma foto de:')).toHaveLength(3);
+    expect(screen.queryByLabelText('Cole o texto aqui')).toBeNull();
+    expect(screen.getAllByTestId('mascot')).toHaveLength(1);
+  });
+
+  it('"Trocar roteiro" devolve o formulário de entrada', () => {
+    const script = Array.from({ length: 6 }, (_, index) => `texto ${index + 1} - Bloco ${index + 1}`).join('\n\n');
+    render(<CarouselStudioClient
+      brandId="brand-1"
+      brand={{ name: 'GenkaiLabs' }}
+      draft={{ id: 'd1', editorial: { source: 'pasted-script', script, slideCount: 3, approvedAt: '2026-08-01T00:00:00.000Z' } }}
+      embedded
+    />);
+
+    // A gaveta começa fechada (aria-hidden) quando o roteiro já está no
+    // Studio: getByRole não enxerga o que está fora da árvore acessível.
+    fireEvent.click(screen.getByText('Trocar roteiro'));
+
+    expect(screen.getByText('Vamos montar o seu carrossel')).toBeTruthy();
+    expect(screen.queryByText('Que foto usar em cada slide')).toBeNull();
   });
 
   it('não repete o mascote no passo do assunto', () => {
     render(<CarouselStudioClient brandId="brand-1" brand={{ name: 'GenkaiLabs' }} embedded />);
 
-    expect(screen.queryByText('Carrossel: aqui o texto; ao lado, a arte.')).toBeNull();
+    expect(screen.queryByText('Como esta tela funciona')).toBeNull();
     expect(screen.getAllByTestId('mascot')).toHaveLength(1);
   });
 });

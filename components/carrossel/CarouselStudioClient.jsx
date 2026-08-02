@@ -108,6 +108,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   const [initialSlideCount, setInitialSlideCount] = useState(slideCountForEditorial(editorial));
   const [studioKey, setStudioKey] = useState(0);
   const [editorialOpen, setEditorialOpen] = useState(!editorial?.approvedAt);
+  const [showEntry, setShowEntry] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const changeTimer = useRef(null);
   const saveChain = useRef(Promise.resolve());
@@ -306,8 +307,9 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       setInitialScript(prepared.script);
       setInitialSlideCount(prepared.slideCount);
       setStudioKey((value) => value + 1);
+      setShowEntry(false);
       setEditorialOpen(false);
-      setMessage(`${prepared.slideCount} slides preenchidos com o texto colado. Revise o visual no Studio.`);
+      setMessage(`${prepared.slideCount} slides preenchidos com o texto colado. Abra "Roteiro" para ver que foto usar em cada um.`);
       if (previousMediaUrls.length) {
         try {
           await removeTempMedia(createClient(), previousMediaUrls);
@@ -400,8 +402,9 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       setInitialScript(scriptForBrief(brief));
       setInitialSlideCount(brief.slides.length);
       setStudioKey((value) => value + 1);
+      setShowEntry(false);
       setEditorialOpen(false);
-      setMessage('Roteiro aprovado por você e enviado ao Studio para edição.');
+      setMessage('Roteiro no Studio. Abra "Roteiro" para ver que foto usar em cada slide.');
     } catch (error) {
       setMessage(error.message || 'Não foi possível registrar a aprovação.');
     } finally {
@@ -441,6 +444,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       setEntryMode('ai');
       setPastedScript('');
       setSavedAt(null);
+      setShowEntry(false);
       setEditorialOpen(true);
       setStudioKey((value) => value + 1);
       setMessage('Rascunho descartado. Comece um novo carrossel.');
@@ -454,6 +458,10 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   const selectedHeadline = directions?.headlineOptions?.find((item) => item.id === selectedHeadlineId);
   const step = approvedEditorial?.approvedAt ? 4 : brief ? 3 : directions ? 2 : 1;
   const pastedPreview = pastedScript.trim() ? preparePastedCarouselScript(pastedScript) : null;
+  // Com o roteiro no Studio a gaveta é consulta. Só volta a ser formulário
+  // quando a pessoa pede outro roteiro.
+  const applied = Boolean(approvedEditorial?.approvedAt) && !showEntry;
+  const appliedSlides = applied ? appliedItems(approvedEditorial) : [];
 
   return (
     <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-56px)]'} flex-col`}>
@@ -520,23 +528,29 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3 text-sm">
-            {/* O Hub explicava esta tela numa bolha fixa no canto inferior
-                direito, e ela cobria as miniaturas dos slides do Studio. Aqui
-                dentro ele só aparece com a gaveta aberta. A partir do passo 2
-                porque no passo 1 o formulário já tem o mascote no cabeçalho. */}
-            {step >= 2 && <div className="mb-3">
-              <MascotTip
-                id="carrossel-studio"
-                title="Carrossel: aqui o texto; ao lado, a arte."
-                lines={[
-                  'Cada slide diz que foto procurar e os termos para buscar no banco de imagens.',
-                  'Feche esta gaveta pelo botão "Roteiro" quando quiser o canvas inteiro.',
-                  'Em "Usar no post" os slides viram rascunho — a data você escolhe no Calendário.'
-                ]}
-                cta={{ label: 'Abrir Calendário', href: '/calendar' }}
-              />
-            </div>}
-            {!directions && !brief && <form onSubmit={entryMode === 'paste' ? applyPastedScript : createDirections} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+            {/* Roteiro já aplicado: a gaveta vira consulta, não formulário.
+                Antes ela mostrava o formulário de novo, com o texto colado
+                ainda dentro e a dica de foto escondida num acordeão lá
+                embaixo — duas telas de entrada para um roteiro que já estava
+                no Studio. Aqui em cima fica o que serve nesta hora: qual foto
+                procurar para cada slide. */}
+            {applied ? <div className="rounded-2xl border border-line bg-surface p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-ink">Que foto usar em cada slide</p>
+                  <p className="mt-0.5 text-xs text-muted">{appliedSlides.length} slides no Studio · roteiro {approvedEditorial?.source === 'pasted-script' ? 'colado por você' : 'aprovado por você'}</p>
+                </div>
+                <button type="button" onClick={() => setShowEntry(true)} className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-bold text-ink hover:bg-surface-2">Trocar roteiro</button>
+              </div>
+              <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-2 text-[11px] leading-relaxed text-muted">Em todas: {GENERIC_AVOID}</p>
+              <ol className="mt-3 grid gap-2">{appliedSlides.map((slide) => <li key={slide.order} className="rounded-xl border border-line bg-surface-2 p-2.5 text-xs">
+                <span className="text-muted">{String(slide.order).padStart(2, '0')}{slide.role ? ` · ${STEP_LABEL[slide.role] || 'Página'}` : ''}</span>
+                <strong className="mt-1 block text-ink">{slide.headline}</strong>
+                <ImageHint hint={slide.hint} onCopy={copySearchTerms} />
+              </li>)}</ol>
+            </div> : null}
+
+            {!applied && !directions && !brief && <form onSubmit={entryMode === 'paste' ? applyPastedScript : createDirections} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
               <div className="flex gap-3">
                 <Mascot mood="guide" className="h-16 w-14 shrink-0" />
                 <div className="min-w-0 flex-1">
@@ -597,25 +611,16 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                       className="mt-2 w-full resize-y rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink"
                     />
                     {pastedPreview && <p role={pastedPreview.ok ? undefined : 'alert'} className={`mt-2 text-[11px] ${pastedPreview.ok ? 'text-success' : 'text-danger'}`}>{pastedPreview.ok ? `${pastedPreview.blockCount} campos encontrados · ${pastedPreview.slideCount} slides` : pastedPreview.error}</p>}
-                    {/* Texto colado é texto de carrossel igual ao gerado aqui:
-                        merece a mesma dica de foto, montada localmente. */}
-                    {pastedPreview?.ok && <details className="mt-2 text-[11px] text-muted">
-                      <summary className="cursor-pointer font-semibold hover:text-ink">Que imagem procurar para cada slide</summary>
-                      <p className="mt-2 leading-relaxed">Em todas: {GENERIC_AVOID}</p>
-                      <ol className="mt-2 grid gap-2">
-                        {imageHintsForBlocks(pastedPreview.blocks).map((hint) => <li key={hint.order}>
-                          <span className="font-semibold text-ink">Slide {hint.order}</span>
-                          <ImageHint hint={hint} onCopy={copySearchTerms} />
-                        </li>)}
-                      </ol>
-                    </details>}
+                    {/* A dica de foto de cada slide aparece depois de aplicar,
+                        no topo desta gaveta — antes disso ela competiria com o
+                        campo que a pessoa ainda está preenchendo. */}
                     <button type="submit" disabled={busy || !pastedPreview?.ok} className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{busy ? 'Aplicando…' : 'Aplicar texto no Studio'} <ClipboardPaste size={14} /></button>
                   </div>}
                 </div>
               </div>
             </form>}
 
-            {directions && !brief && <div className="rounded-2xl border border-line bg-surface p-4">
+            {!applied && directions && !brief && <div className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div><p className="font-semibold text-ink">Escolha a capa que abre a conversa</p><p className="mt-1 max-w-3xl text-xs text-muted">{directions.problem} <span aria-hidden="true">·</span> Você vai ensinar: {directions.learningOutcome}</p></div>
                 <button type="button" onClick={() => { setDirections(null); setSelectedHeadlineId(null); }} className="text-xs font-semibold text-muted hover:text-ink">Alterar assunto</button>
@@ -640,7 +645,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
               <div className="mt-3 flex justify-end"><button type="button" onClick={createFullBrief} disabled={briefBusy || !selectedHeadlineId} className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{briefBusy ? 'Criando roteiro…' : 'Criar roteiro com esta ideia'} <ArrowRight size={14} /></button></div>
             </div>}
 
-            {brief && <div className="rounded-2xl border border-line bg-surface p-4">
+            {!applied && brief && <div className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">Confira o roteiro antes de enviar ao Studio</p>{selectedHeadline && <p className="mt-1 text-xs text-muted">Capa escolhida: <strong className="text-ink">{selectedHeadline.headline}</strong></p>}</div>{sources.length > 0 ? <span className="rounded-full bg-success/10 px-2 py-1 text-[11px] font-semibold text-success">Fontes verificadas</span> : <span className="rounded-full bg-surface-2 px-2 py-1 text-[11px] font-semibold text-muted">Roteiro prático, sem dados factuais</span>}</div>
               <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-2 text-[11px] leading-relaxed text-muted">Cada slide traz que foto procurar. Em todas: {GENERIC_AVOID}</p>
               <ol className="mt-3 grid gap-2">{brief.slides.map((slide) => {
@@ -669,6 +674,22 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
               {sourceList(sources)}
               <div className="mt-3 flex flex-wrap justify-between gap-2"><button type="button" onClick={() => setBrief(null)} className="rounded-xl border border-line px-3 py-2 text-xs font-bold text-ink hover:bg-surface-2">Voltar às ideias</button><button type="button" onClick={applyApprovedBrief} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Usar roteiro no Studio <FileText size={14} /></button></div>
             </div>}
+
+            {/* O Hub explicava esta tela numa bolha fixa no canto inferior
+                direito, e ela cobria as miniaturas dos slides do Studio. Aqui
+                dentro ele só aparece com a gaveta aberta, e no rodapé: quem já
+                sabe usar não precisa rolar por cima da explicação. */}
+            {step >= 2 && <div className="mt-3">
+              <MascotTip
+                id="carrossel-studio"
+                title="Como esta tela funciona"
+                lines={[
+                  'Aqui você escreve; ao lado, o Studio monta a arte.',
+                  'Em "Usar no post" os slides viram rascunho — a data você escolhe no Calendário.'
+                ]}
+                cta={{ label: 'Abrir Calendário', href: '/calendar' }}
+              />
+            </div>}
           </div>
         </aside>
       </div>
@@ -680,6 +701,28 @@ function firstHeadline(doc) {
   const cover = doc?.slides?.find((slide) => slide.role === 'cover') || doc?.slides?.[0];
   const headline = cover?.elements?.find((element) => element.type === 'text' && (element.role === 'headline' || element.role === 'hook'));
   return headline?.content || '';
+}
+
+// Os slides que estão no Studio agora, já com a dica de foto de cada um. O
+// roteiro colado não tem papéis de narrativa: só a capa é conhecida, pela
+// posição. O gerado pela IA traz papel e dica escrita.
+function appliedItems(editorial) {
+  if (editorial?.source === 'pasted-script') {
+    const prepared = preparePastedCarouselScript(editorial.script || editorial.rawScript || '');
+    if (!prepared.ok) return [];
+    return imageHintsForBlocks(prepared.blocks).map((hint) => ({
+      order: hint.order,
+      role: hint.order === 1 ? 'cover' : null,
+      headline: prepared.blocks[(hint.order - 1) * 2],
+      hint
+    }));
+  }
+  return (editorial?.brief?.slides || []).map((slide) => ({
+    order: slide.order,
+    role: slide.role,
+    headline: slide.headline,
+    hint: imageHintForSlide(slide)
+  }));
 }
 
 function scriptForBrief(brief) {

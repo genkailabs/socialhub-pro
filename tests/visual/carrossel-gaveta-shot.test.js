@@ -50,7 +50,23 @@ describe('markup da gaveta do carrossel para inspeção', () => {
       }
     }));
 
+    // Roteiro já no Studio: é o estado em que a gaveta vira consulta, com a
+    // dica de foto de cada slide aberta.
+    const script = [
+      'CINCO ERROS AO USAR IA NO ESCRITÓRIO', 'A ferramenta nunca foi o problema.',
+      'O time adota a ferramenta sem combinar quem revisa', 'Sem revisor, o erro chega ao cliente com a sua assinatura.',
+      'Comece pela tarefa repetitiva que ninguém gosta', 'Meça quanto tempo ela consome hoje na equipe.',
+      'Escolha uma tarefa esta semana', 'Um passo pequeno, medido, vale mais que um plano grande.'
+    ].map((bloco, index) => `texto ${index + 1} - ${bloco}`).join('\n\n');
+    const aplicado = renderToStaticMarkup(React.createElement(CarouselStudioClient, {
+      brandId: 'b1',
+      brand: { name: 'GenkaiLabs' },
+      embedded: true,
+      draft: { id: 'd2', editorial: { source: 'pasted-script', script, slideCount: 4, approvedAt: '2026-08-01T00:00:00.000Z' } }
+    }));
+
     fs.mkdirSync(OUT, { recursive: true });
     fs.writeFileSync(path.join(OUT, 'gaveta.html'), markup);
+    fs.writeFileSync(path.join(OUT, 'gaveta-aplicada.html'), aplicado);
   });
 });
