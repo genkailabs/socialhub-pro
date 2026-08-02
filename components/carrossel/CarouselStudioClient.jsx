@@ -107,6 +107,17 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [editorialOpen]);
 
+  // Mesmo gesto para o cartão da foto. O Esc daqui só chega quando o foco está
+  // no host; dentro do iframe quem escuta é o Studio, e por isso o X existe.
+  useEffect(() => {
+    if (!selection) return undefined;
+    function onKeyDown(event) {
+      if (event.key === 'Escape') setSelection(null);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selection]);
+
   function saveEditorDoc(nextDoc, nextMediaUrls = mediaUrlsRef.current, nextEditorial = approvedEditorial) {
     const save = async () => {
       const caption = firstHeadline(nextDoc) || nextDoc?.name || nextEditorial?.headline || 'Rascunho de carrossel';
@@ -333,6 +344,13 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
     }
   }
 
+  // Dois painéis sobre o mesmo canvas é o que espremia a tela. A gaveta do
+  // roteiro sai de cena quando a dica da foto entra.
+  function handleSelection(next) {
+    setSelection(next);
+    if (next?.elementType === 'image') setEditorialOpen(false);
+  }
+
   async function copySearchTerms(query) {
     try {
       await navigator.clipboard.writeText(query);
@@ -488,11 +506,13 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           a guia era uma faixa empilhada aqui: com cinco cards de ideia ou oito
           slides de roteiro ela comia a altura, e a arte 1080×1350 saía cortada
           embaixo. Sobrepor devolve a altura ao canvas em todos os passos. */}
-      <div className="relative flex min-h-0 flex-1">
-        {/* A dica da foto entra por aqui, empurrando o editor para a direita em
-            vez de cobri-lo: o canvas é o que a pessoa está olhando. Ela abre
-            quando o Studio avisa que a imagem de um slide foi selecionada. */}
-        {selectedHint && <aside aria-label="Foto sugerida para este slide" className="flex w-[280px] shrink-0 flex-col border-r border-line bg-surface">
+      <div className="relative min-h-0 flex-1">
+        {/* A dica flutua por cima do editor em vez de empurrá-lo. Empurrar
+            muda a largura do iframe, e o canvas do Studio refaz o zoom "fit"
+            por ResizeObserver: a arte pulava de tamanho a cada clique numa
+            imagem. Cobrir um canto incomoda menos que mexer no que a pessoa
+            está olhando — e o cartão fecha no X ou no Esc. */}
+        {selectedHint && <aside aria-label="Foto sugerida para este slide" className="absolute left-3 top-3 z-30 flex max-h-[calc(100%-1.5rem)] w-[300px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
           <div className="flex items-center gap-2 border-b border-line px-3 py-2">
             <Camera size={14} className="text-accent" />
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Slide {String(selectedHint.order).padStart(2, '0')} · imagem</span>
@@ -517,8 +537,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           </div>
         </aside>}
 
-        <div className="relative min-h-0 min-w-0 flex-1">
-        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onSelection={setSelection} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
+        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onSelection={handleSelection} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
 
         <aside
           id="carousel-editorial"
@@ -702,7 +721,6 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
             </div>}
           </div>
         </aside>
-        </div>
       </div>
     </div>
   );

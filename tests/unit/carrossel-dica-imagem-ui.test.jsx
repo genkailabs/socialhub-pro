@@ -99,6 +99,32 @@ describe('dica de foto ao clicar na imagem do slide', () => {
     vi.unstubAllGlobals();
   });
 
+  it('flutua sobre o editor em vez de empurrar o layout', () => {
+    renderStudio();
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
+
+    const painel = screen.getByLabelText('Foto sugerida para este slide');
+    expect(painel.className).toContain('absolute');
+    expect(painel.className).not.toContain('shrink-0');
+  });
+
+  it('tira a gaveta do roteiro da frente ao abrir a dica', () => {
+    renderStudio();
+    fireEvent.click(screen.getByText('Trocar roteiro'));
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
+
+    expect(document.getElementById('carousel-editorial').getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('fecha no Esc', () => {
+    renderStudio();
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(screen.queryByLabelText('Foto sugerida para este slide')).toBeNull();
+  });
+
   it('fecha pelo botão de fechar', () => {
     renderStudio();
     fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
