@@ -12,6 +12,8 @@ import {
   studioDraftSavedMessage,
   studioErrorMessage,
   studioInitMessage,
+  studioMediaDeleteAckMessage,
+  studioMediaMessage,
   studioOrigin
 } from '@/lib/carrossel-studio-contract';
 
@@ -20,13 +22,17 @@ const EMBED_PATH = '/embed-studio';
 
 export function CarouselStudioFrame({
   title,
+  brandId,
   brand,
   initialDoc = null,
   initialScript = '',
+  initialMedia = [],
   templateId,
   slideCount,
   onChange,
   onExport,
+  onMediaUpload,
+  onMediaDelete,
   onDraftSaved,
   onError,
   onClose,
@@ -53,7 +59,8 @@ export function CarouselStudioFrame({
             brand,
             templateId,
             slideCount,
-            script: initialScript
+            script: initialScript,
+            initialMedia
           }),
           allowedOrigin
         );
@@ -62,6 +69,28 @@ export function CarouselStudioFrame({
       if (!isStudioMessage(data, channelId.current)) return;
 
       try {
+        if (data.type === 'cs:media-delete-request') {
+          if (!brandId || !data.path.startsWith(`temp/${brandId}/`)) throw new Error('Caminho temporário inválido para esta marca.');
+          if (!onMediaDelete) throw new Error('Remoção de mídia indisponível no host.');
+          const removed = await onMediaDelete(data.path);
+          if (!removed?.ok) throw new Error(removed?.error || 'Não foi possível remover o arquivo temporário.');
+          frameRef.current?.contentWindow?.postMessage(
+            studioMediaDeleteAckMessage({ channelId: channelId.current, requestId: data.requestId, path: data.path }),
+            allowedOrigin
+          );
+          return;
+        }
+        if (data.type === 'cs:media-request') {
+          if (!onMediaUpload) throw new Error('Upload de mídia indisponível no host.');
+          const file = new File([data.file.bytes], data.file.name, { type: data.file.type });
+          const item = await onMediaUpload(file);
+          if (!item?.url) throw new Error('O upload não devolveu uma URL válida.');
+          frameRef.current?.contentWindow?.postMessage(
+            studioMediaMessage({ channelId: channelId.current, requestId: data.requestId, item }),
+            allowedOrigin
+          );
+          return;
+        }
         if (data.type === 'cs:change') {
           const saved = await onChange?.(data.doc);
           if (saved?.draftId) {
@@ -80,7 +109,12 @@ export function CarouselStudioFrame({
         const message = error instanceof Error ? error.message : 'Não foi possível salvar o rascunho.';
         onError?.(message);
         frameRef.current?.contentWindow?.postMessage(
-          studioErrorMessage({ channelId: channelId.current, code: 'host_save_failed', message }),
+          studioErrorMessage({
+            channelId: channelId.current,
+            code: data.type === 'cs:media-request' ? 'host_upload_failed' : data.type === 'cs:media-delete-request' ? 'host_delete_failed' : 'host_save_failed',
+            message,
+            requestId: ['cs:media-request', 'cs:media-delete-request'].includes(data.type) ? data.requestId : undefined
+          }),
           allowedOrigin
         );
       }

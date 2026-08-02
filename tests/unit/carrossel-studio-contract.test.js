@@ -3,6 +3,9 @@ import {
   CAROUSEL_STUDIO_PROTOCOL_VERSION,
   isStudioMessage,
   isStudioReady,
+  safeStudioInitialMedia,
+  studioMediaMessage,
+  studioMediaDeleteAckMessage,
   studioInitMessage,
   studioOrigin
 } from '@/lib/carrossel-studio-contract';
@@ -16,10 +19,32 @@ describe('Carrossel Studio bridge contract V1', () => {
       title: 'Roteiro',
       doc: { slides: [] },
       slideCount: 99,
-      script: 'texto'
+      script: 'texto',
+      initialMedia: [
+        { url: 'https://cdn.test/slide-3.png', path: 'temp/brand-1/slide-3.png', altText: 'Exemplo do slide 3', slideOrder: 3, secret: 'nao enviar' },
+        { url: 'javascript:alert(1)', path: '../segredo' }
+      ]
     });
     expect(init).toMatchObject({ type: 'cs:init', version: CAROUSEL_STUDIO_PROTOCOL_VERSION, channelId, title: 'Roteiro', doc: { slides: [] } });
     expect(init.slideCount).toBeUndefined();
+    expect(init.media).toEqual([{
+      url: 'https://cdn.test/slide-3.png',
+      path: 'temp/brand-1/slide-3.png',
+      altText: 'Exemplo do slide 3',
+      slot: 2,
+      kind: 'image'
+    }]);
+  });
+
+  it('aceita somente URLs web e paths temporarios seguros na midia inicial', () => {
+    expect(safeStudioInitialMedia([
+      { url: 'http://localhost:54321/storage/image.png', path: 'temp/brand/image.png', altText: '  Imagem segura  ', slideOrder: 9 },
+      { url: 'data:image/png;base64,AA==' },
+      { url: 'https://cdn.test/b.png', path: 'temp/brand/../private.png' }
+    ])).toEqual([
+      { url: 'http://localhost:54321/storage/image.png', path: 'temp/brand/image.png', altText: 'Imagem segura', kind: 'image', slot: 8 },
+      { url: 'https://cdn.test/b.png', kind: 'image' }
+    ]);
   });
 
   it('aceita apenas ready versionado e mensagens do canal atual', () => {
@@ -28,6 +53,52 @@ describe('Carrossel Studio bridge contract V1', () => {
     expect(isStudioMessage({ type: 'cs:change', version: 1, channelId, doc: { slides: [] } }, channelId)).toBe(true);
     expect(isStudioMessage({ type: 'cs:change', version: 1, channelId: 'cs-other', doc: { slides: [] } }, channelId)).toBe(false);
     expect(isStudioMessage({ type: 'cs:export', version: 1, channelId, doc: {}, images: [{ name: 'a.png', dataUrl: 'data:image/png;base64,AA==' }] }, channelId)).toBe(true);
+  });
+
+  it('valida upload binario do Studio e monta a resposta com URL e path', () => {
+    const bytes = new Uint8Array([1, 2, 3]).buffer;
+    const request = {
+      type: 'cs:media-request',
+      version: CAROUSEL_STUDIO_PROTOCOL_VERSION,
+      channelId,
+      requestId: 'media-request-1',
+      file: { name: 'foto.png', type: 'image/png', size: bytes.byteLength, bytes }
+    };
+
+    expect(isStudioMessage(request, channelId)).toBe(true);
+    expect(isStudioMessage({ ...request, channelId: 'cs-other' }, channelId)).toBe(false);
+    expect(isStudioMessage({ ...request, file: { ...request.file, size: 4 } }, channelId)).toBe(false);
+    expect(studioMediaMessage({
+      channelId,
+      requestId: request.requestId,
+      item: { url: 'https://cdn.test/foto.png', path: 'temp/brand/foto.png', kind: 'image', name: 'foto.png' }
+    })).toEqual({
+      type: 'cs:media',
+      version: CAROUSEL_STUDIO_PROTOCOL_VERSION,
+      channelId,
+      requestId: request.requestId,
+      items: [{ url: 'https://cdn.test/foto.png', path: 'temp/brand/foto.png', kind: 'image', name: 'foto.png' }]
+    });
+  });
+
+  it('aceita artefatos Motion limitados e confirma exclusao temporaria pelo requestId', () => {
+    const bytes = new Uint8Array([1, 2, 3]).buffer;
+    const upload = {
+      type: 'cs:media-request', version: 1, channelId, requestId: 'motion-upload-1',
+      file: { name: 'reels.webm', type: 'video/webm', size: bytes.byteLength, bytes }
+    };
+    const deletion = {
+      type: 'cs:media-delete-request', version: 1, channelId, requestId: 'motion-delete-1',
+      path: 'temp/brand-1/reels.webm'
+    };
+
+    expect(isStudioMessage(upload, channelId)).toBe(true);
+    expect(isStudioMessage({ ...upload, file: { ...upload.file, type: 'text/html' } }, channelId)).toBe(false);
+    expect(isStudioMessage(deletion, channelId)).toBe(true);
+    expect(isStudioMessage({ ...deletion, path: 'temp/brand-1/../secret' }, channelId)).toBe(false);
+    expect(studioMediaDeleteAckMessage({ channelId, requestId: deletion.requestId, path: deletion.path })).toEqual({
+      type: 'cs:media-delete-ack', version: 1, channelId, requestId: deletion.requestId, path: deletion.path
+    });
   });
 
   it('resolve somente origens HTTP(S) válidas para o iframe', () => {
