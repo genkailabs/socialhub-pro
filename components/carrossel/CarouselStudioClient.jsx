@@ -175,7 +175,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       await saveChain.current;
       await saveEditorDoc(exportedDoc, urls);
       setDoc(exportedDoc);
-      setMessage(`${urls.length} slides no rascunho. Agende no Calendário.`);
+      setMessage(`${urls.length} slides no rascunho. Ele está no Calendário, em "Sem data ainda".`);
     } catch (error) {
       setMessage(error.message || 'Falha ao enviar para o post.');
     } finally {

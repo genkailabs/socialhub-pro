@@ -18,6 +18,9 @@ export function CalendarGrid({ posts }) {
 
   const grid = monthMatrix(year, month);
   const byDay = groupPostsByDay(posts);
+  // Rascunho e aguardando aprovação nascem sem `scheduled_at`. Publicado sem
+  // data não existe, e post excluído não volta para a lista.
+  const semData = posts.filter((p) => !p.scheduled_at && !p.deleted_at);
   const posInMonth = posts.filter((p) => {
     if (!p.scheduled_at) return false;
     const d = new Date(p.scheduled_at);
@@ -98,6 +101,45 @@ export function CalendarGrid({ posts }) {
           })}
         </div>
       </div>
+      {/* O Composer e o Carrossel Studio salvam rascunho sem data, e a grade
+          só desenha quem tem `scheduled_at`: o post sumia da vista logo depois
+          de "Usar no post". Aqui ele tem endereço até ganhar dia e hora. */}
+      {semData.length > 0 && (
+        <div className="rounded-[22px] border border-line bg-surface p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-[15px] font-extrabold tracking-tight text-ink">Sem data ainda</h2>
+              <p className="mt-0.5 text-xs text-muted">Rascunhos prontos esperando dia e hora. Clique para escolher quando sai.</p>
+            </div>
+            <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-bold text-muted">{semData.length}</span>
+          </div>
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {semData.map((p) => {
+              const m = statusMeta(p.status);
+              const capa = p.media_urls?.[0] || p.media_url || null;
+              return (
+                <li key={p.id}>
+                  <button
+                    onClick={() => setSel(p)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-line bg-surface-2 p-2 text-left transition-colors hover:border-accent/40"
+                  >
+                    {capa
+                      ? <img src={capa} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                      : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-surface text-[10px] font-bold text-muted">POST</span>}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: m.color }} /> {m.label}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[13px] font-semibold text-ink">{p.content?.slice(0, 40) || 'Rascunho'}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {sel && <PostDetail post={sel} onClose={() => setSel(null)} />}
     </div>
   );

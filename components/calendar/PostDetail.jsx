@@ -47,9 +47,16 @@ export function PostDetail({ post, onClose }) {
           ) : null}
           <p className="whitespace-pre-wrap text-sm text-ink">{post.content || '(sem legenda)'}</p>
 
-          {status === 'scheduled' && post.production?.source === 'visual-composer' && (
-            <a href={`/composer?post=${post.id}`} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs font-bold text-ink transition-colors hover:border-accent/40 hover:text-accent">
-              <Pencil className="h-3.5 w-3.5" /> Editar no Composer
+          {/* O rascunho também precisa de saída: era só o agendado que trazia
+              este atalho, então quem salvava do Studio ficava sem caminho para
+              dar data ao post. O Carrossel volta pelo formato, porque o Studio
+              carrega o último rascunho dele. */}
+          {(status === 'scheduled' || status === 'draft') && post.production?.source && (
+            <a
+              href={post.production.source === 'carrossel-studio' ? '/composer?format=carrossel' : `/composer?post=${post.id}`}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs font-bold text-ink transition-colors hover:border-accent/40 hover:text-accent"
+            >
+              <Pencil className="h-3.5 w-3.5" /> {status === 'draft' ? 'Abrir para agendar' : 'Editar no Composer'}
             </a>
           )}
 
