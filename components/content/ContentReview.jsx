@@ -141,7 +141,17 @@ export function ContentReview({ post }) {
         const salvo = await updateContent({ postId: post.id, patch: { content: caption } });
         if (salvo?.error) throw new Error(salvo.error);
       }
-      const res = await approveContent({ postId: post.id, scheduledAt: precisaDeData ? quando : null });
+      // O servidor roda em UTC: mandar "2026-08-02T21:35" cru fazia ele ler
+      // essa hora como UTC e jogar o horário três fusos para trás, recusando
+      // como "data que já passou" um agendamento minutos à frente. Quem sabe o
+      // fuso é o navegador, então a conversão para instante absoluto é aqui.
+      const instante = precisaDeData ? new Date(quando).getTime() : NaN;
+      if (precisaDeData && Number.isNaN(instante)) throw new Error('Escolha o dia e a hora da publicação.');
+
+      const res = await approveContent({
+        postId: post.id,
+        scheduledAt: precisaDeData ? new Date(instante).toISOString() : null
+      });
       if (res?.error) throw new Error(res.error);
       router.push('/calendar');
       router.refresh();

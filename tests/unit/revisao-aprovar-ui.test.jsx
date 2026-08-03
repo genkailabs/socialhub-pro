@@ -40,14 +40,20 @@ describe('revisar e aprovar o carrossel que veio do Studio', () => {
     expect(screen.getByText(/não é publicado nem aparece na grade/)).toBeTruthy();
   });
 
-  it('leva a data escolhida junto da aprovação e volta para o Calendário', async () => {
+  // O servidor roda em UTC. Mandar "2026-09-01T10:00" cru fazia ele ler a hora
+  // como UTC e jogar o horário três horas para trás no Brasil — por isso uma
+  // data poucos minutos à frente voltava como "essa data já passou".
+  it('leva a data escolhida como instante absoluto, no fuso de quem escolheu', async () => {
     render(<ContentReview post={carrossel} />);
 
     fireEvent.change(screen.getByLabelText('Quando este post sai'), { target: { value: '2026-09-01T10:00' } });
     fireEvent.click(screen.getByRole('button', { name: /Aprovar e agendar/ }));
 
     await waitFor(() => expect(mocks.approveContent).toHaveBeenCalledTimes(1));
-    expect(mocks.approveContent.mock.calls[0][0]).toEqual({ postId: 'post-1', scheduledAt: '2026-09-01T10:00' });
+    expect(mocks.approveContent.mock.calls[0][0]).toEqual({
+      postId: 'post-1',
+      scheduledAt: new Date('2026-09-01T10:00').toISOString()
+    });
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/calendar'));
   });
 
@@ -83,7 +89,28 @@ describe('revisar e aprovar o carrossel que veio do Studio', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Aprovar e agendar/ }));
     await waitFor(() => expect(mocks.approveContent).toHaveBeenCalledTimes(1));
-    expect(mocks.approveContent.mock.calls[0][0].scheduledAt).toBe(valor);
+    const enviado = new Date(mocks.approveContent.mock.calls[0][0].scheduledAt).getTime();
+    expect(enviado).toBe(new Date(valor).getTime());
+    expect(Math.abs(enviado - Date.now())).toBeLessThan(120_000);
+  });
+
+  // Alguns minutos à frente no relógio de quem usa precisam continuar no futuro
+  // depois da conversão — é exatamente o caso que estava sendo recusado.
+  it('uma hora poucos minutos à frente chega ao servidor ainda no futuro', async () => {
+    render(<ContentReview post={carrossel} />);
+
+    const daquiTresMin = new Date(Date.now() + 3 * 60 * 1000);
+    const dd = (v) => String(v).padStart(2, '0');
+    const valor = `${daquiTresMin.getFullYear()}-${dd(daquiTresMin.getMonth() + 1)}-${dd(daquiTresMin.getDate())}`
+      + `T${dd(daquiTresMin.getHours())}:${dd(daquiTresMin.getMinutes())}`;
+
+    fireEvent.change(screen.getByLabelText('Quando este post sai'), { target: { value: valor } });
+    fireEvent.click(screen.getByRole('button', { name: /Aprovar e agendar/ }));
+
+    await waitFor(() => expect(mocks.approveContent).toHaveBeenCalledTimes(1));
+    const enviado = mocks.approveContent.mock.calls[0][0].scheduledAt;
+    expect(enviado).toMatch(/Z$/);
+    expect(new Date(enviado).getTime()).toBeGreaterThan(Date.now());
   });
 
   it('post que já tem data não pede data de novo', () => {
