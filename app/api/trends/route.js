@@ -17,13 +17,17 @@ export async function POST(request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Sessão expirada.' }, { status: 401 });
 
+  // `brands` guarda o segmento em `category`; `niche` e `description` nunca
+  // existiram nesta tabela. Pedi-las fazia a query falhar inteira, `brand`
+  // vinha nulo e a tela acusava "Marca inválida" para uma marca válida — o
+  // nicho fino vem do Brand Kit, este é só a reserva.
   const [{ data: brand }, { data: kit }] = await Promise.all([
-    supabase.from('brands').select('id, name, niche, description').eq('id', brandId).maybeSingle(),
+    supabase.from('brands').select('id, name, category').eq('id', brandId).maybeSingle(),
     supabase.from('brand_kits').select('niche, audience').eq('brand_id', brandId).maybeSingle()
   ]);
   if (!brand) return NextResponse.json({ error: 'Marca inválida.' }, { status: 403 });
 
-  const niche = String(kit?.niche || brand.niche || '').trim();
+  const niche = String(kit?.niche || brand.category || '').trim();
   const query = [
     'tendências atuais de formatos, narrativas e mecânicas de conteúdo no Instagram no Brasil',
     niche && `para profissionais de ${niche}`,
@@ -49,7 +53,7 @@ export async function POST(request) {
       input: {
         brandName: brand.name,
         niche,
-        audience: kit?.audience || brand.description || '',
+        audience: kit?.audience || '',
         research: { summary: research.summary, sources }
       },
       supabase,
