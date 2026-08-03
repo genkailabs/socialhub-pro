@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Stethoscope, Compass, CalendarRange, PenLine, Sparkles,
-  CalendarDays, CheckSquare, BarChart3, Coins, Plug, TrendingUp
+  CalendarDays, CheckSquare, BarChart3, Coins, Plug, TrendingUp, Wrench
 } from 'lucide-react';
 
 // Navegação agrupada por fluxo de trabalho (redesign 2026-07):
@@ -27,7 +27,11 @@ export const NAV_GROUPS = [
     { href: '/metrics', label: 'Relatorios', icon: BarChart3 },
     { href: '/ai-costs', label: 'Custos da IA', icon: Coins, adminOnly: true }
   ]},
+  // Fora do fluxo diário: métodos de agência que rodam no Claude (deck,
+  // landing, disparo). Ficam juntos de configuração para não competir com
+  // quem só quer publicar.
   { isolated: true, items: [
+    { href: '/avancado', label: 'Avancado', icon: Wrench },
     { href: '/connections', label: 'Conexoes', icon: Plug }
   ]}
 ];
