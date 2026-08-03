@@ -246,6 +246,47 @@ describe('motor editorial próprio de carrossel', () => {
     expect(prompt.system).toContain('termos de busca em inglês');
   });
 
+  // A legenda sai do roteiro direto para o post. Sem hashtag no schema, o
+  // carrossel nascia sem nenhuma e alguém tinha de escrever à mão.
+  it('aceita hashtags na legenda do roteiro', () => {
+    const comHashtags = structuredClone(brief);
+    comHashtags.caption.hashtags = ['#processos', '#gestao'];
+
+    const parsed = fullBriefSchema.safeParse(comHashtags);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.caption.hashtags).toEqual(['#processos', '#gestao']);
+  });
+
+  it('trata roteiro sem hashtag como lista vazia, e não como erro', () => {
+    const parsed = fullBriefSchema.safeParse(brief);
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.caption.hashtags).toEqual([]);
+  });
+
+  // Doze é o teto que o post-producer já usa; muro de hashtag não é legenda.
+  it('recusa parede de hashtags', () => {
+    const demais = structuredClone(brief);
+    demais.caption.hashtags = Array.from({ length: 13 }, (_, index) => `#tag${index}`);
+
+    expect(fullBriefSchema.safeParse(demais).success).toBe(false);
+  });
+
+  it('ensina ao modelo que a legenda leva hashtags', () => {
+    const prompt = carouselFullBriefSkill.buildPrompt({
+      brandName: 'GenkaiLabs',
+      contentType: 'educativo',
+      topic: 'Como reduzir tarefas repetitivas',
+      sourceMaterial: '',
+      research: { summary: '', sources: [] },
+      directions,
+      selectedHeadlineId: 'headline-2'
+    });
+
+    expect(prompt.system).toContain('"hashtags"');
+    expect(prompt.system).toContain('hashtags');
+  });
+
   it('rejeita fonte inexistente antes de o roteiro chegar ao Studio', () => {
     expect(sourceIdsAreAllowed({ slides: [{ sourceIds: ['source-x'] }] }, ['source-1'])).toBe(false);
     expect(sourceIdsAreAllowed(directions, ['source-1'])).toBe(true);

@@ -75,7 +75,9 @@ canal são ignoradas. Erros retornam `cs:error`; um autosave confirmado retorna
 ```
 
 Rascunhos do Composer continuam com `source: "visual-composer"`. Os dois convivem
-sem se sobrescrever — `getLatestStudioDraft` filtra por `source`.
+sem se sobrescrever — `getStudioDraft` filtra por `source`. Sem `postId` ela abre o
+rascunho mais recente; com `postId` (`/composer?format=carrossel&post=<id>`) abre
+exatamente aquele carrossel, inclusive já agendado.
 
 ## O que mudou neste repositório
 

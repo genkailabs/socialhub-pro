@@ -49,11 +49,11 @@ export function PostDetail({ post, onClose }) {
 
           {/* O rascunho também precisa de saída: era só o agendado que trazia
               este atalho, então quem salvava do Studio ficava sem caminho para
-              dar data ao post. O Carrossel volta pelo formato, porque o Studio
-              carrega o último rascunho dele. */}
+              dar data ao post. O Carrossel volta pelo formato E pelo id: sem o
+              id o Studio abria sempre o rascunho mais recente, não o clicado. */}
           {(status === 'scheduled' || status === 'draft') && post.production?.source && (
             <a
-              href={post.production.source === 'carrossel-studio' ? '/composer?format=carrossel' : `/composer?post=${post.id}`}
+              href={post.production.source === 'carrossel-studio' ? `/composer?format=carrossel&post=${post.id}` : `/composer?post=${post.id}`}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs font-bold text-ink transition-colors hover:border-accent/40 hover:text-accent"
             >
               <Pencil className="h-3.5 w-3.5" /> {status === 'draft' ? 'Abrir para agendar' : 'Editar no Composer'}

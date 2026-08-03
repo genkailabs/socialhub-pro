@@ -6,7 +6,7 @@ import { resolveActive } from '@/lib/brands';
 import { listConnectedPlatforms } from '@/lib/social-tokens-data';
 import { getComposerPost, getLatestComposerDraft } from '@/lib/posts-data';
 import { getBrandKit } from '@/lib/brand-kit-data';
-import { brandKitToStudioBrand, getLatestStudioDraft } from '@/lib/carrossel-studio-data';
+import { brandKitToStudioBrand, getStudioDraft } from '@/lib/carrossel-studio-data';
 
 // Só o que a montagem da arte usa — nada de DNA bruto no cliente.
 function publicBrandKit(kit) {
@@ -27,11 +27,15 @@ export default async function ComposerPage({ searchParams }) {
     getActiveBrandId()
   ]);
   const active = resolveActive(brands, activeBrandId);
-  const [connected, brandKit, studioDraft] = active
-    ? await Promise.all([listConnectedPlatforms(active.id), getBrandKit(active.id), getLatestStudioDraft(active.id)])
-    : [{}, null, null];
   const requestedPostId = typeof searchParams?.post === 'string' ? searchParams.post : null;
   const initialFormat = searchParams?.format === 'carrossel' ? 'carrossel' : null;
+  // O id só vale para o Studio quando o pedido é de carrossel; num pedido de
+  // post ele pertence ao Composer, e mandá-lo aqui abriria o Studio no post
+  // errado (ou em nada).
+  const studioPostId = initialFormat === 'carrossel' ? requestedPostId : null;
+  const [connected, brandKit, studioDraft] = active
+    ? await Promise.all([listConnectedPlatforms(active.id), getBrandKit(active.id), getStudioDraft(active.id, studioPostId)])
+    : [{}, null, null];
   const initialDraft = active
     ? initialFormat === 'carrossel'
       ? null

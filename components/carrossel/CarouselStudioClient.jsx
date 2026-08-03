@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, saveDraft } from '@/lib/posts-actions';
 import { carouselPrompt, gptUrl, headlinePrompt } from '@/lib/carrossel-gpts';
+import { legendaDoRoteiro } from '@/lib/carrossel-legenda';
 import { preparePastedCarouselScript, serializeCarouselBrief } from '@/lib/carrossel-script-import';
 import { GENERIC_AVOID, imageHintsForBlocks, imageHintsForSlides } from '@/lib/carrossel-image-hint';
 import { TIPO_PADRAO, templateDoTipo, tipoPorId, tiposPorObjetivo } from '@/lib/carrossel-tipos';
@@ -132,12 +133,15 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
 
   function saveEditorDoc(nextDoc, nextMediaUrls = mediaUrlsRef.current, nextEditorial = approvedEditorial) {
     const save = async () => {
-      const caption = firstHeadline(nextDoc) || nextDoc?.name || nextEditorial?.headline || 'Rascunho de carrossel';
+      // A legenda do post é a que o roteiro escreveu para o feed. A manchete da
+      // capa só entra como reserva, para o carrossel montado à mão.
+      const reserva = firstHeadline(nextDoc) || nextDoc?.name || nextEditorial?.headline || 'Rascunho de carrossel';
+      const { caption, hashtags } = legendaDoRoteiro(nextEditorial, reserva);
       const result = await saveDraft({
         brandId,
         draftId: draftIdRef.current,
         caption,
-        hashtags: '',
+        hashtags,
         imageUrls: nextMediaUrls,
         format: 'carousel',
         editorState: {

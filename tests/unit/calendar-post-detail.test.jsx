@@ -38,7 +38,9 @@ describe('PostDetail scheduled editing', () => {
       .toBe('/composer?post=draft-1');
   });
 
-  it('manda o rascunho do Studio de volta pelo formato carrossel', () => {
+  // O link levava só o formato. Quem tinha dois carrosséis abria sempre o mais
+  // recente, nunca o que clicou — o id precisa viajar junto.
+  it('manda o rascunho do Studio de volta pelo formato carrossel, com o id do post', () => {
     render(
       <PostDetail
         post={{ id: 'draft-2', status: 'draft', content: 'Carrossel', production: { source: 'carrossel-studio' } }}
@@ -47,6 +49,6 @@ describe('PostDetail scheduled editing', () => {
     );
 
     expect(screen.getByRole('link', { name: /abrir para agendar/i }).getAttribute('href'))
-      .toBe('/composer?format=carrossel');
+      .toBe('/composer?format=carrossel&post=draft-2');
   });
 });
