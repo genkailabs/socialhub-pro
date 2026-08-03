@@ -8,6 +8,7 @@ import {
   sourceIdsAreAllowed
 } from '@/lib/ai/skills/carousel-brief';
 import { runSkill } from '@/lib/ai/skills/run';
+import { TIPO_PADRAO, tipoPorId } from '@/lib/carrossel-tipos';
 
 // `runSkill` tenta duas vezes, e uma tentativa custa 25–31s medidos. O teto de
 // 60s cortava a requisição no meio da segunda tentativa em toda plataforma que
@@ -34,7 +35,10 @@ export async function POST(request) {
   const topic = typeof body?.topic === 'string' ? body.topic.trim() : '';
   const sourceMaterial = typeof body?.sourceMaterial === 'string' ? body.sourceMaterial.trim() : '';
   const brandId = typeof body?.brandId === 'string' ? body.brandId : '';
+  // Rascunho antigo não mandava tipo: cai no padrão em vez de quebrar.
+  const tipo = tipoPorId(body?.contentType) || (body?.contentType ? null : tipoPorId(TIPO_PADRAO));
   if (!stage) return badRequest('Etapa editorial inválida.');
+  if (!tipo) return badRequest('Tipo de carrossel inválido.');
   if (!brandId || !topic || topic.length > 2000 || sourceMaterial.length > 6000) {
     return badRequest('Tema, contexto ou marca inválidos.');
   }
@@ -59,6 +63,7 @@ export async function POST(request) {
     const baseInput = {
       brandName: brand.name,
       brandContext: cleanContext({ description: brand.description, kit, dna: dna?.report || dna?.content || null }),
+      contentType: tipo.id,
       topic,
       sourceMaterial
     };
@@ -74,12 +79,16 @@ export async function POST(request) {
       if (!sourceIdsAreAllowed(directions, [])) {
         return NextResponse.json({ error: 'As ideias precisam ficar sem fontes até a etapa do roteiro. Tente novamente.' }, { status: 502 });
       }
-      return NextResponse.json({ stage, directions, sources: [] });
+      return NextResponse.json({ stage, contentType: tipo.id, directions, sources: [] });
     }
 
     // Temas atuais exigem pesquisa verificável. Em temas atemporais, o roteiro
     // continua possível, mas limitado a orientação prática sem alegações factuais.
-    const researchRequired = needsResearch({ topic, format: 'carousel' });
+    //
+    // Os carros-chefe (análise de tendência e case) não dependem da heurística:
+    // a receita deles pede dado e número, e dado sem fonte é invenção. Para
+    // esses, pesquisa é obrigatória sempre.
+    const researchRequired = tipo.exigePesquisa || needsResearch({ topic, format: 'carousel' });
     const research = researchRequired
       ? await researchContext({
         supabase,
@@ -88,7 +97,10 @@ export async function POST(request) {
       })
       : { summary: '', sources: [], model: null, cached: false };
     if (researchRequired && !research.sources?.length) {
-      return NextResponse.json({ error: 'Não foi possível validar fontes suficientes para este roteiro atual. Tente um tema mais específico ou volte mais tarde.' }, { status: 502 });
+      const porQue = tipo.exigePesquisa
+        ? `"${tipo.label}" só existe com fonte: sem ela o roteiro viraria opinião com cara de dado.`
+        : 'Este tema depende de informação atual.';
+      return NextResponse.json({ error: `${porQue} Não encontrei fontes verificáveis agora — tente um assunto mais específico ou volte em instantes.` }, { status: 502 });
     }
     const sources = (research.sources || []).map((source, index) => ({ ...source, id: `source-${index + 1}` }));
 
@@ -104,12 +116,20 @@ export async function POST(request) {
     if (!sourceIdsAreAllowed(brief, sources.map((source) => source.id)) || !fullBriefMatchesSelection(brief, directions, selectedHeadlineId)) {
       return NextResponse.json({ error: 'O roteiro não corresponde à direção aprovada. Tente novamente.' }, { status: 502 });
     }
-    return NextResponse.json({ stage, brief, sources, research: { required: researchRequired, model: research.model, cached: research.cached } });
+    return NextResponse.json({ stage, contentType: tipo.id, brief, sources, research: { required: researchRequired, model: research.model, cached: research.cached } });
   } catch (error) {
     if (error instanceof ResearchUnavailableError) {
       return NextResponse.json({ error: error.message }, { status: 503 });
     }
     const message = error instanceof Error ? error.message : '';
+    // Pilar faltando não é falha técnica: é o roteiro reprovado na receita do
+    // tipo. Dizer "tente de novo" esconderia o que precisa mudar.
+    const pilarFaltando = message.match(/Falta cumprir o pilar "([^"]+)" \(([^)]+)\)/);
+    if (pilarFaltando) {
+      return NextResponse.json({
+        error: `O roteiro saiu sem "${pilarFaltando[1]}" — ${pilarFaltando[2]} Tente de novo com um assunto mais concreto ou cole um material com esse dado.`
+      }, { status: 502 });
+    }
     if (/nao devolveu um resultado valido|saída invalida|saida invalida/i.test(message)) {
       return NextResponse.json({ error: 'A IA não conseguiu organizar as ideias desta vez. Tente novamente.' }, { status: 502 });
     }

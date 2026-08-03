@@ -6,13 +6,15 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
-import { ArrowRight, CalendarClock, Camera, CheckCircle2, ChevronLeft, ClipboardPaste, Copy, ExternalLink, FileText, ImagePlus, Loader2, PanelLeft, RotateCcw, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowRight, CalendarClock, Camera, CheckCircle2, ChevronLeft, ClipboardPaste, Copy, ExternalLink, FileText, ImagePlus, Loader2, PanelLeft, RotateCcw, Sparkles, Trash2, TrendingUp, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, saveDraft } from '@/lib/posts-actions';
 import { carouselPrompt, gptUrl, headlinePrompt } from '@/lib/carrossel-gpts';
 import { preparePastedCarouselScript, serializeCarouselBrief } from '@/lib/carrossel-script-import';
 import { GENERIC_AVOID, imageHintsForBlocks, imageHintsForSlides } from '@/lib/carrossel-image-hint';
+import { TIPO_PADRAO, templateDoTipo, tipoPorId, tiposPorObjetivo } from '@/lib/carrossel-tipos';
+import { tendenciaParaEntrada } from '@/lib/instagram-trends';
 import { Mascot } from '@/components/onboarding/Mascot';
 import { MascotTip } from '@/components/onboarding/MascotTip';
 import { CarouselStudioFrame } from './CarouselStudioFrame';
@@ -68,7 +70,15 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   const [savedAt, setSavedAt] = useState(null);
   const [topic, setTopic] = useState('');
   const [sourceMaterial, setSourceMaterial] = useState('');
+  // Qual dos 8 tipos de carrossel será gerado. O padrão é o carro-chefe de
+  // tendência: é o que alcança quem ainda não segue a marca.
+  const [contentType, setContentType] = useState(editorial?.contentType || TIPO_PADRAO);
   const [entryMode, setEntryMode] = useState(editorial?.source === 'pasted-script' ? 'paste' : 'ai');
+  // Tendências pesquisadas na hora, para o tipo que exige fonte. Ficam aqui e
+  // não numa tela à parte: quem está montando o carrossel não deveria ter que
+  // sair, copiar e voltar.
+  const [trends, setTrends] = useState(null);
+  const [trendsBusy, setTrendsBusy] = useState(false);
   const [pastedScript, setPastedScript] = useState(editorial?.rawScript || '');
   const [directions, setDirections] = useState(editorial?.directions || null);
   const [brief, setBrief] = useState(editorial?.brief || null);
@@ -219,7 +229,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       const response = await fetch('/api/carrossel/brief', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ brandId, topic: topic.trim(), sourceMaterial: sourceMaterial.trim(), stage, ...extra }),
+        body: JSON.stringify({ brandId, contentType, topic: topic.trim(), sourceMaterial: sourceMaterial.trim(), stage, ...extra }),
         signal: controller.signal
       });
       const result = await response.json().catch(() => ({}));
@@ -230,6 +240,44 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       progressTimers.forEach((timer) => window.clearTimeout(timer));
       if (briefRequest.current === controller) briefRequest.current = null;
     }
+  }
+
+  // Busca as tendências do momento pelo mesmo motor da tela Tendências: a
+  // pesquisa é ao vivo e só entrega o que tem fonte verificável. Sem isto, o
+  // carro-chefe do produto dependia de a pessoa já saber sobre o que falar.
+  async function buscarTendencias() {
+    setTrendsBusy(true);
+    setMessage('Procurando tendências com fonte…');
+    try {
+      const response = await fetch('/api/trends', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ brandId })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result?.state !== 'ready') {
+        throw new Error(result?.error || 'A pesquisa não encontrou tendências com fonte agora.');
+      }
+      setTrends({ items: result.trends || [], sources: result.sources || [] });
+      setMessage('');
+    } catch (error) {
+      setTrends(null);
+      setMessage(error.message);
+    } finally {
+      setTrendsBusy(false);
+    }
+  }
+
+  // Escolher a tendência preenche assunto e material — com as fontes que ela
+  // citou. A evidência viaja junto porque o gerador vai exigi-la adiante.
+  function usarTendencia(trend) {
+    const entrada = tendenciaParaEntrada(trend, trends?.sources || []);
+    setTopic(entrada.topic);
+    setSourceMaterial(entrada.sourceMaterial);
+    setTrends(null);
+    setMessage(entrada.sources.length
+      ? `Tendência escolhida, com ${entrada.sources.length} ${entrada.sources.length === 1 ? 'fonte' : 'fontes'}.`
+      : 'Tendência escolhida.');
   }
 
   async function createDirections(event) {
@@ -391,6 +439,9 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
     if (!brief?.slides?.length || !directions || !selectedHeadlineId) return;
     const nextEditorial = {
       version: 2,
+      // O tipo acompanha o roteiro: a revisão e a arte precisam saber qual
+      // receita foi seguida, e reabrir o rascunho tem de voltar no mesmo tipo.
+      contentType,
       directions,
       brief,
       sources,
@@ -549,7 +600,10 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           </div>
         </aside>}
 
-        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onSelection={handleSelection} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
+        {/* O tipo escolhido também escolhe a arte de partida: tendência abre no
+            editorial escuro, case no papel, lista na numerada. Trocar continua
+            possível dentro do Studio. */}
+        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} templateId={templateDoTipo(approvedEditorial?.contentType || contentType) || undefined} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onSelection={handleSelection} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
 
         <aside
           id="carousel-editorial"
@@ -603,6 +657,72 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                     <button type="button" onClick={() => setEntryMode('paste')} aria-pressed={entryMode === 'paste'} className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${entryMode === 'paste' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>Colar roteiro pronto</button>
                   </div>
                   {entryMode === 'ai' ? <>
+                  {/* Tipo antes do assunto: cada tipo tem receita e alcance
+                      diferentes, e o carro-chefe vem primeiro porque é o que
+                      alcança quem ainda não segue a marca. */}
+                  <fieldset className="mt-3">
+                    <legend className="text-[10px] font-bold uppercase tracking-[0.08em] text-faint">Tipo de carrossel</legend>
+                    <div className="mt-1.5 space-y-2.5">
+                      {tiposPorObjetivo().map((grupo) => (
+                        <div key={grupo.objetivo}>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">{grupo.label} · <span className="font-medium normal-case tracking-normal text-faint">{grupo.resumo}</span></p>
+                          <div className="mt-1 grid gap-1.5">
+                            {grupo.tipos.map((tipo) => (
+                              <button
+                                key={tipo.id}
+                                type="button"
+                                onClick={() => setContentType(tipo.id)}
+                                aria-pressed={contentType === tipo.id}
+                                className={`rounded-xl border px-3 py-2 text-left transition-colors ${contentType === tipo.id ? 'border-accent bg-accent-tint' : 'border-line bg-surface-2 hover:border-accent/40'}`}
+                              >
+                                <span className="flex items-center gap-1.5">
+                                  <span className={`text-xs font-bold ${contentType === tipo.id ? 'text-accent-ink' : 'text-ink'}`}>{tipo.label}</span>
+                                  {tipo.carroChefe && <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">Carro-chefe</span>}
+                                </span>
+                                <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">{tipo.promessa}</span>
+                                {tipo.limite && <span className="mt-0.5 block text-[10px] leading-relaxed text-faint">Limite: {tipo.limite}</span>}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  {tipoPorId(contentType)?.exigePesquisa && <div className="mt-2 rounded-lg bg-surface-2 p-2.5">
+                    <p className="text-[10px] leading-relaxed text-muted">
+                      Este tipo só sai com fonte: o Hub pesquisa o assunto e liga cada dado ao link de origem. Se preferir, cole abaixo a notícia ou o link que você já viu.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={buscarTendencias}
+                      disabled={trendsBusy || briefBusy}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[11px] font-bold text-ink hover:border-accent/40 disabled:opacity-50"
+                    >
+                      {trendsBusy ? 'Procurando…' : 'Buscar tendência agora'} <TrendingUp size={12} />
+                    </button>
+
+                    {trends && (
+                      <div className="mt-2 space-y-1.5">
+                        {trends.items.length === 0 && <p className="text-[10px] text-muted">Nada com fonte verificável agora. Tente de novo ou cole o que você viu.</p>}
+                        {trends.items.map((trend) => (
+                          <button
+                            key={trend.id}
+                            type="button"
+                            onClick={() => usarTendencia(trend)}
+                            className="block w-full rounded-lg border border-line bg-surface px-2.5 py-2 text-left hover:border-accent/40"
+                          >
+                            <span className="block text-[11px] font-bold text-ink">{trend.title}</span>
+                            <span className="mt-0.5 block text-[10px] leading-relaxed text-muted">{trend.summary}</span>
+                            <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-wide text-faint">
+                              {trend.sourceIds?.length || 0} {trend.sourceIds?.length === 1 ? 'fonte' : 'fontes'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>}
+
                   <label className="sr-only" htmlFor="carousel-topic">Assunto do carrossel</label>
                   {/* Empilhado sempre: `sm:flex-row` olhava a largura da JANELA,
                       não a da gaveta. Numa tela larga ele punha campo e botão
@@ -637,8 +757,19 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                   ><ExternalLink size={13} /> Pedir também ao meu GPT</a>}
 
                   <details className="mt-2 text-xs text-muted">
-                    <summary className="cursor-pointer hover:text-ink">Adicionar contexto da marca (opcional)</summary>
-                    <textarea value={sourceMaterial} onChange={(event) => setSourceMaterial(event.target.value)} maxLength={6000} rows={2} placeholder="Público, serviço, exemplo, restrição ou tom de voz." className="mt-2 w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink" />
+                    <summary className="cursor-pointer hover:text-ink">
+                      {tipoPorId(contentType)?.exigePesquisa ? 'Colar a notícia, o link ou o contexto (opcional)' : 'Adicionar contexto da marca (opcional)'}
+                    </summary>
+                    <textarea
+                      value={sourceMaterial}
+                      onChange={(event) => setSourceMaterial(event.target.value)}
+                      maxLength={6000}
+                      rows={2}
+                      placeholder={tipoPorId(contentType)?.exigePesquisa
+                        ? 'Cole aqui o link, a notícia ou o print que você viu — o Hub pesquisa em volta disso.'
+                        : 'Público, serviço, exemplo, restrição ou tom de voz.'}
+                      className="mt-2 w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink"
+                    />
                   </details>
                   </> : <div className="mt-3">
                     <label htmlFor="carousel-pasted-script" className="text-xs font-semibold text-ink">Cole o texto aqui</label>
