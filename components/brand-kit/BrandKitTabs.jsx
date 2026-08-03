@@ -20,7 +20,11 @@ export function BrandKitTabs({ brandId, brandName, brandColor, kit, versions = [
       {/* Histórico e editor lado a lado (1fr 1fr), como no handoff. O editor
           expandido ocupa a largura toda para os campos não ficarem apertados. */}
       <div className={editing ? 'space-y-4' : 'grid items-start gap-4 lg:grid-cols-2'}>
-        <DnaVersions brandId={brandId} versions={versions} showProposal={false} />
+        {/* A proposta pendente precisa de ação AQUI: "Refazer diagnóstico"
+            gera uma versão nova e, se a pessoa sair antes de aprovar, ela
+            ficava no histórico marcada como aguardando, sem nenhum botão que
+            a colocasse em uso. */}
+        <DnaVersions brandId={brandId} versions={versions} />
 
         <section aria-labelledby="brand-kit-editor-title" className="rounded-2xl border border-line bg-surface p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
