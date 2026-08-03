@@ -4,15 +4,18 @@ import { Pencil } from 'lucide-react';
 import { DnaReport } from './DnaReport';
 import { DnaVersions } from './DnaVersions';
 import { BrandKitForm } from './BrandKitForm';
+import { RefazerDiagnostico } from './RefazerDiagnostico';
 import { Button } from '@/components/ui/Button';
 
-export function BrandKitTabs({ brandId, brandColor, kit, versions = [], connectedPlatforms = {} }) {
+export function BrandKitTabs({ brandId, brandName, brandColor, kit, versions = [], connectedPlatforms = {} }) {
   const [editing, setEditing] = useState(false);
   const updatedAt = kit?.updated_at || kit?.dna_report?.updated_at;
 
   return (
     <div className="space-y-4">
       <DnaReport report={kit?.dna_report} updatedAt={updatedAt} />
+
+      <RefazerDiagnostico brandId={brandId} brandName={brandName} />
 
       {/* Histórico e editor lado a lado (1fr 1fr), como no handoff. O editor
           expandido ocupa a largura toda para os campos não ficarem apertados. */}
