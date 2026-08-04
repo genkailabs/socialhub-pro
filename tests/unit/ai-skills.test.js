@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-const mocks = vi.hoisted(() => ({ runText: vi.fn(), checkLimit: vi.fn() }));
+const mocks = vi.hoisted(() => ({ runText: vi.fn(), checkLimit: vi.fn(), resolveFallbackProvider: vi.fn() }));
 
-vi.mock('@/lib/ai/provider', () => ({ runText: mocks.runText }));
+vi.mock('@/lib/ai/provider', () => ({
+  runText: mocks.runText,
+  resolveFallbackProvider: mocks.resolveFallbackProvider
+}));
 vi.mock('@/lib/ai/limits', () => ({ checkLimit: mocks.checkLimit }));
 
 import { defineSkill } from '@/lib/ai/skills/registry';
@@ -42,6 +45,7 @@ describe('runSkill', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.checkLimit.mockResolvedValue({ allowed: true });
+    mocks.resolveFallbackProvider.mockReturnValue(null);
     mocks.runText.mockResolvedValue({
       content: OK,
       usage: { prompt_tokens: 100, completion_tokens: 50 },
@@ -196,6 +200,58 @@ describe('runSkill', () => {
       expect(mocks.runText.mock.calls[0][0].maxTokens).toBe(DEFAULT_SKILL_MAX_TOKENS);
       expect(insert.mock.calls[0][0].error).toContain(`cortada no limite de ${DEFAULT_SKILL_MAX_TOKENS}`);
       expect(insert.mock.calls[0][0].error).not.toContain('undefined');
+    });
+
+    // As duas tentativas do DeepSeek ja cobrem corte (dobra o teto) e JSON
+    // invalido (manda a correcao). Quando as duas queimam, o que sobrou de
+    // diferente para tentar e outro modelo — nao um terceiro pedido igual.
+    it('depois das duas do principal, tenta uma vez no fallback', async () => {
+      const { supabase, insert } = makeSupabase();
+      mocks.resolveFallbackProvider.mockReturnValue('groq');
+      mocks.runText
+        .mockResolvedValueOnce({ content: 'lixo', usage: {}, model: 'm', provider: 'deepseek' })
+        .mockResolvedValueOnce({ content: 'lixo de novo', usage: {}, model: 'm', provider: 'deepseek' })
+        .mockResolvedValueOnce({ content: OK, usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'llama-3.3-70b-versatile', provider: 'groq' });
+
+      const res = await runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() });
+
+      expect(mocks.runText).toHaveBeenCalledTimes(3);
+      expect(mocks.runText.mock.calls[2][0].provider).toBe('groq');
+      expect(res).toMatchObject({ provider: 'groq', attempts: 3 });
+      expect(insert.mock.calls[2][0]).toMatchObject({ status: 'success', provider: 'groq', retry_attempt: 3 });
+    });
+
+    // O modelo pertence ao provedor: pedir deepseek-v4-pro ao Groq e pedir um
+    // modelo que a outra API nao tem.
+    it('a tentativa do fallback nao leva o modelo do provedor principal', async () => {
+      const { supabase } = makeSupabase();
+      mocks.resolveFallbackProvider.mockReturnValue('groq');
+      const comModelo = defineSkill({
+        id: 'com-modelo',
+        version: 1,
+        description: 'Skill que fixa modelo',
+        inputSchema: z.object({ topico: z.string().min(1) }),
+        outputSchema: z.object({ titulo: z.string() }),
+        provider: 'deepseek',
+        model: 'deepseek-v4-pro',
+        buildPrompt: () => ({ system: 's', user: 'u' })
+      });
+      mocks.runText.mockResolvedValue({ content: 'lixo', usage: {}, model: 'm', provider: 'deepseek' });
+
+      await expect(runSkill({ skill: comModelo, input: { topico: 'a' }, supabase, ...ctx() })).rejects.toThrow();
+
+      expect(mocks.runText.mock.calls[0][0].model).toBe('deepseek-v4-pro');
+      expect(mocks.runText.mock.calls[2][0].provider).toBe('groq');
+      expect(mocks.runText.mock.calls[2][0].model).toBeUndefined();
+    });
+
+    it('sem fallback configurado, continua desistindo na segunda', async () => {
+      const { supabase } = makeSupabase();
+      mocks.runText.mockResolvedValue({ content: 'lixo', usage: {}, model: 'm', provider: 'deepseek' });
+
+      await expect(runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() })).rejects.toThrow();
+
+      expect(mocks.runText).toHaveBeenCalledTimes(2);
     });
 
     it('nao cresce o teto quando o problema foi a saida, nao o espaco', async () => {
