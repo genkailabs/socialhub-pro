@@ -167,7 +167,10 @@ export default async function AICostsPage({ searchParams }) {
               </select>
             </label>
             <button type="submit" className="h-9 rounded-lg bg-accent px-4 text-xs font-bold text-white">Filtrar</button>
-            <Link href="/ai-costs" className="flex h-9 items-center rounded-lg border border-line px-3 text-xs font-semibold text-muted hover:text-ink">Limpar</Link>
+            {/* "Limpar" fazia a pessoa esperar que o histórico de gastos fosse
+                apagado; o que o botão faz — e deve fazer — é voltar os filtros
+                ao padrão. O histórico é a prova de quanto a IA custou. */}
+            <Link href="/ai-costs" className="flex h-9 items-center rounded-lg border border-line px-3 text-xs font-semibold text-muted hover:text-ink">Limpar filtros</Link>
           </form>
         </div>
         {jobs.length === 0 ? (

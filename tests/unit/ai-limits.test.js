@@ -50,14 +50,48 @@ describe('checkLimit', () => {
     await expect(checkLimit(ctx(supabase))).resolves.toEqual({ allowed: true });
   });
 
-  it('bloqueia quando o limite foi atingido, dizendo o numero', async () => {
-    const supabase = makeSupabase({ limits: [{ brand_id: null, skill_id: 'diagnostico', period: 'month', max_runs: 1 }], count: 1 });
+  // A frase chega ao usuário como está: `run.js` faz `throw new Error(reason)`.
+  // "Limite de IA atingido para esta acao" não diz o que fazer nem quando volta.
+  it('bloqueia com uma frase que diz a ação, o teto e quando o contador zera', async () => {
+    const supabase = makeSupabase({
+      limits: [{ brand_id: null, skill_id: 'instagram-audit', period: 'month', max_runs: 1 }],
+      count: 1
+    });
 
-    const res = await checkLimit(ctx(supabase));
+    const res = await checkLimit({ ...ctx(supabase), skillId: 'instagram-audit' });
 
     expect(res.allowed).toBe(false);
+    expect(res.reason).toContain('Diagnóstico do Instagram');
     expect(res.reason).toContain('1');
-    expect(res.reason).toContain('mes');
+    expect(res.reason).toContain('mês');
+    expect(res.reason).toContain('dia 1º');
+    expect(res.reason).not.toContain('Erro');
+  });
+
+  it('no limite diário diz a hora em que o contador zera', async () => {
+    const supabase = makeSupabase({
+      limits: [{ brand_id: null, skill_id: 'carousel-full-brief', period: 'day', max_runs: 15 }],
+      count: 15
+    });
+
+    const res = await checkLimit({ ...ctx(supabase), skillId: 'carousel-full-brief' });
+
+    expect(res.allowed).toBe(false);
+    expect(res.reason).toContain('Roteiro de carrossel');
+    expect(res.reason).toContain('15');
+    expect(res.reason).toContain('hoje');
+    // periodStart corta em UTC; a frase não pode prometer meia-noite de Brasília.
+    expect(res.reason).toContain('21h');
+  });
+
+  // Skill que ninguém traduziu ainda não pode virar frase quebrada.
+  it('usa o próprio id quando a ação não tem rótulo em português', async () => {
+    const supabase = makeSupabase({ limits: [{ brand_id: null, skill_id: 'skill-nova', period: 'day', max_runs: 2 }], count: 2 });
+
+    const res = await checkLimit({ ...ctx(supabase), skillId: 'skill-nova' });
+
+    expect(res.allowed).toBe(false);
+    expect(res.reason).toContain('skill-nova');
   });
 
   // O limite da marca vence o padrão global — é o que permite plano diferenciado.

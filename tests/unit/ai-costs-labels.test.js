@@ -12,6 +12,16 @@ describe('actionLabel', () => {
     expect(actionLabel({ kind: 'image' })).toBe('Geração de imagem');
   });
 
+  // As três do carrossel e a busca de tendência já aparecem em generation_jobs
+  // (e agora têm teto em ai_limits): sem rótulo, o filtro de /ai-costs e a
+  // mensagem de limite mostravam o id cru.
+  it('traduz as ações do carrossel e da busca de tendência', () => {
+    expect(actionLabel({ skill_id: 'carousel-directions' })).toBe('Ideias de capa do carrossel');
+    expect(actionLabel({ skill_id: 'carousel-full-brief' })).toBe('Roteiro de carrossel');
+    expect(actionLabel({ skill_id: 'carousel-image' })).toBe('Imagem do carrossel');
+    expect(actionLabel({ skill_id: 'instagram-trends' })).toBe('Busca de tendências');
+  });
+
   it('mostra o valor cru quando nada é conhecido', () => {
     expect(actionLabel({ skill_id: 'algo-novo' })).toBe('algo-novo');
     expect(actionLabel({})).toBe('—');
