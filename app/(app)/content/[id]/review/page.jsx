@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ContentReview } from '@/components/content/ContentReview';
+import { QualAprovacao } from '@/components/approvals/QualAprovacao';
 import { createClient } from '@/lib/supabase/server';
 import { formatLabel } from '@/lib/content-production';
 import { statusMeta } from '@/lib/calendar';
@@ -37,6 +38,10 @@ export default async function ContentReviewPage({ params }) {
           Revise, edite o que quiser e decida. Editar não consome IA.
         </p>
       </div>
+
+      {/* Esta é a revisão interna, não a aprovação do cliente. As duas se
+          chamavam aprovação e nenhuma tela dizia que eram duas. */}
+      <QualAprovacao atual="interna" postId={post.id} />
 
       <ContentReview post={post} />
     </div>

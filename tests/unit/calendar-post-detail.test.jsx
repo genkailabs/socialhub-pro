@@ -8,6 +8,23 @@ import { PostDetail } from '@/components/calendar/PostDetail';
 beforeAll(() => vi.stubGlobal('React', React));
 afterEach(() => cleanup());
 
+// "Gerar link de aprovação" não dizia para quem era o link nem o que ele faz
+// com o post — e o produto tem outra aprovação, a interna, com nome parecido.
+describe('PostDetail: qual aprovação é esta', () => {
+  it('diz que o link é do cliente, sem login, e que trava o post ate a resposta', () => {
+    const { container } = render(
+      <PostDetail
+        post={{ id: 'p-1', status: 'draft', content: 'Peça', production: { source: 'visual-composer' } }}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(container.textContent).toMatch(/sem login/i);
+    expect(screen.getByRole('link', { name: /revisão de conteúdo/i }).getAttribute('href'))
+      .toBe('/content/p-1/review');
+  });
+});
+
 describe('PostDetail scheduled editing', () => {
   it('offers to reopen scheduled visual-composer content without another upload', () => {
     render(

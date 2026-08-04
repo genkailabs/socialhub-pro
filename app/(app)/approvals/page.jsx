@@ -2,6 +2,7 @@ import { Sparkles, CheckSquare } from 'lucide-react';
 import Link from 'next/link';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ApprovalsList } from '@/components/approvals/ApprovalsList';
+import { QualAprovacao } from '@/components/approvals/QualAprovacao';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
 import { listPostsForBrand, getPostComments } from '@/lib/posts-data';
@@ -24,6 +25,10 @@ export default async function ApprovalsPage() {
           {active ? <>Posts de <strong className="text-ink">{active.name}</strong> aguardando decisão do cliente</> : 'Crie uma marca primeiro.'}
         </p>
       </div>
+
+      {/* O produto tem duas aprovações e nenhuma tela dizia isso. Ver
+          components/approvals/QualAprovacao. */}
+      {active && <QualAprovacao atual="cliente" />}
 
       {active && <FlowStepper pipeline={pipeline} />}
 

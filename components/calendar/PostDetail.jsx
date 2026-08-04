@@ -61,7 +61,15 @@ export function PostDetail({ post, onClose }) {
           )}
 
           <div className="mt-5 rounded-xl border border-line bg-surface-2 p-3.5">
-            <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-ink"><Link2 className="h-3.5 w-3.5 text-accent" /> Aprovação do cliente</p>
+            <p className="mb-1 flex items-center gap-1.5 text-xs font-bold text-ink"><Link2 className="h-3.5 w-3.5 text-accent" /> Aprovação do cliente</p>
+            {/* O botão dizia só "Gerar link de aprovação" e o produto tem duas
+                aprovações. Sem esta linha, ninguém sabia qual das duas era, nem
+                que o post fica travado esperando alguém de fora. */}
+            <p className="mb-2.5 text-[11px] leading-relaxed text-muted">
+              Link público: seu cliente abre sem login e aprova ou pede ajuste. O post fica aguardando até ele responder.
+              {' '}Para a sua própria revisão, use a{' '}
+              <a href={`/content/${post.id}/review`} className="font-bold text-accent hover:underline">revisão de conteúdo</a>.
+            </p>
             {!token || status !== 'waiting_approval' ? (
               <Button size="sm" onClick={onRequest} disabled={busy} className="w-full">{busy ? 'Gerando…' : 'Gerar link de aprovação'}</Button>
             ) : (
