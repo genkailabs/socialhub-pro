@@ -58,12 +58,12 @@ export default async function AICostsPage({ searchParams }) {
   });
   const summary = result?.summary || {
     totalUsd: 0,
-    deepseekUsd: 0,
+    textUsd: 0,
     imageUsd: 0,
     researchUsd: 0,
     totalInputTokens: 0,
     totalOutputTokens: 0,
-    deepseekCount: 0,
+    textCount: 0,
     imageCount: 0,
     researchCount: 0,
     errorCount: 0,
@@ -96,7 +96,7 @@ export default async function AICostsPage({ searchParams }) {
         </div>
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-ink">Dashboard de Custos de IA</h1>
         <p className="mt-1 text-sm text-muted">
-          Detalhamento em tempo real do uso do <strong className="text-ink">DeepSeek (texto & prompt)</strong> e do <strong className="text-ink">Pollinations (imagens & pesquisa)</strong>.
+          Detalhamento em tempo real do uso de <strong className="text-ink">IA de texto (copy & prompt)</strong> e do <strong className="text-ink">Pollinations (imagens & pesquisa)</strong>.
         </p>
       </div>
 
@@ -122,9 +122,9 @@ export default async function AICostsPage({ searchParams }) {
           accent
         />
         <StatCard
-          label="Custo DeepSeek"
-          value={formatUsd(summary.deepseekUsd)}
-          hint={`${summary.deepseekCount} chamadas de texto`}
+          label="Custo IA (texto)"
+          value={formatUsd(summary.textUsd)}
+          hint={`${summary.textCount} chamadas de texto`}
           icon={Cpu}
           badge={`${summary.totalInputTokens + summary.totalOutputTokens} tokens processados`}
         />
@@ -144,7 +144,7 @@ export default async function AICostsPage({ searchParams }) {
 
       <div className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-lg font-extrabold tracking-tight text-ink">Histórico de Chamadas (DeepSeek & Pollinations)</h2>
+          <h2 className="text-lg font-extrabold tracking-tight text-ink">Histórico de Chamadas (IA de Texto & Pollinations)</h2>
           <form method="GET" className="flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-wider text-muted">
               Marca
@@ -196,9 +196,10 @@ export default async function AICostsPage({ searchParams }) {
                 <tbody className="divide-y divide-line/60">
                   {jobs.map((job) => {
                     const brand = job.brands || {};
-                    const isDeepSeek = job.provider === 'deepseek';
                     const isResearch = job.kind === 'research';
-                    const providerLabel = isDeepSeek ? 'DeepSeek' : isResearch ? 'Pesquisa' : 'Imagem';
+                    const isImage = job.kind === 'image';
+                    const isText = !isResearch && !isImage;
+                    const providerLabel = isText ? 'IA (texto)' : isResearch ? 'Pesquisa' : 'Imagem';
                     const dateStr = job.created_at
                       ? new Date(job.created_at).toLocaleString('pt-BR', {
                           day: '2-digit',
@@ -214,12 +215,12 @@ export default async function AICostsPage({ searchParams }) {
                           <div className="flex items-center gap-2">
                             <span
                               className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-extrabold ${
-                                isDeepSeek
+                                isText
                                   ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
                                   : 'bg-accent/10 text-accent'
                               }`}
                             >
-                              {isDeepSeek ? <Cpu className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
+                              {isText ? <Cpu className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
                               {providerLabel}
                             </span>
                             <span className="text-xs font-semibold text-muted">{job.model || '-'}</span>
@@ -244,7 +245,7 @@ export default async function AICostsPage({ searchParams }) {
                         </td>
 
                         <td className="px-4 py-3.5 text-xs text-muted">
-                          {isDeepSeek ? (
+                          {isText ? (
                             <span>
                               <strong className="text-ink">{job.input_tokens || 0}</strong> in /{' '}
                               <strong className="text-ink">{job.output_tokens || 0}</strong> out

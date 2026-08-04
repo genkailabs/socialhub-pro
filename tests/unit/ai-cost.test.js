@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { estimateCostUsd } from '@/lib/ai/cost';
 import { DEFAULT_GROQ_MODEL } from '@/lib/ai/groq';
+import { DEFAULT_OPENROUTER_MODEL } from '@/lib/ai/openrouter';
 
 const usage = { prompt_tokens: 1_000_000, completion_tokens: 1_000_000 };
 
@@ -30,5 +31,12 @@ describe('estimateCostUsd', () => {
 
   it('não cobra nada quando não houve uso', () => {
     expect(estimateCostUsd(DEFAULT_GROQ_MODEL, {})).toBe(0);
+  });
+
+  // OpenRouter é o provedor de texto em produção (2026-08-04). Sem preço
+  // próprio, o job entraria no histórico com o preço padrão errado.
+  it('cobra o preço do OpenRouter no modelo padrão escolhido', () => {
+    expect(DEFAULT_OPENROUTER_MODEL).toBe('openai/gpt-4o-mini');
+    expect(estimateCostUsd(DEFAULT_OPENROUTER_MODEL, usage)).toBe(0.75);
   });
 });

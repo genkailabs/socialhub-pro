@@ -65,9 +65,11 @@ const directions = direcoesDe(educativo);
 const brief = roteiroDe(educativo);
 
 describe('motor editorial próprio de carrossel', () => {
-  it('usa DeepSeek Pro somente nas duas skills do fluxo de carrossel', () => {
-    expect(carouselDirectionsSkill.model).toBe('deepseek-v4-pro');
-    expect(carouselFullBriefSkill.model).toBe('deepseek-v4-pro');
+  it('nao fixa provider/model proprio: usa o padrao do produto (OpenRouter)', () => {
+    expect(carouselDirectionsSkill.provider).toBeUndefined();
+    expect(carouselDirectionsSkill.model).toBeUndefined();
+    expect(carouselFullBriefSkill.provider).toBeUndefined();
+    expect(carouselFullBriefSkill.model).toBeUndefined();
   });
 
   it('cria ideias de capa sem exigir uma pesquisa antes do primeiro passo', () => {

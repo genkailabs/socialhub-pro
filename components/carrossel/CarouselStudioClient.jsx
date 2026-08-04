@@ -80,6 +80,10 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   // sair, copiar e voltar.
   const [trends, setTrends] = useState(null);
   const [trendsBusy, setTrendsBusy] = useState(false);
+  // Erro da busca fica ao lado do botão, e não só na barra do topo: quem clica
+  // está olhando para o botão, e uma frase cinza a uma tela de distância fazia
+  // a falha parecer que o clique não fez nada.
+  const [trendsError, setTrendsError] = useState('');
   const [pastedScript, setPastedScript] = useState(editorial?.rawScript || '');
   const [directions, setDirections] = useState(editorial?.directions || null);
   const [brief, setBrief] = useState(editorial?.brief || null);
@@ -251,6 +255,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   // carro-chefe do produto dependia de a pessoa já saber sobre o que falar.
   async function buscarTendencias() {
     setTrendsBusy(true);
+    setTrendsError('');
     setMessage('Procurando tendências com fonte…');
     try {
       const response = await fetch('/api/trends', {
@@ -266,7 +271,8 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
       setMessage('');
     } catch (error) {
       setTrends(null);
-      setMessage(error.message);
+      setTrendsError(error.message);
+      setMessage('');
     } finally {
       setTrendsBusy(false);
     }
@@ -705,6 +711,8 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                     >
                       {trendsBusy ? 'Procurando…' : 'Buscar tendência agora'} <TrendingUp size={12} />
                     </button>
+
+                    {trendsError && <p role="alert" className="mt-2 rounded-lg border border-danger/30 bg-danger/10 px-2.5 py-2 text-[10px] leading-relaxed text-ink">{trendsError}</p>}
 
                     {trends && (
                       <div className="mt-2 space-y-1.5">

@@ -28,16 +28,26 @@ function fakeSupabase({ row = null } = {}) {
 }
 
 function respondWith({ statusCode = 200, headers = { 'content-type': 'text/html' }, chunks = [] } = {}) {
+  respondSequence([{ statusCode, headers, chunks }]);
+}
+
+// Uma resposta por chamada, na ordem. Serve para provar o salto de redirect:
+// a primeira devolve 302, a segunda a página de verdade.
+function respondSequence(steps) {
+  let call = 0;
   mocks.httpsRequest.mockImplementation((_url, _options, callback) => {
+    const step = steps[Math.min(call, steps.length - 1)];
+    call += 1;
     const request = new EventEmitter();
     request.end = () => {
       const response = new EventEmitter();
-      response.statusCode = statusCode;
-      response.headers = headers;
+      response.statusCode = step.statusCode ?? 200;
+      response.headers = step.headers ?? { 'content-type': 'text/html' };
       response.destroy = vi.fn();
+      response.resume = vi.fn();
       callback(response);
       queueMicrotask(() => {
-        chunks.forEach((chunk) => response.emit('data', Buffer.from(chunk)));
+        (step.chunks || []).forEach((chunk) => response.emit('data', Buffer.from(chunk)));
         response.emit('end');
       });
     };
@@ -169,18 +179,135 @@ describe('researchContext', () => {
     expect(mocks.httpsRequest).not.toHaveBeenCalled();
   });
 
-  it('rejects redirects before reading page metadata', async () => {
-    respondWith({ statusCode: 302, headers: { location: 'https://elsewhere.example.com', 'content-type': 'text/html' } });
-    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search' });
+  // O Gemini nunca entrega o link do veículo: entrega um redirect do
+  // `vertexaisearch.cloud.google.com`. Recusar 3xx aqui descartava TODAS as
+  // fontes de toda pesquisa — a tela dizia "nenhuma fonte verificável" com 14
+  // fontes na mão. Seguimos o salto, revalidando o destino a cada hop.
+  it('segue o redirect de grounding e guarda a URL final do veículo', async () => {
+    respondSequence([
+      { statusCode: 302, headers: { location: 'https://publisher.example.com/report', 'content-type': 'text/html' } },
+      { statusCode: 200, headers: { 'content-type': 'text/html' }, chunks: [PAGE] }
+    ]);
+    mocks.pollinationsSearch.mockResolvedValue({
+      summary: 'contexto atual',
+      sources: [{ uri: 'https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc', title: 'Titulo do provedor' }],
+      model: 'gemini-search'
+    });
 
-    await expect(researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} })).resolves.toMatchObject({ sources: [] });
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(mocks.httpsRequest).toHaveBeenCalledTimes(2);
+    expect(out.sources).toEqual([expect.objectContaining({ url: 'https://publisher.example.com/report', publisher: 'Publicador' })]);
   });
 
-  it('rejects an oversized HTML response before parsing it', async () => {
-    respondWith({ chunks: ['x'.repeat(256 * 1024 + 1)] });
+  it('revalida o destino do redirect: salto para IP privado é descartado', async () => {
+    respondSequence([{ statusCode: 302, headers: { location: 'https://interno.example.com/', 'content-type': 'text/html' } }]);
+    mocks.lookup
+      .mockResolvedValueOnce([{ address: '8.8.8.8', family: 4 }])
+      .mockResolvedValue([{ address: '10.0.0.5', family: 4 }]);
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://redirector.example.com/x', title: 'T' }], model: 'gemini-search' });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toEqual([]);
+    expect(mocks.httpsRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('corrente de redirects sem fim para no limite de saltos', async () => {
+    respondSequence([{ statusCode: 302, headers: { location: 'https://loop.example.com/next', 'content-type': 'text/html' } }]);
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://loop.example.com/start', title: 'T' }], model: 'gemini-search' });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toEqual([]);
+    expect(mocks.httpsRequest.mock.calls.length).toBeLessThanOrEqual(4);
+  });
+
+  // Metatag de data é opcional na web real; JSON-LD é o padrão de quem publica
+  // notícia. Exigir só a metatag derrubava veículo bom por falta de uma tag.
+  it('completa veículo e data pelo JSON-LD quando faltam metatags', async () => {
+    respondWith({ chunks: [`<html><head>
+      <meta property="og:title" content="Formatos que crescem no Instagram">
+      <meta name="description" content="Resumo da pagina.">
+      <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"NewsArticle","datePublished":"2026-07-30T09:00:00-03:00","publisher":{"@type":"Organization","name":"Veiculo LD"}}]}</script>
+    </head></html>`] });
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: '' }], model: 'gemini-search' });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toEqual([expect.objectContaining({
+      title: 'Formatos que crescem no Instagram',
+      publisher: 'Veiculo LD',
+      publishedAt: new Date('2026-07-30T09:00:00-03:00').toISOString()
+    })]);
+  });
+
+  it('sem veículo declarado, o domínio responde pela fonte', async () => {
+    respondWith({ chunks: ['<html><head><meta property="og:title" content="Titulo"><meta name="description" content="Resumo."><meta name="date" content="2026-07-28"></head></html>'] });
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://www.publisher.example.com/report', title: '' }], model: 'gemini-search' });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toEqual([expect.objectContaining({ publisher: 'publisher.example.com' })]);
+  });
+
+  // Data continua obrigatória: sem ela a "fonte" não prova quando aquilo foi
+  // publicado, e o carrossel citaria evidência sem idade.
+  it('página sem data nenhuma continua descartada', async () => {
+    respondWith({ chunks: ['<html><head><meta property="og:title" content="Titulo"><meta name="description" content="Resumo."></head></html>'] });
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: '' }], model: 'gemini-search' });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toEqual([]);
+  });
+
+  // Portal de notícia passa de 256KB com folga. Recusar a página inteira por
+  // tamanho jogava fora veículo bom; o teto agora corta a leitura e o `<head>`,
+  // que é onde a evidência mora, continua sendo lido.
+  it('lê o cabeçalho de uma página gigante e para no teto de bytes', async () => {
+    respondWith({ chunks: [PAGE, 'x'.repeat(256 * 1024 + 1), 'y'.repeat(1024)] });
     mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'Titulo do provedor' }], model: 'gemini-search' });
 
-    await expect(researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} })).resolves.toMatchObject({ sources: [] });
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toEqual([expect.objectContaining({ url: 'https://publisher.example.com/report', publisher: 'Publicador' })]);
+  });
+
+  it('entrega no máximo cinco fontes, que é o teto de entrada das skills', async () => {
+    mocks.pollinationsSearch.mockResolvedValue({
+      summary: 'contexto atual',
+      sources: Array.from({ length: 8 }, (_, index) => ({ uri: `https://publisher.example.com/report-${index}`, title: `Fonte ${index}` })),
+      model: 'gemini-search'
+    });
+
+    const out = await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    expect(out.sources).toHaveLength(5);
+  });
+
+  // O Node pede `all: true` (autoSelectFamily) e espera um array de volta.
+  // Devolver no formato antigo derrubava TODA conexão de evidência com
+  // "Invalid IP address: undefined" — em produção, nenhuma fonte era lida.
+  it('responde ao lookup no formato de array quando o Node pede all', async () => {
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'T' }], model: 'gemini-search' });
+
+    await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    const [, options] = mocks.httpsRequest.mock.calls[0];
+    await expect(new Promise((resolve, reject) => options.lookup('publisher.example.com', { all: true }, (error, result) => error ? reject(error) : resolve(result))))
+      .resolves.toEqual([{ address: '8.8.8.8', family: 4 }]);
+  });
+
+  it('prefere o endereço IPv4 quando o DNS devolve AAAA na frente', async () => {
+    mocks.lookup.mockResolvedValue([{ address: '2800:3f0:4001:80b::200e', family: 6 }, { address: '172.217.162.14', family: 4 }]);
+    mocks.pollinationsSearch.mockResolvedValue({ summary: 'contexto atual', sources: [{ uri: 'https://publisher.example.com/report', title: 'T' }], model: 'gemini-search' });
+
+    await researchContext({ brief: { topic: 'IA hoje', format: 'news' }, kit: {} });
+
+    const [, options] = mocks.httpsRequest.mock.calls[0];
+    await expect(new Promise((resolve, reject) => options.lookup('publisher.example.com', {}, (error, address, family) => error ? reject(error) : resolve({ address, family }))))
+      .resolves.toEqual({ address: '172.217.162.14', family: 4 });
   });
 
   it('summary vazio → lança ResearchUnavailableError', async () => {

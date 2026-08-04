@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  deepseekChat: vi.fn(),
+  openrouterChat: vi.fn(),
   needsResearch: vi.fn(),
   researchContext: vi.fn(),
   buildContentPrompt: vi.fn(() => ({ system: 's', user: 'u' })),
@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('next/og', () => ({ ImageResponse: class { async arrayBuffer() { return mocks.renderArrayBuffer(); } } }));
-vi.mock('@/lib/ai/deepseek', () => ({ deepseekChat: mocks.deepseekChat }));
+vi.mock('@/lib/ai/openrouter', () => ({ openrouterChat: mocks.openrouterChat }));
 vi.mock('@/lib/ai/pollinations-image', () => ({ pollinationsImage: vi.fn(), hasPollinationsKey: () => false, POLLINATIONS_IMAGE_MODEL: 'flux' }));
 vi.mock('@/lib/ai/research', async () => {
   const actual = await vi.importActual('@/lib/ai/research');
@@ -26,7 +26,7 @@ describe('generateCreative + pesquisa', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.renderArrayBuffer.mockResolvedValue(new ArrayBuffer(0));
-    mocks.deepseekChat.mockResolvedValue({ content: SPEC, usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'deepseek-v4-flash' });
+    mocks.openrouterChat.mockResolvedValue({ content: SPEC, usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'openai/gpt-4o-mini' });
   });
 
   it('sem pesquisa: não chama researchContext, prompt sem research', async () => {
@@ -37,35 +37,35 @@ describe('generateCreative + pesquisa', () => {
     expect(mocks.researchContext).not.toHaveBeenCalled();
     expect(mocks.buildContentPrompt).toHaveBeenCalledWith(expect.objectContaining({ research: null }));
     expect(out.research).toBeNull();
-    expect(mocks.deepseekChat).toHaveBeenCalledTimes(1);
+    expect(mocks.openrouterChat).toHaveBeenCalledTimes(1);
   });
 
   it('tenta novamente quando o DeepSeek retorna texto que nao e JSON', async () => {
     mocks.needsResearch.mockReturnValue(false);
-    mocks.deepseekChat
-      .mockResolvedValueOnce({ content: 'resposta quebrada', usage: {}, model: 'deepseek-v4-flash' })
-      .mockResolvedValueOnce({ content: SPEC, usage: { prompt_tokens: 12, completion_tokens: 6 }, model: 'deepseek-v4-flash' });
+    mocks.openrouterChat
+      .mockResolvedValueOnce({ content: 'resposta quebrada', usage: {}, model: 'openai/gpt-4o-mini' })
+      .mockResolvedValueOnce({ content: SPEC, usage: { prompt_tokens: 12, completion_tokens: 6 }, model: 'openai/gpt-4o-mini' });
 
     const out = await generateCreative({ supabase: {}, brandId: 'b1', brandName: 'Marca', brief: { topic: 'dicas' }, generateImages: false });
 
     expect(out.spec.caption).toBe('legenda');
-    expect(mocks.deepseekChat).toHaveBeenCalledTimes(2);
-    expect(mocks.deepseekChat.mock.calls[1][0]).toMatchObject({ temperature: 0.2, maxTokens: 1800 });
+    expect(mocks.openrouterChat).toHaveBeenCalledTimes(2);
+    expect(mocks.openrouterChat.mock.calls[1][0]).toMatchObject({ temperature: 0.2, maxTokens: 1800 });
   });
 
   // finish_reason "length" = resposta cortada no teto, nao malformada. O retry
   // precisa de mais espaco (nao de outro pedido de formatacao) ou reproduz o corte.
   it('resposta cortada no teto: retry pede mais tokens em vez de so reforcar o formato', async () => {
     mocks.needsResearch.mockReturnValue(false);
-    mocks.deepseekChat
-      .mockResolvedValueOnce({ content: '{"headline":"cortou aqui', usage: {}, model: 'deepseek-v4-flash', finishReason: 'length' })
-      .mockResolvedValueOnce({ content: SPEC, usage: { prompt_tokens: 12, completion_tokens: 6 }, model: 'deepseek-v4-flash' });
+    mocks.openrouterChat
+      .mockResolvedValueOnce({ content: '{"headline":"cortou aqui', usage: {}, model: 'openai/gpt-4o-mini', finishReason: 'length' })
+      .mockResolvedValueOnce({ content: SPEC, usage: { prompt_tokens: 12, completion_tokens: 6 }, model: 'openai/gpt-4o-mini' });
 
     const out = await generateCreative({ supabase: {}, brandId: 'b1', brandName: 'Marca', brief: { topic: 'dicas' }, generateImages: false });
 
     expect(out.spec.caption).toBe('legenda');
-    expect(mocks.deepseekChat).toHaveBeenCalledTimes(2);
-    expect(mocks.deepseekChat.mock.calls[1][0]).toMatchObject({ user: 'u', temperature: 0.9, maxTokens: 3200 });
+    expect(mocks.openrouterChat).toHaveBeenCalledTimes(2);
+    expect(mocks.openrouterChat.mock.calls[1][0]).toMatchObject({ user: 'u', temperature: 0.9, maxTokens: 3200 });
   });
 
   it('com pesquisa: injeta research no prompt e devolve no retorno', async () => {
@@ -100,7 +100,7 @@ describe('generateCreative + pesquisa', () => {
 
     await expect(generateCreative({ supabase: {}, brandId: 'b1', brandName: 'Marca', brief: { topic: 'IA hoje', format: 'news' }, generateImages: false }))
       .rejects.toBeInstanceOf(ResearchUnavailableError);
-    expect(mocks.deepseekChat).not.toHaveBeenCalled();
+    expect(mocks.openrouterChat).not.toHaveBeenCalled();
   });
 
   it('writes generated media under an optional namespace', async () => {
@@ -128,13 +128,13 @@ describe('generateCreative + pesquisa', () => {
 
   it('removes previously uploaded media when a later carousel upload fails', async () => {
     mocks.needsResearch.mockReturnValue(false);
-    mocks.deepseekChat.mockResolvedValue({
+    mocks.openrouterChat.mockResolvedValue({
       content: JSON.stringify({
         template: 'tips_carousel', headline: 'Dicas', caption: 'Legenda',
         bullets: ['Primeira', 'Segunda'], hashtags: ['#dicas']
       }),
       usage: { prompt_tokens: 10, completion_tokens: 5 },
-      model: 'deepseek-v4-flash'
+      model: 'openai/gpt-4o-mini'
     });
     const upload = vi.fn()
       .mockResolvedValueOnce({ error: null })
@@ -159,13 +159,13 @@ describe('generateCreative + pesquisa', () => {
 
   it('surfaces cleanup failures with safe durable orphan metadata', async () => {
     mocks.needsResearch.mockReturnValue(false);
-    mocks.deepseekChat.mockResolvedValue({
+    mocks.openrouterChat.mockResolvedValue({
       content: JSON.stringify({
         template: 'tips_carousel', headline: 'Dicas', caption: 'Legenda',
         bullets: ['Primeira'], hashtags: ['#dicas']
       }),
       usage: { prompt_tokens: 10, completion_tokens: 5 },
-      model: 'deepseek-v4-flash'
+      model: 'openai/gpt-4o-mini'
     });
     const upload = vi.fn()
       .mockResolvedValueOnce({ error: null })

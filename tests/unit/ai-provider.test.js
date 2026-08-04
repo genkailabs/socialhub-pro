@@ -1,56 +1,54 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  deepseekChat: vi.fn(),
-  groqChat: vi.fn()
+  openrouterChat: vi.fn()
 }));
 
-vi.mock('@/lib/ai/deepseek', () => ({ deepseekChat: mocks.deepseekChat }));
-vi.mock('@/lib/ai/groq', () => ({ groqChat: mocks.groqChat }));
+vi.mock('@/lib/ai/openrouter', () => ({ openrouterChat: mocks.openrouterChat }));
 
 import { runText, resolveTextProvider, resolveFallbackProvider, listTextProviders } from '@/lib/ai/provider';
 
-const OUT = { content: '{"ok":true}', usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'deepseek-v4-flash' };
+const OUT = { content: '{"ok":true}', usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'openai/gpt-4o-mini' };
 
 describe('camada de provedores de texto', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.AI_TEXT_PROVIDER;
-    mocks.deepseekChat.mockResolvedValue({ ...OUT });
+    mocks.openrouterChat.mockResolvedValue({ ...OUT });
   });
 
-  it('usa o DeepSeek por padrao', async () => {
+  it('usa o OpenRouter por padrao', async () => {
     const res = await runText({ system: 's', user: 'u' });
 
-    expect(mocks.deepseekChat).toHaveBeenCalledTimes(1);
-    expect(res).toMatchObject({ content: '{"ok":true}', provider: 'deepseek', model: 'deepseek-v4-flash' });
+    expect(mocks.openrouterChat).toHaveBeenCalledTimes(1);
+    expect(res).toMatchObject({ content: '{"ok":true}', provider: 'openrouter', model: 'openai/gpt-4o-mini' });
   });
 
   it('repassa system, user, jsonMode, model, temperature e limite ao adapter', async () => {
-    await runText({ system: 'sys', user: 'usr', jsonMode: false, temperature: 0.2, model: 'deepseek-v4-pro', maxTokens: 4096 });
+    await runText({ system: 'sys', user: 'usr', jsonMode: false, temperature: 0.2, model: 'openai/gpt-4o', maxTokens: 4096 });
 
-    expect(mocks.deepseekChat).toHaveBeenCalledWith({
+    expect(mocks.openrouterChat).toHaveBeenCalledWith({
       system: 'sys',
       user: 'usr',
       jsonMode: false,
       temperature: 0.2,
-      model: 'deepseek-v4-pro',
+      model: 'openai/gpt-4o',
       maxTokens: 4096
     });
   });
 
   it('normaliza a saida com provider e usage sempre presentes', async () => {
-    mocks.deepseekChat.mockResolvedValue({ content: 'oi', model: 'm' }); // sem usage
+    mocks.openrouterChat.mockResolvedValue({ content: 'oi', model: 'm' }); // sem usage
 
     const res = await runText({ system: 's', user: 'u' });
 
-    expect(res).toEqual({ content: 'oi', model: 'm', provider: 'deepseek', usage: {}, finishReason: null });
+    expect(res).toEqual({ content: 'oi', model: 'm', provider: 'openrouter', usage: {}, finishReason: null });
   });
 
   // Quem chama precisa distinguir "resposta ruim" de "resposta cortada": uma se
   // resolve com outro pedido, a outra com mais espaco.
   it('repassa o motivo de parada do provedor', async () => {
-    mocks.deepseekChat.mockResolvedValue({ content: '{"a":', model: 'm', finishReason: 'length' });
+    mocks.openrouterChat.mockResolvedValue({ content: '{"a":', model: 'm', finishReason: 'length' });
 
     expect((await runText({ system: 's', user: 'u' })).finishReason).toBe('length');
   });
@@ -62,123 +60,74 @@ describe('camada de provedores de texto', () => {
 
   it('ignora um AI_TEXT_PROVIDER invalido e mantem o padrao', () => {
     process.env.AI_TEXT_PROVIDER = 'gemini';
-    expect(resolveTextProvider()).toBe('deepseek');
+    expect(resolveTextProvider()).toBe('openrouter');
   });
 
   it('anuncia os provedores disponiveis', () => {
-    expect(listTextProviders()).toEqual(['deepseek', 'groq']);
+    expect(listTextProviders()).toEqual(['openrouter']);
   });
 });
 
-// Falha dura do provedor (timeout, 5xx, resposta vazia) matava a geracao
-// inteira. Retry no mesmo provedor nao resolve provedor fora do ar; outro
-// provedor resolve. Corte de token e JSON invalido NAO entram aqui: quem
-// detecta os dois e a camada de skill, que ja tem o proprio retry.
-describe('fallback de provedor de texto', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    delete process.env.AI_TEXT_PROVIDER;
-    process.env.AI_TEXT_FALLBACK = 'groq';
-    process.env.GROQ_API_KEY = 'test-key';
-    mocks.deepseekChat.mockResolvedValue({ ...OUT });
-    mocks.groqChat.mockResolvedValue({ content: '{"ok":"groq"}', usage: {}, model: 'openai/gpt-oss-20b' });
-  });
-
-  it('nao toca no fallback quando o principal responde', async () => {
-    const res = await runText({ system: 's', user: 'u' });
-
-    expect(mocks.groqChat).not.toHaveBeenCalled();
-    expect(res.provider).toBe('deepseek');
-  });
-
-  it('cai no fallback quando o principal quebra', async () => {
-    mocks.deepseekChat.mockRejectedValue(new Error('DeepSeek: a geração excedeu o tempo limite.'));
-
-    const res = await runText({ system: 's', user: 'u', maxTokens: 3000 });
-
-    expect(res).toMatchObject({ content: '{"ok":"groq"}', provider: 'groq' });
-    expect(mocks.groqChat).toHaveBeenCalledWith(expect.objectContaining({ system: 's', user: 'u', maxTokens: 3000 }));
-  });
-
-  // Resposta vazia gasta o mesmo tempo de uma falha e entrega menos: para quem
-  // chama e indistinguivel de nao ter chamado.
-  it('cai no fallback quando o principal devolve conteudo vazio', async () => {
-    mocks.deepseekChat.mockResolvedValue({ content: '   ', usage: {}, model: 'deepseek-v4-flash' });
-
-    expect((await runText({ system: 's', user: 'u' })).provider).toBe('groq');
-  });
-
-  // O modelo do principal nao existe no fallback; mandar junto seria pedir um
-  // modelo que a outra API nao conhece.
-  it('nao repassa ao fallback o modelo escolhido para o principal', async () => {
-    mocks.deepseekChat.mockRejectedValue(new Error('caiu'));
-
-    await runText({ system: 's', user: 'u', model: 'deepseek-v4-pro' });
-
-    expect(mocks.groqChat).toHaveBeenCalledWith(expect.not.objectContaining({ model: 'deepseek-v4-pro' }));
-  });
-
-  it('propaga o erro do principal quando o fallback tambem quebra', async () => {
-    mocks.deepseekChat.mockRejectedValue(new Error('DeepSeek fora do ar'));
-    mocks.groqChat.mockRejectedValue(new Error('Groq fora do ar'));
-
-    await expect(runText({ system: 's', user: 'u' })).rejects.toThrow('DeepSeek fora do ar');
-  });
-
-  // Sem chave, ligar o fallback so trocaria um erro por outro.
-  it('nao tenta o fallback sem GROQ_API_KEY', async () => {
-    delete process.env.GROQ_API_KEY;
-    mocks.deepseekChat.mockRejectedValue(new Error('DeepSeek fora do ar'));
-
-    await expect(runText({ system: 's', user: 'u' })).rejects.toThrow('DeepSeek fora do ar');
-    expect(mocks.groqChat).not.toHaveBeenCalled();
-  });
-
-  it('fica desligado quando ninguem pediu fallback', async () => {
+// Decisão de 2026-08-04: OpenRouter é o único provedor de texto. Sem um
+// segundo adapter cadastrado, `resolveFallbackProvider` nunca acha alguém pra
+// cair — mesmo que `AI_TEXT_FALLBACK` seja setado por engano no ambiente.
+describe('sem fallback: nenhum segundo provedor esta cadastrado', () => {
+  it('AI_TEXT_FALLBACK apontando pro proprio principal nao vira fallback', () => {
+    process.env.AI_TEXT_FALLBACK = 'openrouter';
+    expect(resolveFallbackProvider('openrouter')).toBe(null);
     delete process.env.AI_TEXT_FALLBACK;
-    mocks.deepseekChat.mockRejectedValue(new Error('DeepSeek fora do ar'));
-
-    await expect(runText({ system: 's', user: 'u' })).rejects.toThrow('DeepSeek fora do ar');
-    expect(mocks.groqChat).not.toHaveBeenCalled();
   });
 
-  // Fallback para o proprio provedor principal seria a mesma chamada de novo.
-  it('ignora um fallback igual ao principal', () => {
+  it('AI_TEXT_FALLBACK apontando pra um provedor desconhecido (ex: deepseek/groq) nao vira fallback', () => {
     process.env.AI_TEXT_FALLBACK = 'deepseek';
-    expect(resolveFallbackProvider('deepseek')).toBe(null);
+    expect(resolveFallbackProvider('openrouter')).toBe(null);
+    process.env.AI_TEXT_FALLBACK = 'groq';
+    expect(resolveFallbackProvider('openrouter')).toBe(null);
+    delete process.env.AI_TEXT_FALLBACK;
   });
 
-  it('ignora um fallback que nao existe', () => {
-    process.env.AI_TEXT_FALLBACK = 'gemini';
-    expect(resolveFallbackProvider('deepseek')).toBe(null);
+  it('provedor principal quebra e sobe o erro dele, sem segunda tentativa em outro provedor', async () => {
+    mocks.openrouterChat.mockRejectedValue(new Error('OpenRouter: serviço indisponível (503).'));
+
+    await expect(runText({ system: 's', user: 'u' })).rejects.toThrow('OpenRouter: serviço indisponível (503).');
+    expect(mocks.openrouterChat).toHaveBeenCalledTimes(1);
   });
 });
 
-describe('groqChat direto', () => {
-  async function callGroq(extra = {}) {
-    process.env.GROQ_API_KEY = 'test-key';
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+describe('openrouterChat direto', () => {
+  async function callOpenRouter(extra = {}, fetchImpl) {
+    process.env.OPENROUTER_API_KEY = 'test-key';
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(fetchImpl || (async () => ({
       ok: true,
+      status: 200,
+      statusText: 'OK',
       json: async () => ({
         choices: [{ message: { content: '{"ok":true}' }, finish_reason: 'stop' }],
         usage: { prompt_tokens: 1, completion_tokens: 1 }
       })
-    });
+    })));
 
-    const { groqChat: actualGroqChat } = await vi.importActual('@/lib/ai/groq');
-    const res = await actualGroqChat({ system: 'sys', user: 'usr', ...extra });
+    const { openrouterChat: actual } = await vi.importActual('@/lib/ai/openrouter');
+    let res, error;
+    try {
+      res = await actual({ system: 'sys', user: 'usr', ...extra });
+    } catch (e) {
+      error = e;
+    }
     const call = fetchSpy.mock.calls[0];
 
     fetchSpy.mockRestore();
-    delete process.env.GROQ_API_KEY;
-    return { url: call[0], sent: JSON.parse(call[1].body), headers: call[1].headers, res };
+    delete process.env.OPENROUTER_API_KEY;
+    return { url: call?.[0], sent: call ? JSON.parse(call[1].body) : null, headers: call?.[1]?.headers, res, error };
   }
 
-  it('fala com a API do Groq no formato da OpenAI', async () => {
-    const { url, sent, headers, res } = await callGroq();
+  it('fala com a API do OpenRouter no formato da OpenAI, com os headers de identificacao do app', async () => {
+    const { url, sent, headers, res } = await callOpenRouter();
 
-    expect(url).toContain('api.groq.com');
+    expect(url).toContain('openrouter.ai/api/v1/chat/completions');
     expect(headers.Authorization).toBe('Bearer test-key');
+    expect(headers['HTTP-Referer']).toBeTruthy();
+    expect(headers['X-Title']).toBe('Social Hub');
     expect(sent.messages).toEqual([
       { role: 'system', content: 'sys' },
       { role: 'user', content: 'usr' }
@@ -186,84 +135,86 @@ describe('groqChat direto', () => {
     expect(res).toMatchObject({ content: '{"ok":true}', finishReason: 'stop' });
   });
 
-  // O fallback so serve se a resposta obedecer ao schema; sem json_object o
-  // modelo volta a embrulhar o objeto em Markdown.
   it('pede JSON quando quem chama pede', async () => {
-    const { sent } = await callGroq({ jsonMode: true });
-
+    const { sent } = await callOpenRouter({ jsonMode: true });
     expect(sent.response_format).toEqual({ type: 'json_object' });
   });
 
-  // Medido na API real (2026-08-03, gpt-oss-20b): sem o parametro, 230 dos 298
-  // tokens de saida foram raciocinio interno; com 'low', 21 de 82. O raciocinio
-  // gasta o MESMO orcamento de max_tokens da resposta, entao ele nao encarece
-  // so a conta: ele corta o JSON. Mesma armadilha do `thinking` do DeepSeek.
-  it('pede o menor esforco de raciocinio, que e o que rouba espaco da resposta', async () => {
-    const { sent } = await callGroq();
-
-    expect(sent.reasoning_effort).toBe('low');
-  });
-
-  // A API so aceita low | medium | high — 'none' devolve HTTP 400.
-  it('deixa o esforco de raciocinio ajustavel por quem chama', async () => {
-    const { sent } = await callGroq({ reasoningEffort: 'high' });
-
-    expect(sent.reasoning_effort).toBe('high');
+  it('usa o modelo padrao (gpt-4o-mini) quando ninguem escolhe outro', async () => {
+    const { sent, res } = await callOpenRouter();
+    expect(sent.model).toBe('openai/gpt-4o-mini');
+    expect(res.model).toBe('openai/gpt-4o-mini');
   });
 
   it('deixa o modelo trocavel por env, sem mexer no codigo', async () => {
-    process.env.GROQ_MODEL = 'modelo-escolhido-por-env';
-    const { sent, res } = await callGroq();
-    delete process.env.GROQ_MODEL;
+    process.env.OPENROUTER_TEXT_MODEL = 'modelo-escolhido-por-env';
+    const { sent, res } = await callOpenRouter();
+    delete process.env.OPENROUTER_TEXT_MODEL;
 
     expect(sent.model).toBe('modelo-escolhido-por-env');
     expect(res.model).toBe('modelo-escolhido-por-env');
   });
 
   it('diz que falta a chave em vez de bater na API sem credencial', async () => {
-    delete process.env.GROQ_API_KEY;
-    const { groqChat: actualGroqChat } = await vi.importActual('@/lib/ai/groq');
+    delete process.env.OPENROUTER_API_KEY;
+    const { openrouterChat: actual } = await vi.importActual('@/lib/ai/openrouter');
 
-    await expect(actualGroqChat({ system: 's', user: 'u' })).rejects.toThrow('GROQ_API_KEY');
+    await expect(actual({ system: 's', user: 'u' })).rejects.toThrow('OPENROUTER_API_KEY');
   });
-});
 
-describe('deepseekChat direto', () => {
-  async function callDeepseek(model) {
-    const originalEnv = process.env.DEEPSEEK_API_KEY;
-    process.env.DEEPSEEK_API_KEY = 'test-key';
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: '{"ok":true}' } }],
-        usage: { prompt_tokens: 1, completion_tokens: 1 }
-      })
+  // Matriz de erro (item 6 do pedido): cada status pede uma mensagem que diz
+  // o que aconteceu, pra quem lê o log em generation_jobs sem precisar abrir
+  // o painel do OpenRouter.
+  const statusCases = [
+    { status: 401, msg: 'chave de API inválida' },
+    { status: 402, msg: 'saldo insuficiente' },
+    { status: 429, msg: 'limite de requisições' },
+    { status: 500, msg: 'serviço indisponível' },
+    { status: 503, msg: 'serviço indisponível' }
+  ];
+  for (const { status, msg } of statusCases) {
+    it(`erro HTTP ${status} vira uma mensagem que diz "${msg}"`, async () => {
+      const { error } = await callOpenRouter({}, async () => ({
+        ok: false,
+        status,
+        statusText: 'erro',
+        json: async () => ({ error: { message: 'detalhe da API' } })
+      }));
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toContain(msg);
     });
-
-    // We import directly to test deepseekChat unmocked implementation
-    const { deepseekChat: actualDeepSeekChat } = await vi.importActual('@/lib/ai/deepseek');
-    const res = await actualDeepSeekChat({ system: 'sys', user: 'usr', model });
-    const sent = JSON.parse(fetchSpy.mock.calls[0][1].body);
-
-    fetchSpy.mockRestore();
-    if (originalEnv) process.env.DEEPSEEK_API_KEY = originalEnv;
-    else delete process.env.DEEPSEEK_API_KEY;
-    return { sent, res };
   }
 
-  it('envia o nome de modelo aceito pela API em vez do alias aposentado', async () => {
-    const flash = await callDeepseek('deepseek-v4-flash');
-    expect(flash.sent.model).toBe('deepseek-v4-flash');
-    expect(flash.res.model).toBe('deepseek-v4-flash');
+  it('resposta que nao e JSON valido cai no tratamento generico de erro', async () => {
+    const { error } = await callOpenRouter({}, async () => ({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      json: async () => { throw new Error('corpo nao e JSON'); }
+    }));
 
-    const pro = await callDeepseek('deepseek-v4-pro');
-    expect(pro.sent.model).toBe('deepseek-v4-pro');
-    expect(pro.res.model).toBe('deepseek-v4-pro');
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toContain('OpenRouter');
   });
 
-  it('sobe chamada legada de deepseek-chat como flash mas registra o modelo pedido', async () => {
-    const { sent, res } = await callDeepseek('deepseek-chat');
-    expect(sent.model).toBe('deepseek-v4-flash');
-    expect(res.model).toBe('deepseek-chat');
+  it('timeout vira mensagem clara em vez do erro cru do AbortSignal', async () => {
+    const { error } = await callOpenRouter({}, async () => {
+      const abortError = new Error('timeout');
+      abortError.name = 'TimeoutError';
+      throw abortError;
+    });
+
+    expect(error.message).toBe('OpenRouter: a geração excedeu o tempo limite.');
+  });
+
+  it('resposta vazia sobe como conteudo vazio (quem detecta e o runText)', async () => {
+    const { res } = await callOpenRouter({}, async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: '' }, finish_reason: 'stop' }], usage: {} })
+    }));
+
+    expect(res.content).toBe('');
   });
 });

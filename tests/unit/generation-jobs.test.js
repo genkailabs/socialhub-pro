@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildGenerationJobs } from '@/lib/ai/jobs';
 
 const baseGen = {
-  model: 'deepseek-v4-flash',
+  model: 'openai/gpt-4o-mini',
   usage: { prompt_tokens: 10, completion_tokens: 5 },
   textCost: 0.001,
   imageProvider: 'none',
@@ -13,7 +13,7 @@ describe('buildGenerationJobs', () => {
   it('gera só a linha de texto quando não há pesquisa nem imagem', () => {
     const rows = buildGenerationJobs({ brandId: 'b1', gen: baseGen, textKind: 'post' });
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ brand_id: 'b1', kind: 'post', provider: 'deepseek', cost_usd: 0.001, status: 'success' });
+    expect(rows[0]).toMatchObject({ brand_id: 'b1', kind: 'post', provider: 'openrouter', cost_usd: 0.001, status: 'success' });
   });
 
   it('inclui linha de pesquisa (success) com custo do Gemini', () => {
