@@ -194,6 +194,23 @@ describe('groqChat direto', () => {
     expect(sent.response_format).toEqual({ type: 'json_object' });
   });
 
+  // Medido na API real (2026-08-03, gpt-oss-20b): sem o parametro, 230 dos 298
+  // tokens de saida foram raciocinio interno; com 'low', 21 de 82. O raciocinio
+  // gasta o MESMO orcamento de max_tokens da resposta, entao ele nao encarece
+  // so a conta: ele corta o JSON. Mesma armadilha do `thinking` do DeepSeek.
+  it('pede o menor esforco de raciocinio, que e o que rouba espaco da resposta', async () => {
+    const { sent } = await callGroq();
+
+    expect(sent.reasoning_effort).toBe('low');
+  });
+
+  // A API so aceita low | medium | high — 'none' devolve HTTP 400.
+  it('deixa o esforco de raciocinio ajustavel por quem chama', async () => {
+    const { sent } = await callGroq({ reasoningEffort: 'high' });
+
+    expect(sent.reasoning_effort).toBe('high');
+  });
+
   it('deixa o modelo trocavel por env, sem mexer no codigo', async () => {
     process.env.GROQ_MODEL = 'modelo-escolhido-por-env';
     const { sent, res } = await callGroq();
