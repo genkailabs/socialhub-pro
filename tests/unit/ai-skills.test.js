@@ -211,7 +211,7 @@ describe('runSkill', () => {
       mocks.runText
         .mockResolvedValueOnce({ content: 'lixo', usage: {}, model: 'm', provider: 'deepseek' })
         .mockResolvedValueOnce({ content: 'lixo de novo', usage: {}, model: 'm', provider: 'deepseek' })
-        .mockResolvedValueOnce({ content: OK, usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'llama-3.3-70b-versatile', provider: 'groq' });
+        .mockResolvedValueOnce({ content: OK, usage: { prompt_tokens: 10, completion_tokens: 5 }, model: 'openai/gpt-oss-20b', provider: 'groq' });
 
       const res = await runSkill({ skill, input: { topico: 'a' }, supabase, ...ctx() });
 

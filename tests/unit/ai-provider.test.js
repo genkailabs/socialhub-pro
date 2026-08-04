@@ -81,7 +81,7 @@ describe('fallback de provedor de texto', () => {
     process.env.AI_TEXT_FALLBACK = 'groq';
     process.env.GROQ_API_KEY = 'test-key';
     mocks.deepseekChat.mockResolvedValue({ ...OUT });
-    mocks.groqChat.mockResolvedValue({ content: '{"ok":"groq"}', usage: {}, model: 'llama-3.3-70b-versatile' });
+    mocks.groqChat.mockResolvedValue({ content: '{"ok":"groq"}', usage: {}, model: 'openai/gpt-oss-20b' });
   });
 
   it('nao toca no fallback quando o principal responde', async () => {
