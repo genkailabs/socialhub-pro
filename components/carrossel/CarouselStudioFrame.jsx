@@ -4,7 +4,7 @@
 // Tailwind 4), então entra por iframe e conversa por postMessage — nada de
 // misturar dependência com este projeto. Contrato em docs/CARROSSEL_STUDIO.md.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createStudioChannelId,
   isStudioMessage,
@@ -51,6 +51,31 @@ export function CarouselStudioFrame({
   const [status, setStatus] = useState('loading');
   const allowedOrigin = studioOrigin(STUDIO_URL);
 
+  // O init é montado em dois lugares — na resposta ao `cs:ready` e no `onLoad`
+  // do iframe —, então ele vive numa função só. Enviar duas vezes é seguro: o
+  // Studio ignora o segundo init depois de já ter carregado o documento.
+  const enviarInit = useCallback(() => {
+    if (!allowedOrigin) return;
+    frameRef.current?.contentWindow?.postMessage(
+      studioInitMessage({
+        channelId: channelId.current,
+        title,
+        doc: initialDoc,
+        brand,
+        templateId,
+        slideCount,
+        script: initialScript,
+        initialMedia,
+        theme: currentTheme()
+      }),
+      allowedOrigin
+    );
+    setStatus('ready');
+    // As props do documento inicial valem para esta montagem; recarregar o
+    // iframe é o jeito de trocar de documento.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedOrigin]);
+
   useEffect(() => {
     async function handleMessage(event) {
       if (!allowedOrigin || event.origin !== allowedOrigin) return;
@@ -58,21 +83,7 @@ export function CarouselStudioFrame({
       const data = event.data;
 
       if (isStudioReady(data)) {
-        setStatus('ready');
-        frameRef.current?.contentWindow?.postMessage(
-          studioInitMessage({
-            channelId: channelId.current,
-            title,
-            doc: initialDoc,
-            brand,
-            templateId,
-            slideCount,
-            script: initialScript,
-            initialMedia,
-            theme: currentTheme()
-          }),
-          allowedOrigin
-        );
+        enviarInit();
         return;
       }
       if (!isStudioMessage(data, channelId.current)) return;
@@ -170,6 +181,11 @@ export function CarouselStudioFrame({
         title="Carrossel Studio"
         src={allowedOrigin ? `${STUDIO_URL}${EMBED_PATH}` : 'about:blank'}
         style={{ width: '100%', height, border: 0, display: 'block' }}
+        // Segunda defesa do handshake: se o `cs:ready` do Studio se perdeu por
+        // ter sido anunciado antes de este componente escutar, o init sai
+        // assim mesmo quando o iframe termina de carregar. Enviar duas vezes é
+        // seguro — o Studio ignora o segundo init depois de carregar o doc.
+        onLoad={enviarInit}
         allow="clipboard-write"
       />
     </div>

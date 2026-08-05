@@ -157,6 +157,9 @@ export function CarouselStudioClient({
         hashtags,
         imageUrls: nextMediaUrls,
         format: 'carousel',
+        // Autosave não revalida rota: revalidar remonta o <iframe> do editor e
+        // a arte pisca no meio da edição. Ver o comentário em saveDraft.
+        revalidate: false,
         editorState: {
           source: 'carrossel-studio',
           version: 1,
