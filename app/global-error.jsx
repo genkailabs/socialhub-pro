@@ -22,13 +22,13 @@ export default function GlobalError({ error, reset }) {
         display: 'grid',
         placeItems: 'center',
         padding: 24,
-        background: '#f2f2f4',
-        color: '#1d1d1f',
-        fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+        background: '#080B12',
+        color: '#F5F7FB',
+        fontFamily: 'Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
       }}>
         <main style={{ maxWidth: 420, textAlign: 'center' }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Algo quebrou nesta tela</h1>
-          <p style={{ fontSize: 14, lineHeight: 1.5, color: '#6e6e73', margin: '0 0 20px' }}>
+          <p style={{ fontSize: 14, lineHeight: 1.5, color: '#93A0B5', margin: '0 0 20px' }}>
             O erro foi registrado. Tente de novo — se continuar, recarregue a página.
           </p>
           <button
@@ -41,7 +41,7 @@ export default function GlobalError({ error, reset }) {
               fontSize: 14,
               fontWeight: 600,
               color: '#fff',
-              background: '#007aff',
+              background: '#7566FF',
               cursor: 'pointer'
             }}
           >Tentar novamente</button>

@@ -3,63 +3,80 @@
 @tailwind utilities;
 
 /*
- * Design tokens — handoff "Redesign de tela Apple Style" (2026-07-23).
- * Neutros cinza iOS + azul de destaque. Sem fontes externas: a interface usa
- * a stack do sistema (SF Pro no Apple, Segoe UI no Windows).
- * O pipeline de artes publicadas (lib/ai/art) continua na Outfit — é conteúdo
- * da marca, não cromo do app.
+ * Design tokens — identidade "Aurora Grid" (redesign 2026-08-04).
+ *
+ * Cada cor tem um papel, e é o papel que decide onde ela entra:
+ *   roxo  (accent) → criação: o que a pessoa faz acontecer;
+ *   ciano (cyan)   → inteligência e descoberta: o que o Hub percebe;
+ *   lima  (lime)   → aprovação, sucesso e publicação. Só o fim da linha.
+ * Usar lima num botão de criar, ou roxo num "publicado", desmonta o código.
+ *
+ * O escuro é o tema de origem (grafite azulado, superfícies em camadas). O
+ * claro é a mesma identidade traduzida: o roxo escurece para #5B4BDB e o lima
+ * para #4F8E15 porque os valores do escuro não têm contraste sobre branco.
+ *
+ * O pipeline de artes publicadas (lib/ai/art) segue com as fontes da marca —
+ * é conteúdo, não cromo do app.
  */
 :root {
-  --c-app: 242 242 244;        /* #F2F2F4 fundo da página */
+  --c-app: 247 248 252;        /* #F7F8FC fundo da página */
   --c-panel: 255 255 255;      /* sidebar, header */
   --c-surface: 255 255 255;    /* cards */
-  --c-surface-2: 247 247 248;  /* #F7F7F8 inputs */
-  --c-surface-3: 237 237 239;  /* #EDEDEF trilhas e chips */
-  --c-line: 229 229 234;       /* #E5E5EA bordas 1px */
-  --c-line-strong: 209 209 214;/* #D1D1D6 */
-  --c-ink: 29 29 31;           /* #1D1D1F texto principal */
-  --c-ink-2: 58 58 60;         /* #3A3A3C texto de corpo secundário */
-  --c-muted: 110 110 115;      /* #6E6E73 texto secundário */
-  --c-faint: 174 174 178;      /* #AEAEB2 terciário e labels */
-  --c-accent: 0 122 255;       /* #007AFF primário */
-  --c-accent-soft: 77 162 255; /* azul claro p/ séries e ícones de apoio */
-  --c-accent-tint: 232 243 255;/* accentSoft 9% resolvido sobre branco */
-  --c-accent-ink: 0 98 204;    /* #0062CC texto sobre accentTint */
-  --c-amber: 255 149 0;        /* #FF9500 série secundária de gráfico */
-  --c-warning: 255 149 0;
-  --c-warning-ink: 178 80 0;   /* #B25000 texto de aviso */
-  --c-success: 52 199 89;      /* #34C759 */
-  --c-success-tint: 231 248 235;
-  --c-danger: 215 0 21;        /* #D70015 */
-  --c-info: 0 122 255;
-  --c-shadow: 0 0 0;
+  --c-surface-2: 244 245 250;  /* #F4F5FA inputs e hover */
+  --c-surface-3: 234 236 245;  /* #EAECF5 trilhas e chips */
+  --c-line: 226 229 240;       /* #E2E5F0 bordas 1px */
+  --c-line-strong: 202 207 224;/* #CACFE0 */
+  --c-ink: 20 24 38;           /* #141826 texto principal */
+  --c-ink-2: 55 62 82;         /* #373E52 corpo secundário */
+  --c-muted: 100 109 132;      /* #646D84 texto secundário */
+  --c-faint: 146 154 174;      /* #929AAE terciário e labels */
+  --c-accent: 91 75 219;       /* #5B4BDB roxo de criação (7:1 no branco) */
+  --c-accent-soft: 117 102 255;/* #7566FF séries de gráfico e ícones de apoio */
+  --c-accent-tint: 237 235 253;/* #EDEBFD fundo de estado ativo */
+  --c-accent-ink: 74 59 190;   /* #4A3BBE texto sobre accentTint */
+  --c-cyan: 14 124 150;        /* #0E7C96 inteligência e descoberta */
+  --c-cyan-tint: 226 243 248;  /* #E2F3F8 */
+  --c-cyan-ink: 11 99 120;     /* #0B6378 */
+  --c-lime: 79 142 21;         /* #4F8E15 aprovação e publicação */
+  --c-amber: 214 106 42;       /* #D66A2A série secundária de gráfico */
+  --c-warning: 214 106 42;
+  --c-warning-ink: 150 70 20;  /* #964614 texto de aviso */
+  --c-success: 79 142 21;      /* = lime: sucesso é o fim da linha */
+  --c-success-tint: 236 247 226;
+  --c-danger: 209 32 40;       /* #D12028 */
+  --c-info: 14 124 150;
+  --c-shadow: 22 27 45;        /* sombra puxa o azul do fundo, não preto puro */
   color-scheme: light;
 }
 
 .dark {
-  --c-app: 10 10 11;           /* #0A0A0B */
-  --c-panel: 21 21 23;         /* #151517 */
-  --c-surface: 28 28 30;       /* #1C1C1E */
-  --c-surface-2: 35 35 38;     /* #232326 hover */
-  --c-surface-3: 44 44 46;     /* #2C2C2E trilhas e chips */
-  --c-line: 42 42 45;          /* #2A2A2D */
-  --c-line-strong: 58 58 61;
-  --c-ink: 245 245 247;        /* #F5F5F7 */
-  --c-ink-2: 199 199 204;      /* #C7C7CC */
-  --c-muted: 152 152 157;      /* #98989D */
-  --c-faint: 110 110 115;      /* #6E6E73 */
-  --c-accent: 10 132 255;      /* #0A84FF */
-  --c-accent-soft: 90 170 255;
-  --c-accent-tint: 26 43 62;   /* accentSoft 14% resolvido sobre o card */
-  --c-accent-ink: 124 190 255; /* #7CBEFF */
-  --c-amber: 255 159 10;       /* #FF9F0A */
-  --c-warning: 255 159 10;
-  --c-warning-ink: 255 190 100;
-  --c-success: 48 209 88;      /* #30D158 */
-  --c-success-tint: 31 53 38;
+  --c-app: 8 11 18;            /* #080B12 */
+  --c-panel: 15 21 32;         /* #0F1520 sidebar e header */
+  --c-surface: 19 27 41;       /* #131B29 cards */
+  --c-surface-2: 24 34 53;     /* #182235 hover e inputs */
+  --c-surface-3: 30 42 64;     /* #1E2A40 trilhas e chips */
+  --c-line: 37 49 71;          /* #253147 */
+  --c-line-strong: 52 68 96;   /* #344460 */
+  --c-ink: 245 247 251;        /* #F5F7FB */
+  --c-ink-2: 203 212 226;      /* #CBD4E2 */
+  --c-muted: 147 160 181;      /* #93A0B5 */
+  --c-faint: 106 119 140;      /* #6A778C */
+  --c-accent: 117 102 255;     /* #7566FF */
+  --c-accent-soft: 159 140 255;/* #9F8CFF */
+  --c-accent-tint: 33 38 71;   /* accent 14% resolvido sobre o card */
+  --c-accent-ink: 178 166 255; /* #B2A6FF texto sobre accentTint */
+  --c-cyan: 40 215 255;        /* #28D7FF */
+  --c-cyan-tint: 22 53 71;     /* cyan 14% sobre o card */
+  --c-cyan-ink: 40 215 255;
+  --c-lime: 185 243 74;        /* #B9F34A */
+  --c-amber: 255 156 98;       /* #FF9C62 */
+  --c-warning: 255 156 98;
+  --c-warning-ink: 255 190 150;
+  --c-success: 185 243 74;
+  --c-success-tint: 42 57 46;
   --c-danger: 255 105 97;      /* #FF6961 */
-  --c-info: 10 132 255;
-  --c-shadow: 0 0 0;
+  --c-info: 40 215 255;
+  --c-shadow: 0 2 8;           /* quase preto, com o azul do fundo dentro */
   color-scheme: dark;
 }
 
@@ -67,7 +84,7 @@
   body {
     background-color: rgb(var(--c-app));
     color: rgb(var(--c-ink));
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-family: var(--font-ui), -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     transition: background-color .25s, color .25s;
   }
@@ -79,9 +96,10 @@
 }
 
 /*
- * `.glass` nasceu no design anterior (superfície translúcida + blur). No padrão
- * Apple os painéis são opacos com borda de 1px; o nome ficou para não reescrever
- * as ~100 chamadas espalhadas pelas telas.
+ * `.glass` nasceu no design anterior (superfície translúcida + blur). Os painéis
+ * continuam opacos; o nome ficou para não reescrever as ~100 chamadas espalhadas
+ * pelas telas. No escuro a borda é branco a 7% — o Aurora Grid separa camadas
+ * por luz, nunca por contorno grosso.
  */
 .glass {
   background: rgb(var(--c-surface));
@@ -90,15 +108,43 @@
 
 .dark .glass {
   background: rgb(var(--c-surface));
-  border: 1px solid rgb(var(--c-line));
+  border: 1px solid rgb(255 255 255 / 0.07);
 }
 
 .glow-accent {
   box-shadow: 0 0 0 1px rgb(var(--c-accent) / 0.35);
 }
 
+/*
+ * Brilho de ambiente do shell (AppShell). Dois halos muito abertos — roxo no
+ * alto à esquerda, ciano no rodapé à direita — dão profundidade ao grafite sem
+ * virar gradiente chapado. `fixed` e não `absolute`: rolar a página não deve
+ * arrastar a luz junto. Só no escuro; no claro o fundo já é claro por si.
+ */
+.app-glow::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s;
+}
+
+.dark .app-glow::before {
+  opacity: 1;
+  background:
+    radial-gradient(60rem 40rem at 12% -10%, rgb(var(--c-accent) / 0.10), transparent 60%),
+    radial-gradient(48rem 32rem at 92% 108%, rgb(var(--c-cyan) / 0.06), transparent 60%);
+}
+
+.app-glow > * {
+  position: relative;
+  z-index: 1;
+}
+
 .font-theme {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-family: var(--font-ui), -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 }
 
 @keyframes socialhub-loader {

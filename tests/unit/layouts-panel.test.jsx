@@ -92,7 +92,14 @@ describe('Composer — a seção "Criar" não existe mais', () => {
     fireEvent.click(within(screen.getByRole('group', { name: 'Formato' }))
       .getByRole('button', { name: 'Carrossel' }));
 
-    expect(screen.getByText('Editor visual do Carrossel Studio')).toBeTruthy();
+    // O rótulo "Editor visual do Carrossel Studio" saiu junto com a faixa
+    // própria do formato: no carrossel o seletor desce para a barra do Studio,
+    // e o que prova a troca é o editor no lugar do canvas do Composer.
+    expect(screen.getByLabelText('Etapas do carrossel')).toBeTruthy();
+    expect(screen.queryByTestId('composer-canvas')).toBeNull();
+    // O seletor de formato continua alcançável dentro da barra do Studio.
+    expect(within(screen.getByRole('group', { name: 'Formato' }))
+      .getByRole('button', { name: 'Carrossel' })).toBeTruthy();
   });
 });
 

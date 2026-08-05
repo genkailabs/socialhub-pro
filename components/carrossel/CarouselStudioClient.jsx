@@ -19,6 +19,7 @@ import { tendenciaParaEntrada } from '@/lib/instagram-trends';
 import { Mascot } from '@/components/onboarding/Mascot';
 import { MascotTip } from '@/components/onboarding/MascotTip';
 import { CarouselStudioFrame } from './CarouselStudioFrame';
+import { StudioStepper, currentStudioStep } from './StudioStepper';
 
 function dataUrlToFile(dataUrl, name) {
   const [header, base64] = dataUrl.split(',');
@@ -60,7 +61,14 @@ const STEP_LABEL = {
   cta: 'Próximo passo'
 };
 
-export function CarouselStudioClient({ brandId, brand, draft, embedded = false, onClose }) {
+export function CarouselStudioClient({
+  brandId, brand, draft, initialContentType = null, initialTemplateId = null,
+  // Controle que o Composer injeta no começo desta barra (o seletor de
+  // formato). Ele vinha numa faixa própria logo acima, e duas faixas de cromo
+  // seguidas comiam a altura que faltava para a arte 1080×1350 aparecer.
+  leading = null,
+  embedded = false, onClose
+}) {
   const router = useRouter();
   const editorial = draft?.editorial || null;
   const [doc, setDoc] = useState(draft?.doc || null);
@@ -71,9 +79,10 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   const [savedAt, setSavedAt] = useState(null);
   const [topic, setTopic] = useState('');
   const [sourceMaterial, setSourceMaterial] = useState('');
-  // Qual dos 8 tipos de carrossel será gerado. O padrão é o carro-chefe de
-  // tendência: é o que alcança quem ainda não segue a marca.
-  const [contentType, setContentType] = useState(editorial?.contentType || TIPO_PADRAO);
+  // Qual dos 8 tipos de carrossel será gerado. Rascunho salvo manda primeiro;
+  // depois vem o tipo que a URL pediu (atalho da Visão geral, Biblioteca); e o
+  // padrão é o carro-chefe de tendência, que alcança quem ainda não segue.
+  const [contentType, setContentType] = useState(editorial?.contentType || initialContentType || TIPO_PADRAO);
   const [entryMode, setEntryMode] = useState(editorial?.source === 'pasted-script' ? 'paste' : 'ai');
   // Tendências pesquisadas na hora, para o tipo que exige fonte. Ficam aqui e
   // não numa tela à parte: quem está montando o carrossel não deveria ter que
@@ -522,7 +531,11 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   }
 
   const selectedHeadline = directions?.headlineOptions?.find((item) => item.id === selectedHeadlineId);
-  const step = approvedEditorial?.approvedAt ? 4 : brief ? 3 : directions ? 2 : 1;
+  // Índice do passo atual (0–3) na barra Ideia → Roteiro → Visual → Revisão.
+  // "Revisão" só acende quando o carrossel virou rascunho de post: antes disso
+  // não há o que revisar fora do editor.
+  const applied0 = Boolean(approvedEditorial?.approvedAt);
+  const step = currentStudioStep({ applied: applied0, hasBrief: Boolean(brief), hasDraft: Boolean(draftId) });
   const pastedPreview = pastedScript.trim() ? preparePastedCarouselScript(pastedScript) : null;
   // Com o roteiro no Studio a gaveta é consulta. Só volta a ser formulário
   // quando a pessoa pede outro roteiro.
@@ -537,6 +550,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
   return (
     <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-56px)]'} flex-col`}>
       <div className="flex items-center gap-3 border-b border-line px-4 py-2 text-sm">
+        {leading}
         <button
           type="button"
           onClick={() => setEditorialOpen((open) => !open)}
@@ -545,9 +559,15 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 font-semibold text-ink hover:bg-surface-2"
         >
           <PanelLeft size={15} /> Roteiro
-          <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[11px] font-bold text-muted">{step}/4</span>
         </button>
-        <span className="text-muted">{brand?.name || 'Sem marca selecionada'}{draftId ? ' · rascunho salvo' : ''}</span>
+        {/* O passo virou barra: "3/4" dizia quanto falta, não o que é cada
+            etapa. Aqui a pessoa vê o caminho inteiro e volta clicando. */}
+        <StudioStepper
+          current={step}
+          onOpenEditorial={() => setEditorialOpen(true)}
+          onFocusCanvas={() => setEditorialOpen(false)}
+        />
+        <span className="hidden text-muted xl:inline">{brand?.name || 'Sem marca selecionada'}{draftId ? ' · rascunho salvo' : ''}</span>
         <div className="ml-auto flex items-center gap-3">
           {(busy || briefBusy) && <Loader2 className="animate-spin" size={16} />}
           {!busy && !briefBusy && savedAt && <CheckCircle2 size={16} className="text-success" />}
@@ -613,7 +633,7 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
         {/* O tipo escolhido também escolhe a arte de partida: tendência abre no
             editorial escuro, case no papel, lista na numerada. Trocar continua
             possível dentro do Studio. */}
-        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} templateId={templateDoTipo(approvedEditorial?.contentType || contentType) || undefined} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onSelection={handleSelection} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
+        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} templateId={(!approvedEditorial && initialTemplateId) || templateDoTipo(approvedEditorial?.contentType || contentType) || undefined} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onSelection={handleSelection} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
 
         <aside
           id="carousel-editorial"
@@ -621,13 +641,11 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
           aria-hidden={!editorialOpen}
           className={`absolute inset-y-0 left-0 z-20 flex w-[380px] max-w-[92vw] flex-col border-r border-line bg-surface shadow-2xl transition-transform duration-200 ${editorialOpen ? 'translate-x-0' : 'pointer-events-none -translate-x-full'}`}
         >
-          <div className="flex items-center gap-1.5 border-b border-line px-3 py-2 text-[11px] font-semibold">
-            {[
-              ['1', 'Tema', step === 1],
-              ['2', 'Capa', step === 2],
-              ['3', 'Roteiro', step === 3],
-              ['4', 'Studio', false]
-            ].map(([number, label, active]) => <span key={number} className={`rounded-full border px-2 py-0.5 ${active ? 'border-accent bg-accent text-white' : 'border-line bg-surface-2 text-muted'}`}>{number}. {label}</span>)}
+          {/* As pílulas de etapa saíram daqui: elas repetiam, dentro da gaveta,
+              a barra que agora fica no topo do Studio — e as duas discordavam
+              quando o roteiro já estava aplicado. */}
+          <div className="flex items-center gap-2 border-b border-line px-3 py-2 text-[11px] font-semibold">
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-faint">Guia editorial</span>
             <button type="button" onClick={() => setEditorialOpen(false)} aria-label="Fechar a guia" className="ml-auto rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-ink"><ChevronLeft size={16} /></button>
           </div>
 
@@ -863,7 +881,10 @@ export function CarouselStudioClient({ brandId, brand, draft, embedded = false, 
                 direito, e ela cobria as miniaturas dos slides do Studio. Aqui
                 dentro ele só aparece com a gaveta aberta, e no rodapé: quem já
                 sabe usar não precisa rolar por cima da explicação. */}
-            {step >= 2 && <div className="mt-3">
+            {/* `step` passou a ser índice de 0 a 3 (Ideia…Revisão): a dica que
+                aparecia "da capa em diante" agora aparece do Roteiro em
+                diante, que é o mesmo momento do fluxo. */}
+            {step >= 1 && <div className="mt-3">
               <MascotTip
                 id="carrossel-studio"
                 title="Como esta tela funciona"

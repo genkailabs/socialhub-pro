@@ -14,8 +14,15 @@ import {
   studioInitMessage,
   studioMediaDeleteAckMessage,
   studioMediaMessage,
-  studioOrigin
+  studioOrigin,
+  studioThemeMessage
 } from '@/lib/carrossel-studio-contract';
+
+/** Tema do Hub agora, lido de onde ele mora: a classe no <html>. */
+function currentTheme() {
+  if (typeof document === 'undefined') return 'dark';
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+}
 
 const STUDIO_URL = process.env.NEXT_PUBLIC_CARROSSEL_STUDIO_URL || 'http://localhost:3100';
 const EMBED_PATH = '/embed-studio';
@@ -61,7 +68,8 @@ export function CarouselStudioFrame({
             templateId,
             slideCount,
             script: initialScript,
-            initialMedia
+            initialMedia,
+            theme: currentTheme()
           }),
           allowedOrigin
         );
@@ -129,8 +137,23 @@ export function CarouselStudioFrame({
       }
     }
 
+    // O Hub troca de tema mexendo na classe do <html> — sem recarregar nada.
+    // Observar a classe é o único jeito de o iframe saber, e não acopla este
+    // componente ao botão de tema: qualquer caminho que troque o tema avisa.
+    const observer = new MutationObserver(() => {
+      if (!channelId.current || !allowedOrigin) return;
+      frameRef.current?.contentWindow?.postMessage(
+        studioThemeMessage({ channelId: channelId.current, theme: currentTheme() }),
+        allowedOrigin
+      );
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('message', handleMessage);
+    };
     // o init roda uma vez por montagem: recarregar o iframe é o jeito de resetar
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

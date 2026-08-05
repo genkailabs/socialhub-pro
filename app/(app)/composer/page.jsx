@@ -7,6 +7,7 @@ import { listConnectedPlatforms } from '@/lib/social-tokens-data';
 import { getComposerPost, getLatestComposerDraft } from '@/lib/posts-data';
 import { getBrandKit } from '@/lib/brand-kit-data';
 import { brandKitToStudioBrand, getStudioDraft } from '@/lib/carrossel-studio-data';
+import { TIPO_IDS } from '@/lib/carrossel-tipos';
 
 // Só o que a montagem da arte usa — nada de DNA bruto no cliente.
 function publicBrandKit(kit) {
@@ -29,6 +30,14 @@ export default async function ComposerPage({ searchParams }) {
   const active = resolveActive(brands, activeBrandId);
   const requestedPostId = typeof searchParams?.post === 'string' ? searchParams.post : null;
   const initialFormat = searchParams?.format === 'carrossel' ? 'carrossel' : null;
+  // `?tipo=` é como os atalhos da Visão geral (e a Biblioteca) abrem o Studio já
+  // no tipo escolhido. Validado contra a lista: id inventado na URL cai no
+  // padrão em vez de abrir o Studio num tipo que não existe.
+  const initialContentType = TIPO_IDS.includes(searchParams?.tipo) ? searchParams.tipo : null;
+  // Vindos da Biblioteca criativa: `template` escolhe a arte do carrossel e
+  // `layout` aplica um layout salvo na peça de post/story/reel.
+  const initialTemplateId = typeof searchParams?.template === 'string' ? searchParams.template : null;
+  const initialLayoutId = typeof searchParams?.layout === 'string' ? searchParams.layout : null;
   // O id só vale para o Studio quando o pedido é de carrossel; num pedido de
   // post ele pertence ao Composer, e mandá-lo aqui abriria o Studio no post
   // errado (ou em nada).
@@ -61,6 +70,9 @@ export default async function ComposerPage({ searchParams }) {
           studioBrand={studioBrand}
           studioDraft={studioDraft}
           initialFormat={initialFormat}
+          initialContentType={initialContentType}
+          initialTemplateId={initialTemplateId}
+          initialLayoutId={initialLayoutId}
         />
       )}
     </div>

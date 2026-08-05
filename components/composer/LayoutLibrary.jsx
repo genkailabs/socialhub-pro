@@ -3,28 +3,11 @@
 import { useMemo, useState } from 'react';
 import { Check, Pencil, Search, Trash2, X } from 'lucide-react';
 import styles from './VisualComposer.module.css';
-
-// Miniatura desenhada a partir do próprio layout (§12): as camadas do template
-// salvo já trazem posição e tamanho. Um placeholder genérico faria todos os
-// cards parecerem iguais.
-function templateBlocks(template) {
-  const [canvasW, canvasH] = template?.canvas || [430, 430];
-  if (!canvasW || !canvasH) return [];
-  const blocks = [];
-  if (template?.media) blocks.push({ key: 'media', x: 0, y: 0, w: 100, h: 100, tone: 'media' });
-  for (const element of template?.elements || []) {
-    const layer = element.layer || {};
-    blocks.push({
-      key: element.id,
-      x: (layer.x / canvasW) * 100,
-      y: (layer.y / canvasH) * 100,
-      w: (layer.w / canvasW) * 100,
-      h: Math.max((layer.h / canvasH) * 100, 1.6),
-      tone: layer.type === 'text' && (layer.fs || 0) >= 24 ? 'strong' : layer.type === 'text' ? 'soft' : 'accent'
-    });
-  }
-  return blocks;
-}
+// A miniatura é desenhada a partir do próprio layout (§12). O desenho mora em
+// lib/layouts/thumb.js porque a Biblioteca criativa (rota /biblioteca) usa o
+// mesmo — dois desenhos diferentes para o mesmo layout confundiriam mais do
+// que ajudariam.
+import { templateBlocks } from '@/lib/layouts/thumb';
 
 function LayoutThumb({ blocks }) {
   return <span className={styles.libThumb} aria-hidden="true">

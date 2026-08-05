@@ -24,7 +24,7 @@ describe('NavGroups durante a jornada', () => {
     const item = container.querySelector('[aria-disabled="true"]');
     expect(item).not.toBeNull();
     expect(item.getAttribute('tabindex')).toBe('-1');
-    expect(item.textContent).toContain('Dashboard');
+    expect(item.textContent).toContain('Visão geral');
     // O que prova a trava: nenhum link navegavel sobrou no menu.
     expect(container.querySelectorAll('nav a').length).toBe(0);
   });

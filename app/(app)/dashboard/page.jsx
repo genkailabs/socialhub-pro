@@ -1,19 +1,23 @@
-import { Instagram, AlertCircle, Sparkles, Youtube, Plus, ArrowRight } from 'lucide-react';
+import { Instagram, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SectionHeading } from '@/components/ui/SectionHeading';
 import { FollowerTrend } from '@/components/dashboard/FollowerTrend';
 import { FollowersKpi } from '@/components/dashboard/FollowersKpi';
 import { AgendaHoje } from '@/components/dashboard/AgendaHoje';
 import { AprovacoesPendentes } from '@/components/dashboard/AprovacoesPendentes';
+import { AiInsight } from '@/components/dashboard/AiInsight';
+import { CreativeHero, CreativeHeroEmpty } from '@/components/dashboard/CreativeHero';
+import { CreationShortcuts } from '@/components/dashboard/CreationShortcuts';
+import { ProductionList } from '@/components/dashboard/ProductionList';
 import { FlowStepper } from '@/components/onboarding/FlowStepper';
 import { listBrands, getActiveBrandId } from '@/lib/brands-data';
 import { resolveActive } from '@/lib/brands';
+import { productionCounts, productionQueue } from '@/lib/dashboard-production';
 import { getBrandInstagramMetrics, getFollowerHistory } from '@/lib/metrics-data';
 import { getPipeline } from '@/lib/pipeline';
 import { listPostsForBrand } from '@/lib/posts-data';
-import { hasYoutube, getYoutubeFollowerHistory, getYoutubeVideos, getYoutubeBestTimes } from '@/lib/youtube-data';
-
-const WD = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+import { hasYoutube, getYoutubeVideos, getYoutubeBestTimes } from '@/lib/youtube-data';
 
 function fmt(n) {
   if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k';
@@ -24,75 +28,79 @@ export default async function DashboardPage() {
   const brands = await listBrands();
   const active = resolveActive(brands, await getActiveBrandId());
 
-  if (!active) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-ink tracking-tight">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted">Comece criando sua primeira marca para ativar o Hub.</p>
-        </div>
-        <EmptyState title="Nenhuma marca criada ainda" icon={Sparkles}>
-          Use o seletor no topo (“Nova marca”) para criar sua primeira marca e ligar suas redes.
-        </EmptyState>
-      </div>
-    );
-  }
+  if (!active) return <CreativeHeroEmpty />;
 
   const result = await getBrandInstagramMetrics(active.id);
   const history = result?.ok ? await getFollowerHistory(active.id) : [];
   const pipeline = await getPipeline(active.id);
   const posts = await listPostsForBrand(active.id);
-  const scheduledPosts = posts.filter((p) => p.status === 'scheduled').sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
-  const waitingPosts = posts.filter((p) => p.status === 'waiting_approval');
+
+  const counts = productionCounts(posts);
+  const queue = productionQueue(posts);
+  const scheduledPosts = posts
+    .filter((post) => post.status === 'scheduled' || post.status === 'ready_to_post')
+    .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+  const waitingPosts = posts.filter((post) => post.status === 'waiting_approval');
 
   const yt = await hasYoutube(active.id);
-  const ytData = yt ? {
-    account: yt,
-    history: await getYoutubeFollowerHistory(active.id),
-    videos: await getYoutubeVideos(active.id),
-    bestTimes: await getYoutubeBestTimes(active.id)
-  } : null;
+  const bestTime = yt ? (await getYoutubeBestTimes(active.id))?.[0] || null : null;
+  const ytVideos = yt ? await getYoutubeVideos(active.id) : [];
 
-  // Calcula taxa de crescimento real baseado no histórico de seguidores
-  let followerChangeText = "dados estáveis";
-  let followerChangeType = "neutral";
+  // Crescimento real a partir do histórico — sem histórico, nada é afirmado.
+  let followerChangeText = 'dados estáveis';
+  let followerChangeType = 'neutral';
   if (history && history.length >= 2) {
-    const firstFollowers = Number(history[0].followers) || 1;
-    const lastFollowers = Number(history[history.length - 1].followers) || 1;
-    const diff = lastFollowers - firstFollowers;
-    const pct = ((diff / firstFollowers) * 100).toFixed(1);
-    followerChangeText = `${diff >= 0 ? '+' : ''}${pct}% esta semana`;
+    const first = Number(history[0].followers) || 1;
+    const last = Number(history[history.length - 1].followers) || 1;
+    const diff = last - first;
+    followerChangeText = `${diff >= 0 ? '+' : ''}${((diff / first) * 100).toFixed(1)}% esta semana`;
     followerChangeType = diff >= 0 ? 'positive' : 'negative';
   }
 
-  const hour = new Date().getHours();
-  const greet = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-
   return (
     <div className="space-y-6">
-      {/* Cabeçalho no padrão do design (saudação + ação) */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">{greet}, {active.name}</h1>
-          <p className="mt-1 text-sm text-muted">Veja o desempenho das suas redes hoje.</p>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-ink">
-            <span className={`h-2 w-2 rounded-full ${result?.ok ? 'bg-success' : 'bg-warning'}`} />
-            <span>{result?.ok ? `@${result.metrics.username}` : 'IG pendente'}</span>
-          </div>
-          <Link href="/composer" className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-accent-ink">
-            <Plus className="h-4 w-4" strokeWidth={2.5} /> Criar post
-          </Link>
+      {/* Hero + atalhos por intenção: a coluna da direita é "o que você quer
+          criar?", que é a pergunta que essa tela precisa responder primeiro. */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
+        <CreativeHero counts={counts} hasDraft={counts.drafts > 0} />
+        <div className="rounded-3xl border border-line bg-surface p-5 shadow-soft">
+          <SectionHeading
+            label="Atalhos"
+            tone="accent"
+            title="O que você quer criar?"
+            className="mb-4"
+            action={
+              <Link href="/biblioteca" className="text-[12.5px] font-semibold text-accent-ink hover:underline">
+                Biblioteca
+              </Link>
+            }
+          />
+          <CreationShortcuts />
         </div>
       </div>
 
-      {/* Stepper fino do fluxo (substitui as 5 caixas iguais) */}
+      {/* Barra fina da jornada guiada — continua sendo o mapa de quem começou
+          agora, e some sozinha quando a marca já roda o ciclo inteiro. */}
       <FlowStepper pipeline={pipeline} />
 
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
+        <ProductionList posts={queue} />
+        <div className="space-y-6">
+          <AiInsight bestTime={bestTime} />
+          <AgendaHoje posts={scheduledPosts} />
+        </div>
+      </div>
+
+      {/* Desempenho fica abaixo da produção: o número importa, mas depois de
+          saber o que está em jogo hoje. */}
       {result?.ok ? (
-        <>
-          {/* Hero: gráfico (2fr) + KPI Seguidores e métricas secundárias (1fr) */}
+        <section className="space-y-4">
+          <SectionHeading
+            label="Desempenho"
+            tone="cyan"
+            title={`@${result.metrics.username}`}
+            description="Números vindos direto da Graph API."
+          />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <FollowerTrend data={history} />
@@ -104,7 +112,6 @@ export default async function DashboardPage() {
                 changeType={followerChangeType}
                 history={history}
               />
-              {/* Métricas secundárias num único card com divisores (não 3 cards iguais) */}
               <div className="rounded-3xl border border-line bg-surface p-5 shadow-soft">
                 <dl className="divide-y divide-line">
                   <div className="flex items-center justify-between py-2.5 first:pt-0">
@@ -124,66 +131,35 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Agenda de hoje · Aprovações pendentes · Oportunidade do dia (IA) */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <AgendaHoje posts={scheduledPosts} />
             <AprovacoesPendentes posts={waitingPosts} />
-
-            <div className="rounded-3xl border border-line bg-surface-2 p-5 shadow-soft">
-              <div className="flex items-start gap-3.5">
-                <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl bg-accent">
-                  <Sparkles className="h-[19px] w-[19px] text-white" />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="text-base font-bold tracking-tight text-ink">Oportunidade para hoje</h2>
-                  <p className="mt-2 text-[13px] leading-[19px] text-muted">
-                    {ytData?.bestTimes?.[0]
-                      ? `Seu conteúdo publicado ${WD[ytData.bestTimes[0].weekday]} às ${String(ytData.bestTimes[0].hour).padStart(2, '0')}h costuma performar melhor. Aproveite o horário para o próximo post.`
-                      : 'Publique com constância nesta semana para a IA calcular seu melhor horário de alcance.'}
-                  </p>
-                  <Link href="/planning" className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-accent-ink">
-                    Ver planejamento <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {ytData && (
-            <div className="rounded-3xl border border-line bg-surface p-5 shadow-soft">
-              <h3 className="mb-4 flex items-center gap-2 text-sm font-bold tracking-tight text-ink">
-                <span className="grid h-6 w-6 place-items-center rounded-md bg-[#FF0000]/15 text-[#FF0000] border border-[#FF0000]/20">
-                  <Youtube className="w-3.5 h-3.5" />
-                </span>
-                <span>YouTube · Canal Ativo</span>
-              </h3>
-              {ytData.videos?.length > 0 ? (
-                <ul className="divide-y divide-line">
-                  {ytData.videos.slice(0, 3).map((v) => (
-                    <li key={v.video_id} className="flex items-center justify-between gap-2 py-3 text-xs">
-                      <span className="max-w-[220px] truncate font-medium text-ink">{v.title || v.video_id}</span>
-                      <span className="shrink-0 font-mono tabular-nums text-muted">{fmt(v.views)} views</span>
+            {ytVideos.length > 0 && (
+              <div className="rounded-3xl border border-line bg-surface p-5 shadow-soft lg:col-span-2">
+                <h3 className="text-sm font-bold tracking-tight text-ink">YouTube · últimos vídeos</h3>
+                <ul className="mt-3 divide-y divide-line">
+                  {ytVideos.slice(0, 3).map((video) => (
+                    <li key={video.video_id} className="flex items-center justify-between gap-2 py-2.5 text-xs">
+                      <span className="max-w-[320px] truncate font-medium text-ink">{video.title || video.video_id}</span>
+                      <span className="shrink-0 font-mono tabular-nums text-muted">{fmt(video.views)} views</span>
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="text-xs text-muted">Nenhum vídeo publicado recentemente.</p>
-              )}
-            </div>
-          )}
-        </>
+              </div>
+            )}
+          </div>
+        </section>
       ) : result?.error ? (
         <EmptyState title="Erro ao atualizar dados" icon={AlertCircle}>
           A API retornou o seguinte erro: {result.error}. Verifique a conexão em{' '}
-          <Link href="/connections" className="font-semibold text-accent hover:underline">Conexões</Link>.
+          <Link href="/connections" className="font-semibold text-accent-ink hover:underline">Conexões</Link>.
         </EmptyState>
       ) : (
         <EmptyState title="Sincronização pendente" icon={Instagram}>
-          Vincule a conta de Instagram desta marca para começar a ver estatísticas e gráficos reais.
+          Vincule a conta de Instagram desta marca para ver seguidores, engajamento e alcance reais.
           <div className="mt-4">
             <Link
               href="/connections"
-              className="inline-flex rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white hover:bg-accent-ink transition-all"
+              className="inline-flex rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white hover:bg-accent-soft"
             >
               Conectar conta
             </Link>

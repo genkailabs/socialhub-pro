@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Search, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { BrandSwitcher } from './BrandSwitcher';
+import { Breadcrumb } from './Breadcrumb';
 import { MobileNav } from './MobileNav';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { signOut } from '@/app/login/actions';
@@ -24,6 +25,8 @@ export function Topbar({ brands, activeId, canAccessAICosts = false, accountEmai
           {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
         <BrandSwitcher brands={brands} activeId={activeId} />
+        <span aria-hidden="true" className="hidden h-5 w-px bg-line lg:block" />
+        <Breadcrumb />
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">
@@ -32,7 +35,7 @@ export function Topbar({ brands, activeId, canAccessAICosts = false, accountEmai
           <Search className="absolute left-3 h-4 w-4 text-faint pointer-events-none" />
           <input
             type="text"
-            placeholder="Buscar no hub..."
+            placeholder="Buscar no SocialHub"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             className="h-9 w-full rounded-lg border border-line bg-surface-2 pl-9 pr-4 text-[13px] text-ink transition-all duration-200 placeholder:text-faint focus:border-accent focus:outline-none"

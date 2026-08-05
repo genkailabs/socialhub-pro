@@ -20,28 +20,36 @@ module.exports = {
           tint: c('--c-accent-tint'),
           ink: c('--c-accent-ink')
         },
+        // Papéis do Aurora Grid: ciano é descoberta, lima é aprovação.
+        cyan: { DEFAULT: c('--c-cyan'), tint: c('--c-cyan-tint'), ink: c('--c-cyan-ink') },
+        lime: c('--c-lime'),
         success: { DEFAULT: c('--c-success'), tint: c('--c-success-tint') },
         warning: { DEFAULT: c('--c-warning'), ink: c('--c-warning-ink') },
         danger: c('--c-danger'),
         info: c('--c-info')
       },
       boxShadow: {
-        // Padrão Apple: superfícies chapadas com borda; sombra só onde há elevação real.
+        // Superfícies chapadas com borda; sombra só onde há elevação real. No
+        // Aurora a sombra puxa o azul do fundo (--c-shadow), não preto puro.
         soft: 'none',
-        lift: '0 4px 16px -8px rgb(var(--c-shadow) / 0.18)',
-        modal: '0 8px 30px rgb(var(--c-shadow) / 0.25)',
-        canvas: '0 20px 60px rgb(var(--c-shadow) / 0.12)',
-        glow: '0 0 0 4px rgb(var(--c-accent) / 0.18)'
+        lift: '0 4px 16px -8px rgb(var(--c-shadow) / 0.22)',
+        modal: '0 8px 30px rgb(var(--c-shadow) / 0.30)',
+        canvas: '0 20px 60px rgb(var(--c-shadow) / 0.16)',
+        glow: '0 0 0 4px rgb(var(--c-accent) / 0.18)',
+        // Halo luminoso do hero e dos cards de criação. Usar com parcimônia:
+        // se tudo brilha, nada brilha.
+        aurora: '0 18px 48px -24px rgb(var(--c-accent) / 0.55)'
       },
-      // Escala do handoff: inputs/botões 9-11, cards 16-18, hero 18-20, modais 20.
-      borderRadius: { lg: '10px', xl: '12px', '2xl': '16px', '3xl': '18px', '4xl': '20px' },
+      // Escala do DESIGN-SYSTEM: campos/botões 9-12, cards médios 16, cards
+      // grandes 24. `3xl` é o raio dos painéis do redesign.
+      borderRadius: { lg: '10px', xl: '12px', '2xl': '16px', '3xl': '24px', '4xl': '28px' },
       fontFamily: {
         sans: [
-          '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Segoe UI',
+          'var(--font-ui)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI',
           'Helvetica', 'Arial', 'sans-serif'
         ],
         display: [
-          '-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Segoe UI',
+          'var(--font-ui)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI',
           'Helvetica', 'Arial', 'sans-serif'
         ],
         mono: ['ui-monospace', 'SFMono-Regular', 'SF Mono', 'Menlo', 'Consolas', 'monospace']

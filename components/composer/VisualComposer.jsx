@@ -198,7 +198,15 @@ export function VisualComposer({
   initialDraft = null,
   studioBrand = null,
   studioDraft = null,
-  initialFormat = null
+  initialFormat = null,
+  // Tipo de carrossel pedido pela URL (?tipo=). Só serve ao Studio embutido;
+  // post, story e reel não têm tipo editorial.
+  initialContentType = null,
+  // Template de carrossel escolhido na Biblioteca (?template=).
+  initialTemplateId = null,
+  // Layout salvo escolhido na Biblioteca (?layout=), aplicado assim que a lista
+  // de layouts da marca chega do servidor.
+  initialLayoutId = null
 }) {
   const [state, setState] = useState(() => baseState(initialDraft, initialFormat));
   // Abre em "Layout": sem a seção "Criar" a primeira porta é a forma da peça —
@@ -478,6 +486,22 @@ export function VisualComposer({
       .catch(() => {});
     return () => { alive = false; };
   }, [brandId]);
+
+  // "Usar" na Biblioteca criativa manda `?layout=<id>`. O layout só pode ser
+  // aplicado depois que a lista da marca chega — daí o efeito esperar por ela.
+  // O ref garante uma aplicação só: reaplicar a cada render apagaria o que a
+  // pessoa mexeu depois.
+  const layoutApplied = useRef(false);
+  useEffect(() => {
+    if (layoutApplied.current || !initialLayoutId || !templates.length) return;
+    const wanted = templates.find((template) => template.id === initialLayoutId);
+    if (!wanted) return;
+    layoutApplied.current = true;
+    applyTemplateFromLibrary(wanted);
+    // applyTemplateFromLibrary é declaração de função no corpo do componente:
+    // ela enxerga o estado atual no momento da chamada.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLayoutId, templates]);
 
   // Sem a seção "Criar" não existem mais campos de conteúdo: o único texto que
   // o Composer conhece é a legenda. Primeira linha vale como título e a segunda
@@ -1119,25 +1143,29 @@ export function VisualComposer({
     }
   }
 
+  // O seletor de formato é o mesmo nos quatro formatos. No carrossel ele desce
+  // para dentro da barra do Studio em vez de ganhar uma faixa própria: eram
+  // quatro faixas empilhadas antes do canvas (topo do app, formato, roteiro e
+  // topo do Studio), e a arte ficava com a sobra da altura.
+  const formatSwitcher = (
+    <div className={styles.segment} role="group" aria-label="Formato">
+      {Object.entries(FORMAT_META).map(([id, meta]) => <button
+        key={id}
+        className={state.format === id ? styles.selected : ''}
+        title={meta[1]}
+        onClick={() => setFormat(id)}
+      >{meta[0]}</button>)}
+    </div>
+  );
+
   return (
     <div className={styles.root}>
       {/* Barra superior: formato, proporção, histórico, zoom e as três ações de
           saída. Nada mais. Título "Composer" e chip de status saíram — a tela
           inteira já é o Composer, e o status voltou para o botão de rascunho,
           que é onde ele muda. */}
-      <header className={styles.topbar}>
-        <div className={styles.segment} role="group" aria-label="Formato">
-          {Object.entries(FORMAT_META).map(([id, meta]) => <button
-            key={id}
-            className={state.format === id ? styles.selected : ''}
-            title={meta[1]}
-            onClick={() => setFormat(id)}
-          >{meta[0]}</button>)}
-        </div>
-        {state.format === 'carrossel' ? <>
-          <div className={styles.spacer} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--vc-sub)', whiteSpace: 'nowrap' }}>Editor visual do Carrossel Studio</span>
-        </> : <>
+      {state.format !== 'carrossel' && <header className={styles.topbar}>
+        {formatSwitcher}
         {Object.keys(COMPOSER_FORMATS[state.format].ratios).length > 1 && <div className={styles.ratioChips} role="group" aria-label="Proporção">
           {Object.keys(COMPOSER_FORMATS[state.format].ratios).map((ratio) => <button
             key={ratio}
@@ -1167,8 +1195,7 @@ export function VisualComposer({
         <button className={`${styles.button} ${styles.outline}`} onClick={persistDraft} disabled={!!busy}><Save size={14} /> <span>{busy === 'draft' ? 'Salvando…' : contentStatus === 'scheduled' ? 'Atualizar agendamento' : 'Salvar'}</span></button>
         <button className={`${styles.button} ${styles.soft}`} onClick={() => setModal('schedule')}>Agendar</button>
         <button className={`${styles.button} ${styles.primary}`} onClick={() => setModal('publish')}>Publicar</button>
-        </>}
-      </header>
+      </header>}
 
       {state.format === 'carrossel' ? (
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -1176,6 +1203,9 @@ export function VisualComposer({
             brandId={brandId}
             brand={studioBrand}
             draft={studioDraft}
+            initialContentType={initialContentType}
+            initialTemplateId={initialTemplateId}
+            leading={formatSwitcher}
             embedded
             onClose={() => setFormat('post')}
           />

@@ -9,7 +9,10 @@ export function ThemeToggle() {
   useEffect(() => {
     setDark(document.documentElement.classList.contains('dark'));
     const now = new Date();
-    setDateStr(now.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' }));
+    // `capitalize` do Tailwind maiúsculiza TODA palavra e escrevia
+    // "Qua., 5 De Ago.". Em português só a primeira letra sobe.
+    const formatted = now.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+    setDateStr(formatted.charAt(0).toUpperCase() + formatted.slice(1));
   }, []);
 
   function toggle(targetDark) {
@@ -30,7 +33,7 @@ export function ThemeToggle() {
       {dateStr && (
         <div className="hidden items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3 py-1.5 text-xs font-semibold text-muted md:flex">
           <CalendarIcon className="h-3.5 w-3.5 text-accent" />
-          <span className="capitalize tracking-tight tabular-nums">{dateStr}</span>
+          <span className="tracking-tight tabular-nums">{dateStr}</span>
         </div>
       )}
       <div className="flex items-center rounded-lg bg-surface-2 p-[3px]">
