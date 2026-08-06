@@ -75,6 +75,6 @@ describe('explorador de tendências', () => {
     expect(screen.getAllByRole('button', { name: 'Detalhes' })).toHaveLength(1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Lista' }));
-    expect(screen.getByRole('list', { name: 'Tendências em lista' })).toBeDefined();
+    expect(screen.getByRole('list', { name: 'Padrões em lista' })).toBeDefined();
   });
 });

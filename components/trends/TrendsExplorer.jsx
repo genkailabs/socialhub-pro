@@ -159,10 +159,10 @@ export function TrendsExplorer({ brandId, brandName }) {
         body: JSON.stringify({ brandId })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.state !== 'ready') throw new Error(data.error || 'A pesquisa de tendências está indisponível.');
+      if (!response.ok || data.state !== 'ready') throw new Error(data.error || 'A pesquisa de padrões está indisponível.');
       setState({ loading: false, error: '', trends: data.trends || [], sources: data.sources || [], researchedAt: data.researchedAt || '' });
     } catch (error) {
-      setState({ loading: false, error: error.message || 'A pesquisa de tendências está indisponível.', trends: [], sources: [], researchedAt: '' });
+      setState({ loading: false, error: error.message || 'A pesquisa de padrões está indisponível.', trends: [], sources: [], researchedAt: '' });
     }
   }
 
@@ -194,7 +194,7 @@ export function TrendsExplorer({ brandId, brandName }) {
   }
 
   if (state.error) {
-    return <div className="rounded-3xl border border-line bg-panel px-6 py-12 text-center"><Sparkles className="mx-auto h-7 w-7 text-faint" /><h2 className="mt-3 text-lg font-extrabold text-ink">Tendências indisponíveis agora</h2><p className="mx-auto mt-2 max-w-xl text-sm text-muted">{state.error}</p><button type="button" onClick={load} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-bold text-white"><RefreshCw size={15} /> Tentar novamente</button></div>;
+    return <div className="rounded-3xl border border-line bg-panel px-6 py-12 text-center"><Sparkles className="mx-auto h-7 w-7 text-faint" /><h2 className="mt-3 text-lg font-extrabold text-ink">Padrões indisponíveis agora</h2><p className="mx-auto mt-2 max-w-xl text-sm text-muted">{state.error}</p><button type="button" onClick={load} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-bold text-white"><RefreshCw size={15} /> Tentar novamente</button></div>;
   }
 
   return (
@@ -216,7 +216,7 @@ export function TrendsExplorer({ brandId, brandName }) {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-line bg-panel p-4 sm:p-5" aria-label="Filtros de tendências">
+      <section className="rounded-3xl border border-line bg-panel p-4 sm:p-5" aria-label="Filtros de padrões">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
           <label className="space-y-1 lg:col-span-2"><span className="text-[10px] font-bold uppercase tracking-[0.08em] text-faint">Buscar</span><span className="relative block"><Search className="absolute left-3 top-3 h-4 w-4 text-faint" /><input value={filters.query} onChange={(event) => updateFilter('query', event.target.value)} placeholder="Tema, mecânica ou aplicação" className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-accent" /></span></label>
           <FilterSelect label="Categoria" value={filters.category} options={TREND_LABELS.category} onChange={(value) => updateFilter('category', value)} />
@@ -233,7 +233,7 @@ export function TrendsExplorer({ brandId, brandName }) {
 
       <section aria-live="polite">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-lg font-extrabold text-ink">Biblioteca de tendências</h2><p className="text-xs text-faint">{visible.length} {visible.length === 1 ? 'resultado' : 'resultados'} · pesquisa de {dateLabel(state.researchedAt)}</p></div>
+          <div><h2 className="text-lg font-extrabold text-ink">Biblioteca de padrões</h2><p className="text-xs text-faint">{visible.length} {visible.length === 1 ? 'resultado' : 'resultados'} · pesquisa de {dateLabel(state.researchedAt)}</p></div>
           <div className="flex gap-1 rounded-xl border border-line bg-surface p-1" role="group" aria-label="Modo de visualização">
             <button type="button" aria-pressed={view === 'grid'} onClick={() => setView('grid')} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${view === 'grid' ? 'bg-accent text-white' : 'text-muted'}`}>Grade</button>
             <button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${view === 'list' ? 'bg-accent text-white' : 'text-muted'}`}>Lista</button>
@@ -246,7 +246,7 @@ export function TrendsExplorer({ brandId, brandName }) {
             <div className="mt-auto flex items-center justify-between gap-3 pt-5"><span className="text-[11px] font-semibold text-faint">{TREND_LABELS.category[trend.category]} · {TREND_LABELS.profession[trend.profession]}</span><button type="button" onClick={() => setSelected(trend)} className="text-xs font-bold text-accent">Detalhes</button></div>
           </article>
         ))}</div> : null}
-        {visible.length && view === 'list' ? <div role="list" aria-label="Tendências em lista" className="mt-4 space-y-2">{visible.map((trend) => (
+        {visible.length && view === 'list' ? <div role="list" aria-label="Padrões em lista" className="mt-4 space-y-2">{visible.map((trend) => (
           <article role="listitem" key={trend.id} className="flex flex-col gap-3 rounded-2xl border border-line bg-panel p-4 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1"><div className="flex flex-wrap gap-1.5"><span className="rounded-md bg-surface-2 px-2 py-1 text-[10px] font-bold text-muted">{TREND_LABELS.format[trend.format]}</span><span className="rounded-md bg-surface-2 px-2 py-1 text-[10px] font-bold text-muted">{TREND_LABELS.status[trend.status]}</span></div><h3 className="mt-2 font-extrabold text-ink">{trend.title}</h3><p className="mt-1 line-clamp-2 text-sm text-muted">{trend.summary}</p></div>
             <div className="flex shrink-0 items-center gap-2"><ToggleButton active={liked.has(trend.id)} label={liked.has(trend.id) ? 'Remover curtida' : 'Curtir localmente'} onClick={() => toggle('liked', trend.id)}><Heart size={15} fill={liked.has(trend.id) ? 'currentColor' : 'none'} /></ToggleButton><ToggleButton active={saved.has(trend.id)} label={saved.has(trend.id) ? 'Remover dos salvos' : 'Salvar localmente'} onClick={() => toggle('saved', trend.id)}><Bookmark size={15} fill={saved.has(trend.id) ? 'currentColor' : 'none'} /></ToggleButton><button type="button" onClick={() => setSelected(trend)} className="px-2 text-xs font-bold text-accent">Detalhes</button></div>

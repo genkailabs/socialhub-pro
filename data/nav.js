@@ -21,7 +21,7 @@ export const NAV_GROUPS = [
     { href: '/dashboard', label: 'Visão geral', icon: LayoutDashboard },
     { href: '/instagram/diagnostico', label: 'Diagnóstico', icon: Stethoscope },
     { href: '/strategy', label: 'Estratégia', icon: Compass },
-    { href: '/trends', label: 'Tendências', icon: TrendingUp }
+    { href: '/trends', label: 'Padrões de conteúdo', icon: TrendingUp }
   ]},
   { label: 'Produção', items: [
     { href: '/biblioteca', label: 'Biblioteca', icon: LibraryBig },
