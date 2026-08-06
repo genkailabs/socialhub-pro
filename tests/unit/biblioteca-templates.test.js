@@ -35,14 +35,29 @@ describe('listStudioTemplates', () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
     const { online, cards } = await listStudioTemplates();
     expect(online).toBe(false);
-    expect(cards.length).toBe(7);
+    expect(cards.length).toBe(20);
     expect(cards.every((card) => card.previewUrl === null)).toBe(true);
+  });
+
+  it('todo template do espelho aparece em algum objetivo', async () => {
+    // Template sem tipo ligado some do filtro por objetivo. Vinte formas e oito
+    // tipos só convivem se cada forma estiver ligada a pelo menos um tipo.
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
+    const { cards } = await listStudioTemplates();
+    const orfaos = cards.filter((card) => !card.objetivos.length).map((card) => card.id);
+    expect(orfaos).toEqual([]);
+  });
+
+  it('leva adiante de qual referencia o layout foi derivado', async () => {
+    respondeCom({ templates: [{ id: 'palavra-marcada', name: 'Palavra Marcada', blurb: 'x', funnelStage: 'Topo', reference: 'Carrossel 01, slides 3 e 8 (P1 + P9)' }] });
+    const { cards } = await listStudioTemplates();
+    expect(cards[0].reference).toContain('P1');
   });
 
   it('catalogo vazio conta como fora do ar: grade vazia mentiria', async () => {
     respondeCom({ templates: [] });
     const { online, cards } = await listStudioTemplates();
     expect(online).toBe(false);
-    expect(cards.length).toBe(7);
+    expect(cards.length).toBe(20);
   });
 });

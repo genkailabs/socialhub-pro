@@ -47,7 +47,9 @@ export function LibraryGrid({ cards, objetivos, offline = false, objetivoInicial
     if (objetivo && !card.objetivos?.includes(objetivo)) return false;
     if (!query.trim()) return true;
     const term = fold(query);
-    return fold(card.name).includes(term) || fold(card.blurb).includes(term);
+    return fold(card.name).includes(term)
+      || fold(card.blurb).includes(term)
+      || fold(card.reference).includes(term);
   }), [cards, objetivo, origem, query]);
 
   const counts = {
@@ -150,6 +152,14 @@ export function LibraryGrid({ cards, objetivos, offline = false, objetivoInicial
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13.5px] font-bold text-ink">{card.name}</span>
                       <span className="mt-0.5 block truncate text-[11.5px] text-muted">{card.blurb}</span>
+                      {/* De onde a planta veio. Escolher direção visual sem
+                          saber a origem do padrão é escolher no escuro — e
+                          esta linha é o que separa biblioteca de vitrine. */}
+                      {card.reference && (
+                        <span className="mt-1 block truncate text-[10.5px] text-faint" title={card.reference}>
+                          Derivado de: {card.reference}
+                        </span>
+                      )}
                     </span>
                     <Link
                       href={card.href}
