@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Moon, Sun } from 'lucide-react';
 
 export function ThemeToggle() {
   const [dark, setDark] = useState(false);
@@ -36,7 +36,19 @@ export function ThemeToggle() {
           <span className="tracking-tight tabular-nums">{dateStr}</span>
         </div>
       )}
-      <div className="flex items-center rounded-lg bg-surface-2 p-[3px]">
+      {/* Em 390px os dois rótulos não cabem: "Claro" era cortado no meio e o
+          sino escorregava por cima do nome da marca. No celular o mesmo
+          controle vira um botão de ícone que alterna entre os dois temas. */}
+      <button
+        type="button"
+        onClick={() => toggle(!dark)}
+        aria-label={dark ? 'Usar tema claro' : 'Usar tema escuro'}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-2 text-muted transition-colors hover:border-accent/40 hover:text-ink sm:hidden"
+      >
+        {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
+
+      <div className="hidden items-center rounded-lg bg-surface-2 p-[3px] sm:flex">
         <button type="button" onClick={() => toggle(false)} aria-pressed={!dark} className={seg(!dark)}>
           Claro
         </button>

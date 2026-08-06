@@ -54,16 +54,16 @@ export function DnaVersions({ brandId, versions = [], showProposal = true }) {
         <div className="rounded-2xl border border-accent/40 bg-accent/5 p-4">
           <p className="flex items-center gap-2 text-sm font-bold text-ink">
             <Clock className="h-4 w-4 text-accent" aria-hidden="true" />
-            {ativa ? 'Nova versao do seu Brand DNA pronta' : 'Seu Brand DNA esta pronto'}
+            {ativa ? 'Nova versão do seu Brand DNA pronta' : 'Seu Brand DNA está pronto'}
           </p>
           <p className="mt-1 text-xs leading-relaxed text-muted">
             {ativa
-              ? 'Ela so passa a valer depois que voce aprovar. Ate la, o Social Hub continua usando a versao atual.'
-              : 'Revise e aprove para o Social Hub comecar a usar nos seus conteudos.'}
+              ? 'Ela só passa a valer depois que você aprovar. Até lá, o Social Hub continua usando a versão atual.'
+              : 'Revise e aprove para o Social Hub começar a usar nos seus conteúdos.'}
           </p>
           <Button className="mt-3" onClick={() => aprovar(proposta.id)} disabled={busy === proposta.id}>
             <Check className="h-4 w-4" aria-hidden="true" />
-            {busy === proposta.id ? 'Aprovando...' : 'Aprovar e usar esta versao'}
+            {busy === proposta.id ? 'Aprovando...' : 'Aprovar e usar esta versão'}
           </Button>
         </div>
       )}

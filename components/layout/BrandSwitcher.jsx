@@ -24,10 +24,11 @@ export function BrandSwitcher({ brands = [], activeId }) {
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-2.5 py-1.5 text-xs font-bold text-ink transition-colors hover:border-accent/40">
-        {active ? <BrandBadge name={active.name} color={active.color} /> : <span className="grid h-5 w-5 place-items-center rounded-md bg-ink text-[9px] font-extrabold text-app">—</span>}
-        {active ? active.name : 'Nenhuma marca'}
-        <ChevronDown className={`h-3.5 w-3.5 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+        className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-line bg-surface-2 px-2.5 py-1.5 text-xs font-bold text-ink transition-colors hover:border-accent/40">
+        {active ? <BrandBadge name={active.name} color={active.color} /> : <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-ink text-[9px] font-extrabold text-app">—</span>}
+        {/* Nome longo em tela estreita empurrava a seta para fora do botão. */}
+        <span className="min-w-0 truncate">{active ? active.name : 'Nenhuma marca'}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (

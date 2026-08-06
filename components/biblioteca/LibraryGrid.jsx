@@ -130,7 +130,16 @@ export function LibraryGrid({ cards, objetivos, offline = false, objetivoInicial
                     ) : (
                       <span className="grid h-full w-full place-items-center text-[11.5px] text-faint">Prévia indisponível</span>
                     )}
-                    <span className="absolute left-3 top-3">
+                    {/* O selo caía em cima do topo da arte — no template
+                        editorial ele cobria o "EDIÇÃO · 01" e parecia texto
+                        riscado. Este véu separa a etiqueta da interface da
+                        arte que está atrás dela, e serve para arte clara e
+                        escura. */}
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/55 via-black/25 to-transparent" />
+                    {/* À direita porque é à esquerda que os templates escrevem
+                        ("EDIÇÃO · 01", aspas, número da lista): o selo caía
+                        justamente ali e a arte parecia riscada. */}
+                    <span className="absolute right-3 top-3">
                       <Badge tone={card.kind === 'layout' ? 'muted' : 'accent'}>
                         {card.kind === 'layout' ? 'MEU LAYOUT' : (card.funnelStage || 'TEMPLATE').toUpperCase()}
                       </Badge>

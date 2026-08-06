@@ -81,7 +81,7 @@ export function AutopilotForm({ brandId, plan, hasBrandKit }) {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs leading-relaxed text-muted">
-        O piloto gera conteudo uma vez por dia e envia para aprovacao. Ao aprovar, o post e agendado para o proximo horario da lista abaixo (horario de Sao Paulo). Sem horarios definidos, usa 09:00.
+        O piloto gera conteúdo uma vez por dia e envia para aprovação. Ao aprovar, o post é agendado para o próximo horário da lista abaixo (horário de São Paulo). Sem horários definidos, usa 09:00.
       </div>
       {/* Alerta caso não tenha Brand Kit configurado */}
       {!hasBrandKit && (

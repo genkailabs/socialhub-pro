@@ -24,12 +24,19 @@ export function Topbar({ brands, activeId, canAccessAICosts = false, accountEmai
         >
           {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
-        <BrandSwitcher brands={brands} activeId={activeId} />
+        {/* O seletor de marca é o único do grupo que pode encolher: o nome da
+            marca trunca, o resto continua clicável. */}
+        <div className="min-w-0">
+          <BrandSwitcher brands={brands} activeId={activeId} />
+        </div>
         <span aria-hidden="true" className="hidden h-5 w-px bg-line lg:block" />
         <Breadcrumb />
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-4">
+      {/* `shrink-0` aqui é o que impede o sino de escorregar por cima do nome
+          da marca em 390px: sem ele os dois grupos disputam a mesma largura e o
+          navegador resolve empatando — os controles se sobrepõem. */}
+      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
         {/* Barra de busca em pílula — escondida no mobile para não estourar a largura */}
         <div className={`relative hidden items-center transition-all duration-300 lg:flex ${searchFocused ? 'w-[320px]' : 'w-[260px]'}`}>
           <Search className="absolute left-3 h-4 w-4 text-faint pointer-events-none" />

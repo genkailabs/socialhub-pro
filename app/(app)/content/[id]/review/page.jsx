@@ -4,6 +4,7 @@ import { QualAprovacao } from '@/components/approvals/QualAprovacao';
 import { createClient } from '@/lib/supabase/server';
 import { formatLabel } from '@/lib/content-production';
 import { statusMeta } from '@/lib/calendar';
+import { postTitle } from '@/lib/post-title';
 
 export default async function ContentReviewPage({ params }) {
   const { id } = await params;
@@ -32,7 +33,7 @@ export default async function ContentReviewPage({ params }) {
         {/* Rascunho vindo do Studio não tem título: cai para a legenda em vez
             de mostrar um cabeçalho vazio. */}
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight">
-          {post.title || post.content?.slice(0, 80) || 'Revisar conteúdo'}
+          {post.title || postTitle(post.content, 80, 'Revisar conteúdo')}
         </h1>
         <p className="mt-1 text-sm text-muted">
           Revise, edite o que quiser e decida. Editar não consome IA.

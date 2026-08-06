@@ -18,12 +18,12 @@ function agoraLocal() {
 }
 
 const VEREDITO = {
-  aprovado: { icon: CheckCircle2, cor: 'text-success', borda: 'border-success/40 bg-success/5', titulo: 'A revisao nao encontrou problemas' },
+  aprovado: { icon: CheckCircle2, cor: 'text-success', borda: 'border-success/40 bg-success/5', titulo: 'A revisão não encontrou problemas' },
   atencao: { icon: AlertTriangle, cor: 'text-warning', borda: 'border-warning/40 bg-warning/10', titulo: 'Vale ajustar antes de publicar' },
   bloqueado: { icon: ShieldAlert, cor: 'text-danger', borda: 'border-danger/40 bg-danger/10', titulo: 'Revise antes de publicar' }
 };
 
-function Revisao({ review }) {
+function Revisão({ review }) {
   if (!review) return null;
   const v = VEREDITO[review.decision] || VEREDITO.atencao;
   const Icone = v.icon;
@@ -41,24 +41,24 @@ function Revisao({ review }) {
             <li key={i} className="rounded-xl border border-line bg-surface p-3">
               {p.excerpt && <p className="text-[11px] italic text-faint">&ldquo;{p.excerpt}&rdquo;</p>}
               <p className="mt-0.5 text-xs font-semibold text-ink">{p.issue}</p>
-              <p className="mt-0.5 text-xs text-muted">Sugestao: {p.suggestion}</p>
+              <p className="mt-0.5 text-xs text-muted">Sugestão: {p.suggestion}</p>
             </li>
           ))}
         </ul>
       )}
 
-      {/* Linguagem do PRD: o produto sinaliza risco, nao atesta conformidade. */}
+      {/* Linguagem do PRD: o produto sinaliza risco, não atesta conformidade. */}
       {!!review.professionalReviewReasons?.length && (
         <p className="mt-3 rounded-xl border border-line bg-surface p-3 text-xs text-muted">
-          Este conteudo pode exigir revisao profissional antes da publicacao: {review.professionalReviewReasons.join('; ')}.
+          Este conteúdo pode exigir revisão profissional antes da publicação: {review.professionalReviewReasons.join('; ')}.
         </p>
       )}
     </div>
   );
 }
 
-// Cada card e uma arte 1080x1920 que o sistema publica. Nao ha nada para
-// gravar, entao a lista mostra o texto da arte — nao instrucao de captura.
+// Cada card é uma arte 1080x1920 que o sistema publica. Não há nada para
+// gravar, entao a lista mostra o texto da arte — não instrução de captura.
 function Stories({ cards }) {
   return (
     <ol className="space-y-2">
@@ -128,7 +128,7 @@ export function ContentReview({ post }) {
     try {
       const res = await updateContent({ postId: post.id, patch: { content: caption } });
       if (res?.error) throw new Error(res.error);
-      setMsg({ type: 'ok', text: 'Alteracoes salvas. Editar nao consome IA.' });
+      setMsg({ type: 'ok', text: 'Alterações salvas. Editar não consome IA.' });
     } catch (e) { setMsg({ type: 'err', text: e.message }); } finally { setBusy(''); }
   }
 
@@ -169,16 +169,16 @@ export function ContentReview({ post }) {
 
   return (
     <div className="space-y-5">
-      <Revisao review={post.review} />
+      <Revisão review={post.review} />
 
-      {/* Reel e Stories nao publicam sozinhos: dizer isso antes evita a pessoa
-          esperar por uma publicacao que nunca vem. */}
+      {/* Reel e Stories não publicam sozinhos: dizer isso antes evita a pessoa
+          esperar por uma publicação que nunca vem. */}
       {manual && (
         <p className="flex items-start gap-2 rounded-xl border border-accent/40 bg-accent/5 p-3 text-xs text-muted">
           <Hand className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
           <span>
-            {formatLabel(post.format)} o Social Hub ainda nao posta sozinho. Depois de aprovar, o roteiro fica
-            disponivel para voce gravar e publicar — e voce marca aqui quando tiver postado.
+            {formatLabel(post.format)} o Social Hub ainda não posta sozinho. Depois de aprovar, o roteiro fica
+            disponível para você gravar e publicar — e você marca aqui quando tiver postado.
           </span>
         </p>
       )}
@@ -251,7 +251,7 @@ export function ContentReview({ post }) {
       <div className="flex flex-wrap gap-2">
         {post.format !== 'stories' && (
           <Button variant="ghost" onClick={salvar} disabled={busy === 'save'}>
-            {busy === 'save' ? 'Salvando...' : 'Salvar alteracoes'}
+            {busy === 'save' ? 'Salvando...' : 'Salvar alterações'}
           </Button>
         )}
 
@@ -264,7 +264,7 @@ export function ContentReview({ post }) {
         {post.status === 'ready_to_post' ? (
           <Button onClick={marcarPostado} disabled={busy === 'posted'}>
             <Hand className="h-4 w-4" aria-hidden="true" />
-            {busy === 'posted' ? 'Marcando...' : 'Ja postei este conteudo'}
+            {busy === 'posted' ? 'Marcando...' : 'Já postei este conteúdo'}
           </Button>
         ) : (
           <Button onClick={aprovar} disabled={busy === 'approve'}>

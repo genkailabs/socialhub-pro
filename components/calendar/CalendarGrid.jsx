@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { monthMatrix, groupPostsByDay, dayKey, statusMeta } from '@/lib/calendar';
+import { postTitle } from '@/lib/post-title';
 import { PostDetail } from './PostDetail';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -84,9 +85,9 @@ export function CalendarGrid({ posts }) {
                     return (
                       <button key={p.id} onClick={() => setSel(p)}
                         className="flex w-full items-center gap-1 truncate rounded-lg bg-surface-2 px-1.5 py-1 text-left text-[10px] font-semibold text-ink transition-transform hover:scale-[1.02]"
-                        title={p.content || ''}>
+                        title={postTitle(p.content, 120)}>
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: m.color }} />
-                        <span className="truncate">{p.content?.slice(0, 14) || 'Post'}</span>
+                        <span className="truncate">{postTitle(p.content, 14)}</span>
                       </button>
                     );
                   })}
@@ -130,7 +131,7 @@ export function CalendarGrid({ posts }) {
                       <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted">
                         <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: m.color }} /> {m.label}
                       </span>
-                      <span className="mt-0.5 block truncate text-[13px] font-semibold text-ink">{p.content?.slice(0, 40) || 'Rascunho'}</span>
+                      <span className="mt-0.5 block truncate text-[13px] font-semibold text-ink">{postTitle(p.content, 40, 'Rascunho')}</span>
                     </span>
                   </button>
                 </li>

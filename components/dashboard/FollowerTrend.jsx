@@ -25,7 +25,7 @@ export function FollowerTrend({ data, platform = 'Instagram' }) {
     return (
       <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-6 text-xs text-muted">
         <p className="font-bold text-ink">Crescimento do perfil</p>
-        <p className="mt-1">O grafico aparece conforme os dias passam, com um ponto por dia sincronizado com o {platform}.</p>
+        <p className="mt-1">O gráfico aparece conforme os dias passam, com um ponto por dia sincronizado com o {platform}.</p>
       </div>
     );
   }
@@ -58,7 +58,7 @@ export function FollowerTrend({ data, platform = 'Instagram' }) {
         </div>
         <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-xs font-bold ${up ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
           {up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-          {up ? '+' : ''}{delta} no periodo
+          {up ? '+' : ''}{delta} no período
         </span>
       </div>
 

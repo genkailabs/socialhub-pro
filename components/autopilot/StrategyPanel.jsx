@@ -21,7 +21,7 @@ function DirecaoPrincipal({ s }) {
           <Compass className="h-5 w-5 text-white" />
         </span>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-accent">Direcao principal</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-accent">Direção principal</p>
           <h2 className="mt-1 text-lg font-bold leading-tight tracking-tight text-ink sm:text-[22px]">{s.objectives?.main}</h2>
           {s.rationale && <p className="mt-2 max-w-[520px] text-[13px] leading-relaxed text-muted">{s.rationale}</p>}
         </div>
@@ -41,8 +41,8 @@ function Pilares({ pillars }) {
   if (!pillars?.length) return null;
   return (
     <div>
-      <h3 className="text-base font-bold tracking-tight text-ink">Pilares que vao orientar o conteudo</h3>
-      <p className="mt-0.5 text-[11px] text-muted">Cada conteudo deve reforcar pelo menos um deles.</p>
+      <h3 className="text-base font-bold tracking-tight text-ink">Pilares que vão orientar o conteúdo</h3>
+      <p className="mt-0.5 text-[11px] text-muted">Cada conteúdo deve reforçar pelo menos um deles.</p>
       {/* Sistema uniforme: índice mono + barra de % do conteúdo (sem card escuro alternado) */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {pillars.map((p, i) => (
@@ -84,8 +84,8 @@ function Resumo({ s }) {
   );
 }
 
-// Estrategia de conteudo (PRD Etapa 8) dentro do Piloto, que ja era onde
-// pilares e cadencia viviam. A IA propoe; so a aprovacao coloca em uso.
+// Estratégia de conteúdo (PRD Etapa 8) dentro do Piloto, que já era onde
+// pilares e cadência viviam. A IA propõe; só a aprovação coloca em uso.
 export function StrategyPanel({ brandId, strategies = [] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -118,7 +118,7 @@ export function StrategyPanel({ brandId, strategies = [] }) {
         <div>
           <p className="flex items-center gap-2 text-sm font-bold text-ink">
             <Target className="h-4 w-4 text-muted" aria-hidden="true" />
-            Estrategia de conteudo
+            Estratégia de conteúdo
           </p>
           <p className="mt-0.5 text-xs text-muted">
             {ativa ? `Em uso · ${periodo(ativa)}` : 'Define por que a sua marca publica, antes de escolher os temas.'}
@@ -126,7 +126,7 @@ export function StrategyPanel({ brandId, strategies = [] }) {
         </div>
         <Button variant={ativa ? 'ghost' : 'default'} size="sm" onClick={gerar} disabled={busy}>
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          {busy ? 'Pensando...' : ativa ? 'Sugerir nova' : 'Criar estrategia'}
+          {busy ? 'Pensando...' : ativa ? 'Sugerir nova' : 'Criar estratégia'}
         </Button>
       </div>
 
@@ -139,14 +139,14 @@ export function StrategyPanel({ brandId, strategies = [] }) {
       {proposta && (
         <div className="rounded-2xl border border-accent/40 bg-accent/5 p-4">
           <p className="text-sm font-bold text-ink">
-            {ativa ? 'Nova estrategia proposta' : 'Sua estrategia esta pronta'}
+            {ativa ? 'Nova estratégia proposta' : 'Sua estratégia está pronta'}
           </p>
           <p className="mt-0.5 text-xs text-muted">
-            {ativa ? 'A atual continua valendo ate voce aprovar esta.' : 'Revise e aprove para planejar a semana.'}
+            {ativa ? 'A atual continua valendo até você aprovar esta.' : 'Revise e aprove para planejar a semana.'}
           </p>
           <div className="mt-3"><Resumo s={proposta} /></div>
           <Button className="mt-4" onClick={() => aprovar(proposta.id)} disabled={busy}>
-            <Check className="h-4 w-4" aria-hidden="true" />Aprovar estrategia
+            <Check className="h-4 w-4" aria-hidden="true" />Aprovar estratégia
           </Button>
         </div>
       )}
@@ -161,8 +161,8 @@ export function StrategyPanel({ brandId, strategies = [] }) {
       {!ativa && !proposta && (
         <div className="rounded-2xl border border-dashed border-line bg-surface/60 p-5 text-center">
           <p className="text-xs leading-relaxed text-muted">
-            Sem estrategia, o Social Hub so consegue gerar posts avulsos.
-            Com ela, cada conteudo tem um motivo — e a semana faz sentido junta.
+            Sem estratégia, o Social Hub só consegue gerar posts avulsos.
+            Com ela, cada conteúdo tem um motivo — e a semana faz sentido junta.
           </p>
         </div>
       )}

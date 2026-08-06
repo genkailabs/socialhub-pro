@@ -29,13 +29,13 @@ describe('proposta de Brand DNA pendente no Brand Kit', () => {
   it('oferece aprovar a versão que está aguardando', () => {
     render(<BrandKitTabs brandId="b1" brandName="GenkaiLabs" kit={{}} versions={versoes} />);
 
-    expect(screen.getByRole('button', { name: /Aprovar e usar esta versao/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Aprovar e usar esta versão/ })).toBeTruthy();
   });
 
   it('aprova a proposta e recarrega a tela', async () => {
     render(<BrandKitTabs brandId="b1" brandName="GenkaiLabs" kit={{}} versions={versoes} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Aprovar e usar esta versao/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Aprovar e usar esta versão/ }));
 
     await waitFor(() => expect(mocks.approveDnaVersion).toHaveBeenCalledWith({ brandId: 'b1', versionId: 'v2' }));
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalled());
@@ -44,6 +44,6 @@ describe('proposta de Brand DNA pendente no Brand Kit', () => {
   it('sem proposta pendente, nenhum botão de aprovar aparece', () => {
     render(<BrandKitTabs brandId="b1" brandName="GenkaiLabs" kit={{}} versions={[versoes[1]]} />);
 
-    expect(screen.queryByRole('button', { name: /Aprovar e usar esta versao/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Aprovar e usar esta versão/ })).toBeNull();
   });
 });

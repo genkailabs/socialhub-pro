@@ -30,11 +30,14 @@ export async function middleware(request) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  const appUrl = process.env.APP_URL || request.nextUrl.origin;
   const isPublic = PUBLIC.some((p) => path === p || path.startsWith(p + '/'));
 
   if (!user && !isPublic) {
-    return NextResponse.redirect(new URL('/login', appUrl));
+    // O destino é o /login DESTE host. Antes vinha de `APP_URL`, e qualquer
+    // acesso por outro endereço — porta de desenvolvimento diferente, deploy de
+    // pré-visualização, domínio novo — mandava a pessoa para fora da aplicação
+    // em que ela estava. O login mora em todo host que serve o app.
+    return NextResponse.redirect(new URL('/login', request.nextUrl.origin));
   }
   return response;
 }

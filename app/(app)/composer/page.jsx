@@ -58,6 +58,11 @@ export default async function ComposerPage({ searchParams }) {
 
   return (
     <div>
+      {/* O Studio é uma tela de trabalho: o título fica no cromo do editor, e
+          um <h1> visível roubaria altura da arte. Mas leitor de tela e busca
+          precisam do cabeçalho — sem ele esta era a única tela do app sem
+          nome. */}
+      <h1 className="sr-only">Studio — criar post, carrossel, story e reel</h1>
       {!active ? (
         <div className="p-8"><EmptyState title="Nenhuma marca" icon={Sparkles}>Crie/selecione uma marca no topo.</EmptyState></div>
       ) : (

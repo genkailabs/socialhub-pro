@@ -135,9 +135,17 @@ function TrendModal({ trend, sources, brandName, onClose }) {
   );
 }
 
+// Espera medida da pesquisa: entre 20 e 30 segundos. Cada fala entra no tempo
+// em que a anterior já deixou de ser verdade.
+const PHASES = [
+  [0, 'Consultando fontes atuais…'],
+  [12_000, 'Lendo o que saiu nos últimos dias… costuma levar uns 30 segundos.'],
+  [35_000, 'Passou do normal. A pesquisa continua rodando.']
+];
+
 export function TrendsExplorer({ brandId, brandName }) {
   const storageBase = `socialhub:trends:${brandId}`;
-  const [state, setState] = useState({ loading: true, error: '', trends: [], sources: [], researchedAt: '' });
+  const [state, setState] = useState({ loading: true, error: '', trends: [], sources: [], researchedAt: '', phase: PHASES[0][1] });
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [saved, setSaved] = useState(new Set());
   const [liked, setLiked] = useState(new Set());
@@ -151,18 +159,38 @@ export function TrendsExplorer({ brandId, brandName }) {
   }, [storageBase]);
 
   async function load() {
-    setState((current) => ({ ...current, loading: true, error: '' }));
-    try {
+    setState((current) => ({ ...current, loading: true, error: '', phase: PHASES[0][1] }));
+    // A pesquisa leva de 20 a 30 segundos medidos. Meio minuto com a mesma
+    // frase na tela parece travamento — estas falas são os tempos reais.
+    const avisos = PHASES.slice(1).map(([atraso, texto]) =>
+      window.setTimeout(() => setState((current) => (current.loading ? { ...current, phase: texto } : current)), atraso)
+    );
+
+    // A ponte de pesquisa devolve 502/503 quando o modelo falha na primeira
+    // tentativa, e ele costuma responder na segunda. Tentar de novo aqui evita
+    // mandar a pessoa clicar em "Tentar novamente" por uma falha passageira.
+    async function tentar(restantes) {
       const response = await fetch('/api/trends', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brandId })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.state !== 'ready') throw new Error(data.error || 'A pesquisa de padrões está indisponível.');
+      if (response.ok && data.state === 'ready') return data;
+      if (restantes > 0 && (response.status === 502 || response.status === 503)) {
+        setState((current) => (current.loading ? { ...current, phase: 'A pesquisa falhou uma vez. Tentando de novo…' } : current));
+        return tentar(restantes - 1);
+      }
+      throw new Error(data.error || 'A pesquisa de padrões está indisponível.');
+    }
+
+    try {
+      const data = await tentar(1);
       setState({ loading: false, error: '', trends: data.trends || [], sources: data.sources || [], researchedAt: data.researchedAt || '' });
     } catch (error) {
       setState({ loading: false, error: error.message || 'A pesquisa de padrões está indisponível.', trends: [], sources: [], researchedAt: '' });
+    } finally {
+      avisos.forEach((aviso) => window.clearTimeout(aviso));
     }
   }
 
@@ -190,7 +218,7 @@ export function TrendsExplorer({ brandId, brandName }) {
   const updateFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }));
 
   if (state.loading) {
-    return <div className="grid min-h-[360px] place-items-center rounded-3xl border border-line bg-panel"><div className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-accent" /><p className="mt-3 text-sm font-semibold text-ink">Consultando fontes atuais…</p><p className="mt-1 text-xs text-faint">Nada será exibido sem evidência verificável.</p></div></div>;
+    return <div className="grid min-h-[360px] place-items-center rounded-3xl border border-line bg-panel"><div className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-accent" /><p aria-live="polite" className="mt-3 text-sm font-semibold text-ink">{state.phase || PHASES[0][1]}</p><p className="mt-1 text-xs text-faint">Nada será exibido sem evidência verificável.</p></div></div>;
   }
 
   if (state.error) {
