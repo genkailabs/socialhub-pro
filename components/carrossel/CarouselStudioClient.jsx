@@ -6,19 +6,19 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
-import { ArrowRight, CalendarClock, Camera, CheckCircle2, ChevronLeft, ClipboardPaste, Copy, ExternalLink, FileText, ImagePlus, Loader2, PanelLeft, RotateCcw, Sparkles, Trash2, TrendingUp, X } from 'lucide-react';
+import { ArrowRight, CalendarClock, Camera, CheckCircle2, ChevronLeft, Copy, ExternalLink, FileText, ImagePlus, Loader2, PanelLeft, RotateCcw, Trash2, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, saveDraft } from '@/lib/posts-actions';
-import { carouselPrompt, gptUrl, headlinePrompt } from '@/lib/carrossel-gpts';
+import { gptUrl, headlinePrompt } from '@/lib/carrossel-gpts';
 import { legendaDoRoteiro } from '@/lib/carrossel-legenda';
 import { preparePastedCarouselScript, serializeCarouselBrief } from '@/lib/carrossel-script-import';
 import { GENERIC_AVOID, imageHintsForBlocks, imageHintsForSlides } from '@/lib/carrossel-image-hint';
-import { TIPO_PADRAO, templateDoTipo, tipoPorId, tiposPorObjetivo } from '@/lib/carrossel-tipos';
-import { tendenciaParaEntrada } from '@/lib/instagram-trends';
-import { Mascot } from '@/components/onboarding/Mascot';
+import { TIPO_PADRAO, templateDoTipo } from '@/lib/carrossel-tipos';
+import { assuntoParaEntrada } from '@/lib/carrossel-assuntos';
 import { MascotTip } from '@/components/onboarding/MascotTip';
 import { CarouselStudioFrame } from './CarouselStudioFrame';
+import { IdeiaWizard } from './IdeiaWizard';
 import { StudioStepper, currentStudioStep } from './StudioStepper';
 
 function dataUrlToFile(dataUrl, name) {
@@ -84,15 +84,22 @@ export function CarouselStudioClient({
   // padrão é o carro-chefe de tendência, que alcança quem ainda não segue.
   const [contentType, setContentType] = useState(editorial?.contentType || initialContentType || TIPO_PADRAO);
   const [entryMode, setEntryMode] = useState(editorial?.source === 'pasted-script' ? 'paste' : 'ai');
-  // Tendências pesquisadas na hora, para o tipo que exige fonte. Ficam aqui e
-  // não numa tela à parte: quem está montando o carrossel não deveria ter que
-  // sair, copiar e voltar.
-  const [trends, setTrends] = useState(null);
-  const [trendsBusy, setTrendsBusy] = useState(false);
+  // Qual pergunta da etapa "Ideia" está na tela. Uma por vez: tipo, depois
+  // assunto. Promessa e roteiro se deduzem do que a IA já devolveu.
+  const [ideiaEtapa, setIdeiaEtapa] = useState('tipo');
+  // De onde vem o assunto: busca do Hub, material da pessoa, ou escrito à mão.
+  const [modoAssunto, setModoAssunto] = useState('buscar');
+  const [material, setMaterial] = useState('');
+  // Assuntos pesquisados na hora — acontecimentos com fonte e data, não dica de
+  // conteúdo. Ficam aqui e não numa tela à parte: quem está montando o carrossel
+  // não deveria ter que sair, copiar e voltar.
+  const [assuntos, setAssuntos] = useState(null);
+  const [assuntoEscolhidoId, setAssuntoEscolhidoId] = useState(null);
+  const [assuntosBusy, setAssuntosBusy] = useState(false);
   // Erro da busca fica ao lado do botão, e não só na barra do topo: quem clica
   // está olhando para o botão, e uma frase cinza a uma tela de distância fazia
   // a falha parecer que o clique não fez nada.
-  const [trendsError, setTrendsError] = useState('');
+  const [assuntosErro, setAssuntosErro] = useState('');
   const [pastedScript, setPastedScript] = useState(editorial?.rawScript || '');
   const [directions, setDirections] = useState(editorial?.directions || null);
   const [brief, setBrief] = useState(editorial?.brief || null);
@@ -262,60 +269,64 @@ export function CarouselStudioClient({
     }
   }
 
-  // Busca as tendências do momento pelo mesmo motor da tela Tendências: a
-  // pesquisa é ao vivo e só entrega o que tem fonte verificável. Sem isto, o
-  // carro-chefe do produto dependia de a pessoa já saber sobre o que falar.
-  async function buscarTendencias() {
-    setTrendsBusy(true);
-    setTrendsError('');
-    setMessage('Procurando tendências com fonte…');
+  // Procura o ASSUNTO — acontecimento ou case recente, com fonte publicada e
+  // data. Não é a busca de estratégia de conteúdo da tela de Padrões de conteúdo: aquela
+  // devolve "eduque e humanize", que não é assunto de carrossel nenhum.
+  //
+  // Com material, a mesma rota lê o que a pessoa trouxe em vez de pesquisar.
+  async function buscarAssuntos(materialDoUsuario = '') {
+    const trazido = String(materialDoUsuario || '').trim();
+    setAssuntosBusy(true);
+    setAssuntosErro('');
+    setMessage(trazido ? 'Lendo o material que você trouxe…' : 'Procurando assuntos com fonte…');
     try {
-      const response = await fetch('/api/trends', {
+      const response = await fetch('/api/carrossel/assuntos', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ brandId })
+        body: JSON.stringify({ brandId, contentType, ...(trazido ? { material: trazido } : {}) })
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.state !== 'ready') {
-        throw new Error(result?.error || 'A pesquisa não encontrou tendências com fonte agora.');
+        throw new Error(result?.error || 'A pesquisa não encontrou assuntos com fonte agora.');
       }
-      setTrends({ items: result.trends || [], sources: result.sources || [] });
+      setAssuntos(result.assuntos || []);
       setMessage('');
     } catch (error) {
-      setTrends(null);
-      setTrendsError(error.message);
+      setAssuntos(null);
+      setAssuntosErro(error.message);
       setMessage('');
     } finally {
-      setTrendsBusy(false);
+      setAssuntosBusy(false);
     }
   }
 
-  // Escolher a tendência preenche assunto e material — com as fontes que ela
-  // citou. A evidência viaja junto porque o gerador vai exigi-la adiante.
-  function usarTendencia(trend) {
-    const entrada = tendenciaParaEntrada(trend, trends?.sources || []);
+  // Escolher o assunto preenche o campo e leva a evidência junto — resumo,
+  // ângulo, relação com a marca e as fontes com data. O gerador exige a fonte
+  // logo adiante; recusar depois da escolha pareceria defeito da escolha.
+  function usarAssunto(assunto) {
+    const entrada = assuntoParaEntrada(assunto);
     setTopic(entrada.topic);
     setSourceMaterial(entrada.sourceMaterial);
-    setTrends(null);
+    setAssuntoEscolhidoId(assunto?.id || null);
     setMessage(entrada.sources.length
-      ? `Tendência escolhida, com ${entrada.sources.length} ${entrada.sources.length === 1 ? 'fonte' : 'fontes'}.`
-      : 'Tendência escolhida.');
+      ? `Assunto escolhido, com ${entrada.sources.length} ${entrada.sources.length === 1 ? 'fonte' : 'fontes'}.`
+      : 'Assunto escolhido.');
   }
 
   async function createDirections(event) {
     event.preventDefault();
     if (!topic.trim()) return;
     setBriefBusy(true);
-    setMessage('Criando ideias de capa…');
+    setMessage('Escrevendo as promessas de capa…');
     try {
       const result = await requestEditorial('directions');
       setDirections(result.directions);
       setSources(result.sources || []);
       setBrief(null);
       setSelectedHeadlineId(result.directions?.headlineOptions?.[0]?.id || null);
-      setMessage('Escolha a ideia que mais combina com você.');
+      setMessage('Escolha a promessa que abre a conversa.');
     } catch (error) {
-      setMessage(error?.name === 'AbortError' ? 'A criação das ideias demorou mais que o esperado. Tente novamente.' : error.message || 'Não foi possível criar as ideias.');
+      setMessage(error?.name === 'AbortError' ? 'A criação das promessas demorou mais que o esperado. Tente novamente.' : error.message || 'Não foi possível criar as promessas.');
     } finally {
       setBriefBusy(false);
     }
@@ -519,6 +530,12 @@ export function CarouselStudioClient({
       setInitialSlideCount(undefined);
       setTopic('');
       setSourceMaterial('');
+      setMaterial('');
+      setAssuntos(null);
+      setAssuntoEscolhidoId(null);
+      setAssuntosErro('');
+      setIdeiaEtapa('tipo');
+      setModoAssunto('buscar');
       setEntryMode('ai');
       setPastedScript('');
       setSavedAt(null);
@@ -665,7 +682,7 @@ export function CarouselStudioClient({
                   <p className="font-semibold text-ink">Roteiro no Studio</p>
                   <p className="mt-0.5 text-xs text-muted">{appliedSlides.length} slides · {approvedEditorial?.source === 'pasted-script' ? 'colado por você' : 'aprovado por você'}</p>
                 </div>
-                <button type="button" onClick={() => setShowEntry(true)} className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-bold text-ink hover:bg-surface-2">Trocar roteiro</button>
+                <button type="button" onClick={() => { setShowEntry(true); setIdeiaEtapa('tipo'); }} className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-bold text-ink hover:bg-surface-2">Trocar roteiro</button>
               </div>
               <p className="mt-2 flex gap-1.5 rounded-lg bg-surface-2 px-2.5 py-2 text-[11px] leading-relaxed text-muted">
                 <Camera size={13} className="mt-[2px] shrink-0 text-accent" />
@@ -677,159 +694,45 @@ export function CarouselStudioClient({
               </li>)}</ol>
             </div> : null}
 
-            {!applied && !directions && !brief && <form onSubmit={entryMode === 'paste' ? applyPastedScript : createDirections} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
-              <div className="flex gap-3">
-                <Mascot mood="guide" className="h-16 w-14 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-ink">Vamos montar o seu carrossel</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted">Gere o roteiro aqui ou cole um texto pronto do seu GPT.</p>
-                  <div className="mt-3 grid grid-cols-2 rounded-xl bg-surface-2 p-1" aria-label="Como criar o roteiro">
-                    <button type="button" onClick={() => setEntryMode('ai')} aria-pressed={entryMode === 'ai'} className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${entryMode === 'ai' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>Gerar com IA</button>
-                    <button type="button" onClick={() => setEntryMode('paste')} aria-pressed={entryMode === 'paste'} className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${entryMode === 'paste' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>Colar roteiro pronto</button>
-                  </div>
-                  {entryMode === 'ai' ? <>
-                  {/* Tipo antes do assunto: cada tipo tem receita e alcance
-                      diferentes, e o carro-chefe vem primeiro porque é o que
-                      alcança quem ainda não segue a marca. */}
-                  <fieldset className="mt-3">
-                    <legend className="text-[10px] font-bold uppercase tracking-[0.08em] text-faint">Tipo de carrossel</legend>
-                    <div className="mt-1.5 space-y-2.5">
-                      {tiposPorObjetivo().map((grupo) => (
-                        <div key={grupo.objetivo}>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">{grupo.label} · <span className="font-medium normal-case tracking-normal text-faint">{grupo.resumo}</span></p>
-                          <div className="mt-1 grid gap-1.5">
-                            {grupo.tipos.map((tipo) => (
-                              <button
-                                key={tipo.id}
-                                type="button"
-                                onClick={() => setContentType(tipo.id)}
-                                aria-pressed={contentType === tipo.id}
-                                className={`rounded-xl border px-3 py-2 text-left transition-colors ${contentType === tipo.id ? 'border-accent bg-accent-tint' : 'border-line bg-surface-2 hover:border-accent/40'}`}
-                              >
-                                <span className="flex items-center gap-1.5">
-                                  <span className={`text-xs font-bold ${contentType === tipo.id ? 'text-accent-ink' : 'text-ink'}`}>{tipo.label}</span>
-                                  {tipo.carroChefe && <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">Carro-chefe</span>}
-                                </span>
-                                <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">{tipo.promessa}</span>
-                                {tipo.limite && <span className="mt-0.5 block text-[10px] leading-relaxed text-faint">Limite: {tipo.limite}</span>}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </fieldset>
-
-                  {tipoPorId(contentType)?.exigePesquisa && <div className="mt-2 rounded-lg bg-surface-2 p-2.5">
-                    <p className="text-[10px] leading-relaxed text-muted">
-                      Este tipo só sai com fonte: o Hub pesquisa o assunto e liga cada dado ao link de origem. Se preferir, cole abaixo a notícia ou o link que você já viu.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={buscarTendencias}
-                      disabled={trendsBusy || briefBusy}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[11px] font-bold text-ink hover:border-accent/40 disabled:opacity-50"
-                    >
-                      {trendsBusy ? 'Procurando…' : 'Buscar tendência agora'} <TrendingUp size={12} />
-                    </button>
-
-                    {trendsError && <p role="alert" className="mt-2 rounded-lg border border-danger/30 bg-danger/10 px-2.5 py-2 text-[10px] leading-relaxed text-ink">{trendsError}</p>}
-
-                    {trends && (
-                      <div className="mt-2 space-y-1.5">
-                        {trends.items.length === 0 && <p className="text-[10px] text-muted">Nada com fonte verificável agora. Tente de novo ou cole o que você viu.</p>}
-                        {trends.items.map((trend) => (
-                          <button
-                            key={trend.id}
-                            type="button"
-                            onClick={() => usarTendencia(trend)}
-                            className="block w-full rounded-lg border border-line bg-surface px-2.5 py-2 text-left hover:border-accent/40"
-                          >
-                            <span className="block text-[11px] font-bold text-ink">{trend.title}</span>
-                            <span className="mt-0.5 block text-[10px] leading-relaxed text-muted">{trend.summary}</span>
-                            <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-wide text-faint">
-                              {trend.sourceIds?.length || 0} {trend.sourceIds?.length === 1 ? 'fonte' : 'fontes'}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>}
-
-                  <label className="sr-only" htmlFor="carousel-topic">Assunto do carrossel</label>
-                  {/* Empilhado sempre: `sm:flex-row` olhava a largura da JANELA,
-                      não a da gaveta. Numa tela larga ele punha campo e botão
-                      lado a lado dentro de 380px e sobrava um campo de dedo. */}
-                  <div className="mt-3 flex flex-col gap-2">
-                    {/* Textarea e não input: o assunto pode receber uma seleção
-                        completa, com várias linhas, sem cortar o texto colado. */}
-                    <textarea
-                      id="carousel-topic"
-                      value={topic}
-                      onChange={(event) => setTopic(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.shiftKey) {
-                          event.preventDefault();
-                          createDirections(event);
-                        }
-                      }}
-                      rows={3}
-                      placeholder="Ex.: Como pequenas empresas podem usar IA sem perder qualidade"
-                      className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm leading-relaxed text-ink"
-                    />
-                    <button type="submit" disabled={briefBusy || !topic.trim()} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{briefBusy ? 'Criando…' : 'Gerar 5 ideias'} <Sparkles size={14} /></button>
-                  </div>
-                  {/* Saída manual para o GPT próprio: não gasta token do Hub,
-                      porque GPT customizado não tem API e quem conversa é a
-                      pessoa, não o servidor. */}
-                  {gptUrl('carrossel', carouselPrompt({ brandName: brand?.name, topic, context: sourceMaterial })) && <a
-                    href={gptUrl('carrossel', carouselPrompt({ brandName: brand?.name, topic, context: sourceMaterial }))}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-ink"
-                  ><ExternalLink size={13} /> Pedir também ao meu GPT</a>}
-
-                  <details className="mt-2 text-xs text-muted">
-                    <summary className="cursor-pointer hover:text-ink">
-                      {tipoPorId(contentType)?.exigePesquisa ? 'Colar a notícia, o link ou o contexto (opcional)' : 'Adicionar contexto da marca (opcional)'}
-                    </summary>
-                    <textarea
-                      value={sourceMaterial}
-                      onChange={(event) => setSourceMaterial(event.target.value)}
-                      maxLength={6000}
-                      rows={2}
-                      placeholder={tipoPorId(contentType)?.exigePesquisa
-                        ? 'Cole aqui o link, a notícia ou o print que você viu — o Hub pesquisa em volta disso.'
-                        : 'Público, serviço, exemplo, restrição ou tom de voz.'}
-                      className="mt-2 w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink"
-                    />
-                  </details>
-                  </> : <div className="mt-3">
-                    <label htmlFor="carousel-pasted-script" className="text-xs font-semibold text-ink">Cole o texto aqui</label>
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted">Use pares: <strong>texto 1</strong> é o título da capa, <strong>texto 2</strong> é o apoio; depois título e texto de cada slide.</p>
-                    <textarea
-                      id="carousel-pasted-script"
-                      value={pastedScript}
-                      onChange={(event) => setPastedScript(event.target.value)}
-                      maxLength={12000}
-                      rows={10}
-                      placeholder={'texto 1 - MANCHETE DA CAPA\n\ntexto 2 - Linha de apoio\n\ntexto 3 - TÍTULO DO SLIDE 2\n\ntexto 4 - Explicação do slide 2'}
-                      className="mt-2 w-full resize-y rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink"
-                    />
-                    {pastedPreview && <p role={pastedPreview.ok ? undefined : 'alert'} className={`mt-2 text-[11px] ${pastedPreview.ok ? 'text-success' : 'text-danger'}`}>{pastedPreview.ok ? `${pastedPreview.blockCount} campos encontrados · ${pastedPreview.slideCount} slides` : pastedPreview.error}</p>}
-                    {/* A dica de foto de cada slide aparece depois de aplicar,
-                        no topo desta gaveta — antes disso ela competiria com o
-                        campo que a pessoa ainda está preenchendo. */}
-                    <button type="submit" disabled={busy || !pastedPreview?.ok} className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{busy ? 'Aplicando…' : 'Aplicar texto no Studio'} <ClipboardPaste size={14} /></button>
-                  </div>}
-                </div>
-              </div>
-            </form>}
+            {!applied && !directions && !brief && <IdeiaWizard
+              brand={brand}
+              etapa={ideiaEtapa}
+              onEtapa={setIdeiaEtapa}
+              contentType={contentType}
+              onContentType={setContentType}
+              entryMode={entryMode}
+              onEntryMode={setEntryMode}
+              modo={modoAssunto}
+              onModo={(proximo) => { setModoAssunto(proximo); setAssuntosErro(''); }}
+              topic={topic}
+              onTopic={setTopic}
+              sourceMaterial={sourceMaterial}
+              onSourceMaterial={setSourceMaterial}
+              material={material}
+              onMaterial={setMaterial}
+              assuntos={assuntos}
+              assuntosBusy={assuntosBusy}
+              assuntosErro={assuntosErro}
+              assuntoEscolhidoId={assuntoEscolhidoId}
+              onBuscarAssuntos={buscarAssuntos}
+              onUsarAssunto={usarAssunto}
+              onGerarPromessas={createDirections}
+              pastedScript={pastedScript}
+              onPastedScript={setPastedScript}
+              pastedPreview={pastedPreview}
+              onAplicarColado={applyPastedScript}
+              briefBusy={briefBusy}
+              busy={busy}
+            />}
 
             {!applied && directions && !brief && <div className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><p className="font-semibold text-ink">Escolha a capa que abre a conversa</p><p className="mt-1 max-w-3xl text-xs text-muted">{directions.problem} <span aria-hidden="true">·</span> Você vai ensinar: {directions.learningOutcome}</p></div>
-                <button type="button" onClick={() => { setDirections(null); setSelectedHeadlineId(null); }} className="text-xs font-semibold text-muted hover:text-ink">Alterar assunto</button>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-faint">Passo 3 de 4</p>
+                  <p className="font-semibold text-ink">Escolha a promessa da capa</p>
+                  <p className="mt-1 max-w-3xl text-xs text-muted">A promessa é o motivo de continuar deslizando. {directions.problem} <span aria-hidden="true">·</span> Você vai ensinar: {directions.learningOutcome}</p>
+                </div>
+                <button type="button" onClick={() => { setDirections(null); setSelectedHeadlineId(null); setIdeiaEtapa('assunto'); }} className="text-xs font-semibold text-muted hover:text-ink">Alterar assunto</button>
               </div>
               <div className="mt-3 grid gap-2">
                 {directions.headlineOptions.map((option) =><label key={option.id} className={`relative cursor-pointer rounded-xl border p-3 transition-colors ${selectedHeadlineId === option.id ? 'border-accent bg-accent/10' : 'border-line hover:border-accent/40'}`}>
@@ -848,11 +751,13 @@ export function CarouselStudioClient({
               ><ExternalLink size={13} /> Diagnosticar esta capa no meu GPT</a>}
               <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-muted"><span className="mr-1 font-semibold text-ink">Sequência:</span>{directions.narrative.map((slide) => <span key={slide.order} className="rounded-full bg-surface-2 px-2 py-1">{STEP_LABEL[slide.role] || 'Página'}</span>)}</div>
               {message && <p role="alert" className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">{message}</p>}
-              <div className="mt-3 flex justify-end"><button type="button" onClick={createFullBrief} disabled={briefBusy || !selectedHeadlineId} className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{briefBusy ? 'Criando roteiro…' : 'Criar roteiro com esta ideia'} <ArrowRight size={14} /></button></div>
+              {/* O roteiro só sai com promessa escolhida: sem ela o gerador não
+                  sabe o que o carrossel prometeu cumprir. */}
+              <div className="mt-3 flex justify-end"><button type="button" onClick={createFullBrief} disabled={briefBusy || !selectedHeadlineId} className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{briefBusy ? 'Criando roteiro…' : 'Gerar roteiro com esta promessa'} <ArrowRight size={14} /></button></div>
             </div>}
 
             {!applied && brief && <div className="rounded-2xl border border-line bg-surface p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">Confira o roteiro antes de enviar ao Studio</p>{selectedHeadline && <p className="mt-1 text-xs text-muted">Capa escolhida: <strong className="text-ink">{selectedHeadline.headline}</strong></p>}</div>{sources.length > 0 ? <span className="rounded-full bg-success/10 px-2 py-1 text-[11px] font-semibold text-success">Fontes verificadas</span> : <span className="rounded-full bg-surface-2 px-2 py-1 text-[11px] font-semibold text-muted">Roteiro prático, sem dados factuais</span>}</div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.08em] text-faint">Passo 4 de 4</p><p className="font-semibold text-ink">Confira o roteiro antes de enviar ao Studio</p>{selectedHeadline && <p className="mt-1 text-xs text-muted">Promessa escolhida: <strong className="text-ink">{selectedHeadline.headline}</strong></p>}</div>{sources.length > 0 ? <span className="rounded-full bg-success/10 px-2 py-1 text-[11px] font-semibold text-success">Fontes verificadas</span> : <span className="rounded-full bg-surface-2 px-2 py-1 text-[11px] font-semibold text-muted">Roteiro prático, sem dados factuais</span>}</div>
               <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-2 text-[11px] leading-relaxed text-muted">Depois de enviar ao Studio, clique na imagem de um slide para ver que foto procurar.</p>
               <ol className="mt-3 grid gap-2">{brief.slides.map((slide) => {
                 const media = briefMedia.find((item) => item.slideOrder === Number(slide.order));
@@ -877,7 +782,7 @@ export function CarouselStudioClient({
                 </li>;
               })}</ol>
               {sourceList(sources)}
-              <div className="mt-3 flex flex-wrap justify-between gap-2"><button type="button" onClick={() => setBrief(null)} className="rounded-xl border border-line px-3 py-2 text-xs font-bold text-ink hover:bg-surface-2">Voltar às ideias</button><button type="button" onClick={applyApprovedBrief} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Usar roteiro no Studio <FileText size={14} /></button></div>
+              <div className="mt-3 flex flex-wrap justify-between gap-2"><button type="button" onClick={() => setBrief(null)} className="rounded-xl border border-line px-3 py-2 text-xs font-bold text-ink hover:bg-surface-2">Voltar às promessas</button><button type="button" onClick={applyApprovedBrief} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Usar roteiro no Studio <FileText size={14} /></button></div>
             </div>}
 
             {/* O Hub explicava esta tela numa bolha fixa no canto inferior

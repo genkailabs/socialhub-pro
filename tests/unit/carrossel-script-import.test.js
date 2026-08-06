@@ -63,9 +63,12 @@ describe('importação de roteiro pronto no carrossel', () => {
 
   it('expõe a entrada manual e envia a contagem calculada ao Studio', () => {
     const client = readFileSync('components/carrossel/CarouselStudioClient.jsx', 'utf8');
+    // A entrada da Ideia virou assistente em etapas e mudou de arquivo; o
+    // caminho do roteiro colado continua o mesmo, só que dentro dele.
+    const wizard = readFileSync('components/carrossel/IdeiaWizard.jsx', 'utf8');
 
-    expect(client).toContain('Colar roteiro pronto');
-    expect(client).toContain('Aplicar texto no Studio');
+    expect(wizard).toContain('Colar roteiro pronto');
+    expect(wizard).toContain('Aplicar texto no Studio');
     expect(client).toContain('preparePastedCarouselScript');
     expect(client).toContain('slideCount={initialSlideCount}');
   });

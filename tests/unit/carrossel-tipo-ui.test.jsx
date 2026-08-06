@@ -30,6 +30,12 @@ function pedidosDeBrief() {
     .map(([, init]) => JSON.parse(init.body));
 }
 
+// Passo 1 → passo 2. A tela mostra uma pergunta por vez; o assunto só existe
+// depois de o tipo estar escolhido.
+function irParaOAssunto() {
+  fireEvent.click(screen.getByRole('button', { name: /Escolher o assunto/ }));
+}
+
 describe('escolha do tipo de carrossel antes de gerar', () => {
   beforeEach(() => {
     framePropsRecebidas.atual = null;
@@ -50,13 +56,21 @@ describe('escolha do tipo de carrossel antes de gerar', () => {
   });
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-  it('mostra os oito tipos agrupados, com o carro-chefe marcado', () => {
+  it('abre no passo do tipo, com os dois carros-chefe no palco', () => {
     render(<CarouselStudioClient brandId="brand-1" brand={marca} />);
 
+    expect(screen.getByText('Qual tipo de carrossel você quer criar?')).toBeTruthy();
+    expect(screen.getByText('Passo 1 de 4')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Análise de tendência/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Case de sucesso/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Bastidor/ })).toBeTruthy();
     expect(screen.getAllByText('Carro-chefe')).toHaveLength(2);
+  });
+
+  it('os outros tipos continuam disponíveis, com menos destaque', () => {
+    render(<CarouselStudioClient brandId="brand-1" brand={marca} />);
+
+    expect(screen.getByText('Outros tipos')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Bastidor/ })).toBeTruthy();
     expect(screen.getByText(/Descoberta/)).toBeTruthy();
   });
 
@@ -69,11 +83,26 @@ describe('escolha do tipo de carrossel antes de gerar', () => {
     expect(screen.getByText(/Raramente sai da bolha/)).toBeTruthy();
   });
 
+  // Uma pergunta por vez: o campo de assunto não pode competir com a escolha
+  // do tipo, que é o que decide a receita inteira do carrossel.
+  it('o assunto só aparece depois do tipo escolhido', () => {
+    render(<CarouselStudioClient brandId="brand-1" brand={marca} />);
+
+    expect(screen.queryByLabelText('Assunto do carrossel')).toBeNull();
+
+    irParaOAssunto();
+
+    expect(screen.getByText('Sobre qual assunto?')).toBeTruthy();
+    expect(screen.getByLabelText('Assunto do carrossel')).toBeTruthy();
+    expect(screen.queryByText('Qual tipo de carrossel você quer criar?')).toBeNull();
+  });
+
   it('já começa no carro-chefe de tendência, sem ninguém escolher', async () => {
     render(<CarouselStudioClient brandId="brand-1" brand={marca} />);
 
+    irParaOAssunto();
     fireEvent.change(screen.getByLabelText('Assunto do carrossel'), { target: { value: 'WhatsApp no computador' } });
-    fireEvent.click(screen.getByRole('button', { name: /Gerar 5 ideias/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Gerar 5 promessas de capa/ }));
 
     await waitFor(() => expect(pedidosDeBrief()).toHaveLength(1));
     expect(pedidosDeBrief()[0].contentType).toBe('analise-tendencia');
@@ -83,25 +112,40 @@ describe('escolha do tipo de carrossel antes de gerar', () => {
     render(<CarouselStudioClient brandId="brand-1" brand={marca} />);
 
     fireEvent.click(screen.getByRole('button', { name: /Case de sucesso/ }));
+    irParaOAssunto();
     fireEvent.change(screen.getByLabelText('Assunto do carrossel'), { target: { value: 'A virada da Havaianas' } });
-    fireEvent.click(screen.getByRole('button', { name: /Gerar 5 ideias/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Gerar 5 promessas de capa/ }));
 
     await waitFor(() => expect(pedidosDeBrief()).toHaveLength(1));
     expect(pedidosDeBrief()[0].contentType).toBe('case-sucesso');
   });
 
+  // Botão que aceita clique sem a etapa cumprida ensina a desconfiar da tela.
+  it('sem assunto, avançar fica bloqueado', () => {
+    render(<CarouselStudioClient brandId="brand-1" brand={marca} />);
+    irParaOAssunto();
+
+    expect(screen.getByRole('button', { name: /Gerar 5 promessas de capa/ }).disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText('Assunto do carrossel'), { target: { value: 'Assunto qualquer' } });
+
+    expect(screen.getByRole('button', { name: /Gerar 5 promessas de capa/ }).disabled).toBe(false);
+  });
+
   // Tipo que exige fonte precisa avisar antes, senão o erro só aparece depois
   // de o usuário esperar a pesquisa inteira.
-  it('avisa que o tipo só sai com fonte e oferece colar o material', () => {
+  it('avisa que o tipo só sai com fonte, e some quando o tipo não exige', () => {
     render(<CarouselStudioClient brandId="brand-1" brand={marca} />);
+    irParaOAssunto();
 
     expect(screen.getByText(/só sai com fonte/)).toBeTruthy();
-    expect(screen.getByText(/Colar a notícia, o link ou o contexto/)).toBeTruthy();
 
+    fireEvent.click(screen.getByRole('button', { name: /Voltar/ }));
     fireEvent.click(screen.getByRole('button', { name: /Bastidor/ }));
+    irParaOAssunto();
 
     expect(screen.queryByText(/só sai com fonte/)).toBeNull();
-    expect(screen.getByText(/Adicionar contexto da marca/)).toBeTruthy();
+    expect(screen.getByText(/não depende de notícia/)).toBeTruthy();
   });
 
   it('abre o Studio no template que combina com o tipo', () => {

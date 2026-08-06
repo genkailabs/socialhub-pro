@@ -192,7 +192,13 @@ describe('a gaveta do roteiro deixou de carregar a dica', () => {
 
     fireEvent.click(screen.getByText('Trocar roteiro'));
 
-    expect(screen.getByText('Vamos montar o seu carrossel')).toBeTruthy();
+    // O rascunho nasceu de texto colado, então a entrada volta por onde ele
+    // entrou. Quem quiser gerar com IA troca no seletor e cai no passo 1.
+    expect(screen.getByText('Cole o seu roteiro')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Gerar com IA'));
+
+    expect(screen.getByText('Qual tipo de carrossel você quer criar?')).toBeTruthy();
     expect(screen.queryByText('Roteiro no Studio')).toBeNull();
   });
 
