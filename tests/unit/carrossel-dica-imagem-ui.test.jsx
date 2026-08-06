@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CarouselStudioClient } from '@/components/carrossel/CarouselStudioClient';
 
@@ -16,22 +16,22 @@ vi.mock('@/lib/posts-media', () => ({
 }));
 vi.mock('@/components/onboarding/Mascot', () => ({ Mascot: () => <div data-testid="mascot" /> }));
 
-// O Studio é outra aplicação, dentro de um iframe: aqui ele é substituído por
-// botões que disparam a mesma mensagem de seleção que a ponte entrega.
+// A dica de foto deixou de ser um cartão flutuante deste lado: ela atravessa a
+// ponte e é desenhada dentro do painel Mídia do Studio, que é outra aplicação.
+// O que se pode verificar aqui é o que sai daqui — as dicas entregues ao
+// iframe — e a ausência do cartão antigo.
+let hintsEntregues = null;
 vi.mock('@/components/carrossel/CarouselStudioFrame', () => ({
-  CarouselStudioFrame: ({ onSelection }) => (
-    <div data-testid="studio-frame">
-      <button type="button" onClick={() => onSelection?.({ slideIndex: 1, elementType: 'image', slot: 2 })}>
-        Selecionar imagem do slide 2
-      </button>
-      <button type="button" onClick={() => onSelection?.({ slideIndex: 0, elementType: 'text', slot: null })}>
-        Selecionar um texto
-      </button>
-      <button type="button" onClick={() => onSelection?.({ slideIndex: 1, elementType: null, slot: null })}>
-        Clicar no fundo
-      </button>
-    </div>
-  )
+  CarouselStudioFrame: ({ onSelection, imageHints }) => {
+    hintsEntregues = imageHints;
+    return (
+      <div data-testid="studio-frame">
+        <button type="button" onClick={() => onSelection?.({ slideIndex: 1, elementType: 'image', slot: 2 })}>
+          Selecionar imagem do slide 2
+        </button>
+      </div>
+    );
+  }
 }));
 
 const script = [
@@ -49,92 +49,27 @@ function renderStudio(draft = pastedDraft) {
   return render(<CarouselStudioClient brandId="brand-1" brand={{ name: 'GenkaiLabs' }} draft={draft} embedded />);
 }
 
-describe('dica de foto ao clicar na imagem do slide', () => {
-  beforeEach(() => vi.clearAllMocks());
+describe('dica de foto entregue ao editor', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hintsEntregues = null;
+  });
   afterEach(() => {
     cleanup();
     localStorage.clear();
   });
 
-  it('só abre depois que o Studio avisa que a imagem foi selecionada', () => {
+  it('manda uma dica por slide, com cena, termos e o que evitar', () => {
     renderStudio();
 
-    expect(screen.queryByText('Procure uma foto de:')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
-
-    const painel = screen.getByLabelText('Foto sugerida para este slide');
-    expect(within(painel).getByText('Slide 02 · imagem')).toBeTruthy();
-    expect(within(painel).getByText(/escritório pequeno/)).toBeTruthy();
-  });
-
-  it('ignora seleção de texto e fecha ao clicar no fundo', () => {
-    renderStudio();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Selecionar um texto' }));
-    expect(screen.queryByLabelText('Foto sugerida para este slide')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
-    expect(screen.getByLabelText('Foto sugerida para este slide')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Clicar no fundo' }));
-    expect(screen.queryByLabelText('Foto sugerida para este slide')).toBeNull();
-  });
-
-  it('leva os termos em inglês para a busca do Pexels', () => {
-    renderStudio();
-    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
-
-    const link = screen.getByRole('link', { name: /Buscar no Pexels/ });
-    expect(link.getAttribute('href')).toContain('pexels.com/search/');
-    expect(decodeURIComponent(link.getAttribute('href'))).toContain('small office');
-  });
-
-  it('copia os termos de busca', async () => {
-    const writeText = vi.fn(async () => {});
-    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
-    renderStudio();
-    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
-
-    fireEvent.click(screen.getByLabelText('Copiar os termos de busca'));
-
-    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(writeText.mock.calls[0][0]).toContain('small office');
-    vi.unstubAllGlobals();
-  });
-
-  it('flutua sobre o editor em vez de empurrar o layout', () => {
-    renderStudio();
-    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
-
-    const painel = screen.getByLabelText('Foto sugerida para este slide');
-    expect(painel.className).toContain('absolute');
-    expect(painel.className).not.toContain('shrink-0');
-  });
-
-  it('tira a gaveta do roteiro da frente ao abrir a dica', () => {
-    renderStudio();
-    fireEvent.click(screen.getByText('Trocar roteiro'));
-    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
-
-    expect(document.getElementById('carousel-editorial').getAttribute('aria-hidden')).toBe('true');
-  });
-
-  it('fecha no Esc', () => {
-    renderStudio();
-    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-
-    expect(screen.queryByLabelText('Foto sugerida para este slide')).toBeNull();
-  });
-
-  it('fecha pelo botão de fechar', () => {
-    renderStudio();
-    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
-
-    fireEvent.click(screen.getByLabelText('Fechar a dica de foto'));
-
-    expect(screen.queryByLabelText('Foto sugerida para este slide')).toBeNull();
+    expect(Array.isArray(hintsEntregues)).toBe(true);
+    expect(hintsEntregues.length).toBe(3);
+    const segunda = hintsEntregues.find((hint) => hint.order === 2);
+    expect(segunda.scene).toMatch(/escritório pequeno/);
+    expect(segunda.query).toContain('small office');
+    expect(segunda.queryPt).toBeTruthy();
+    expect(segunda.avoid).toBeTruthy();
+    expect(segunda.headline).toBeTruthy();
   });
 
   it('usa a dica escrita pela IA quando o roteiro veio dela', () => {
@@ -163,11 +98,26 @@ describe('dica de foto ao clicar na imagem do slide', () => {
       embedded
     />);
 
+    const segunda = hintsEntregues.find((hint) => hint.order === 2);
+    expect(segunda.scene).toBe('sala de reunião vazia vista de cima');
+    expect(segunda.avoid).toBe('gente posando');
+  });
+
+  it('não desenha mais nenhum cartão de dica por cima do editor', () => {
+    renderStudio();
     fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
 
-    const painel = screen.getByLabelText('Foto sugerida para este slide');
-    expect(within(painel).getByText(/sala de reunião vazia vista de cima/)).toBeTruthy();
-    expect(within(painel).getByText(/Evite gente posando/)).toBeTruthy();
+    expect(screen.queryByLabelText('Foto sugerida para este slide')).toBeNull();
+    expect(screen.queryByText('Procure uma foto de:')).toBeNull();
+    expect(screen.queryByRole('link', { name: /Buscar no Pexels/ })).toBeNull();
+  });
+
+  it('tira a gaveta do roteiro da frente quando a foto é selecionada', () => {
+    renderStudio();
+    fireEvent.click(screen.getByText('Trocar roteiro'));
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar imagem do slide 2' }));
+
+    expect(document.getElementById('carousel-editorial').getAttribute('aria-hidden')).toBe('true');
   });
 });
 

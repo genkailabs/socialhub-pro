@@ -3,9 +3,11 @@ import {
   CAROUSEL_STUDIO_PROTOCOL_VERSION,
   isStudioMessage,
   isStudioReady,
+  safeStudioImageHints,
   safeStudioInitialMedia,
   studioMediaMessage,
   studioMediaDeleteAckMessage,
+  studioImageHintsMessage,
   studioInitMessage,
   studioOrigin
 } from '@/lib/carrossel-studio-contract';
@@ -116,5 +118,53 @@ describe('Carrossel Studio bridge contract V1', () => {
     expect(studioOrigin('https://studio.example.com/embed-studio')).toBe('https://studio.example.com');
     expect(studioOrigin('ftp://studio.example.com/embed-studio')).toBeNull();
     expect(studioOrigin('not a url')).toBeNull();
+  });
+});
+
+describe('dicas de foto na ponte', () => {
+  const channelId = 'cs-test-channel';
+
+  it('recorta a dica e descarta a que não tem cena ou número de slide', () => {
+    const hints = safeStudioImageHints([
+      { order: 1, headline: 'Capa', scene: 'mesa com café', query: 'coffee desk', queryPt: 'mesa café', avoid: 'foto com texto' },
+      { order: 0, scene: 'fora da faixa' },
+      { order: 2, scene: '   ' },
+      { order: 3, scene: 'x'.repeat(500), query: 'y'.repeat(500) },
+      'não é objeto'
+    ]);
+
+    expect(hints).toHaveLength(2);
+    expect(hints[0]).toEqual({
+      order: 1,
+      scene: 'mesa com café',
+      query: 'coffee desk',
+      headline: 'Capa',
+      queryPt: 'mesa café',
+      avoid: 'foto com texto'
+    });
+    expect(hints[1].scene).toHaveLength(400);
+    expect(hints[1].query).toHaveLength(300);
+  });
+
+  it('monta a mensagem versionada de atualização das dicas', () => {
+    const mensagem = studioImageHintsMessage({
+      channelId,
+      hints: [{ order: 1, scene: 'cena', query: 'scene' }]
+    });
+
+    expect(mensagem).toEqual({
+      type: 'cs:image-hints',
+      version: CAROUSEL_STUDIO_PROTOCOL_VERSION,
+      channelId,
+      hints: [{ order: 1, scene: 'cena', query: 'scene' }]
+    });
+  });
+
+  it('leva as dicas no init e omite o campo quando não há nenhuma', () => {
+    const comDica = studioInitMessage({ channelId, imageHints: [{ order: 2, scene: 'cena', query: 'scene' }] });
+    const semDica = studioInitMessage({ channelId });
+
+    expect(comDica.imageHints).toEqual([{ order: 2, scene: 'cena', query: 'scene' }]);
+    expect(semDica.imageHints).toBeUndefined();
   });
 });

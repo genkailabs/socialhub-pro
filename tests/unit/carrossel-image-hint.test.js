@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { imageHintForSlide, imageHintsForBlocks, imageHintsForSlides } from '@/lib/carrossel-image-hint';
+import { imageHintForSlide, imageHintsForBlocks, imageHintsForSlides, termosEmPortugues } from '@/lib/carrossel-image-hint';
 
 describe('dica de imagem do slide', () => {
   it('usa a dica escrita pela IA quando ela vem inteira', () => {
@@ -127,5 +127,22 @@ describe('dicas para roteiro colado', () => {
     expect(imageHintsForBlocks(null)).toEqual([]);
     expect(imageHintsForBlocks(['só um bloco'])).toEqual([]);
     expect(imageHintsForBlocks(['título', 'texto', 'sobra'])).toHaveLength(1);
+  });
+});
+
+describe('termos de busca em português', () => {
+  it('tira as palavras de ligação e devolve o que descreve a foto', () => {
+    expect(termosEmPortugues('um escritório pequeno com duas pessoas olhando a mesma tela'))
+      .toBe('escritório pequeno duas pessoas olhando tela');
+  });
+
+  it('ignora pontuação e limita o tamanho da lista', () => {
+    expect(termosEmPortugues('mesa com calculadora, papéis e alguém fazendo conta, em close nas mãos'))
+      .toBe('mesa calculadora papéis fazendo conta close');
+  });
+
+  it('devolve vazio quando não há cena', () => {
+    expect(termosEmPortugues('')).toBe('');
+    expect(termosEmPortugues(null)).toBe('');
   });
 });

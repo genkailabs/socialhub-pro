@@ -11,6 +11,7 @@ import {
   isStudioReady,
   studioDraftSavedMessage,
   studioErrorMessage,
+  studioImageHintsMessage,
   studioInitMessage,
   studioMediaDeleteAckMessage,
   studioMediaMessage,
@@ -34,6 +35,7 @@ export function CarouselStudioFrame({
   initialDoc = null,
   initialScript = '',
   initialMedia = [],
+  imageHints = [],
   templateId,
   slideCount,
   onChange,
@@ -50,6 +52,10 @@ export function CarouselStudioFrame({
   const channelId = useRef(createStudioChannelId());
   const [status, setStatus] = useState('loading');
   const allowedOrigin = studioOrigin(STUDIO_URL);
+  // As dicas de foto mudam quando o roteiro muda, e o init roda uma vez por
+  // montagem: guardar a versão atual aqui evita reenviar o init inteiro (que
+  // recarregaria o documento) só para atualizar um texto de apoio.
+  const hintsRef = useRef(imageHints);
 
   // O init é montado em dois lugares — na resposta ao `cs:ready` e no `onLoad`
   // do iframe —, então ele vive numa função só. Enviar duas vezes é seguro: o
@@ -66,6 +72,7 @@ export function CarouselStudioFrame({
         slideCount,
         script: initialScript,
         initialMedia,
+        imageHints: hintsRef.current,
         theme: currentTheme()
       }),
       allowedOrigin
@@ -75,6 +82,16 @@ export function CarouselStudioFrame({
     // iframe é o jeito de trocar de documento.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowedOrigin]);
+
+  // Roteiro novo, dicas novas: o painel Mídia do Studio se atualiza sozinho.
+  useEffect(() => {
+    hintsRef.current = imageHints;
+    if (!allowedOrigin || status !== 'ready') return;
+    frameRef.current?.contentWindow?.postMessage(
+      studioImageHintsMessage({ channelId: channelId.current, hints: imageHints }),
+      allowedOrigin
+    );
+  }, [imageHints, allowedOrigin, status]);
 
   useEffect(() => {
     async function handleMessage(event) {

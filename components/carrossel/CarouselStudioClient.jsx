@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
-import { ArrowRight, CalendarClock, Camera, CheckCircle2, ChevronLeft, Copy, ExternalLink, FileText, ImagePlus, Loader2, PanelLeft, RotateCcw, Trash2, X } from 'lucide-react';
+import { ArrowRight, CalendarClock, Camera, CheckCircle2, ChevronLeft, ExternalLink, FileText, ImagePlus, Loader2, PanelLeft, RotateCcw, Trash2, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { removeTempMedia, uploadTempMedia } from '@/lib/posts-media';
 import { deleteComposerDraft, saveDraft } from '@/lib/posts-actions';
@@ -114,11 +114,10 @@ export function CarouselStudioClient({
   const [studioKey, setStudioKey] = useState(0);
   const [editorialOpen, setEditorialOpen] = useState(!editorial?.approvedAt);
   const [showEntry, setShowEntry] = useState(false);
-  // Qual elemento o usuário selecionou dentro do Studio. Chega pela ponte
-  // (cs:selection) porque clique dentro do iframe é invisível daqui.
-  const [selection, setSelection] = useState(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const changeTimer = useRef(null);
+  // Último documento que chegou do Studio e ainda não foi gravado.
+  const docPendente = useRef(null);
   const saveChain = useRef(Promise.resolve());
   const draftIdRef = useRef(draft?.id || null);
   const mediaUrlsRef = useRef(draft?.mediaUrls || []);
@@ -139,17 +138,6 @@ export function CarouselStudioClient({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [editorialOpen]);
-
-  // Mesmo gesto para o cartão da foto. O Esc daqui só chega quando o foco está
-  // no host; dentro do iframe quem escuta é o Studio, e por isso o X existe.
-  useEffect(() => {
-    if (!selection) return undefined;
-    function onKeyDown(event) {
-      if (event.key === 'Escape') setSelection(null);
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selection]);
 
   function saveEditorDoc(nextDoc, nextMediaUrls = mediaUrlsRef.current, nextEditorial = approvedEditorial) {
     const save = async () => {
@@ -192,11 +180,37 @@ export function CarouselStudioClient({
 
   function handleChange(nextDoc) {
     setDoc(nextDoc);
+    docPendente.current = nextDoc;
     clearTimeout(changeTimer.current);
     return new Promise((resolve, reject) => {
-      changeTimer.current = setTimeout(() => saveEditorDoc(nextDoc).then(resolve, reject), 700);
+      changeTimer.current = setTimeout(() => {
+        docPendente.current = null;
+        saveEditorDoc(nextDoc).then(resolve, reject);
+      }, 700);
     });
   }
+
+  // O autosave junta as mudanças por 700ms antes de gravar. Fechar a aba nesse
+  // intervalo levava a última edição junto. Quando a página some de vista, a
+  // espera acaba na hora e o que está pendente vai para o banco.
+  useEffect(() => {
+    function gravarPendente() {
+      const pendente = docPendente.current;
+      if (!pendente) return;
+      docPendente.current = null;
+      clearTimeout(changeTimer.current);
+      saveEditorDoc(pendente).catch(() => {});
+    }
+    function aoEsconder() {
+      if (document.visibilityState === 'hidden') gravarPendente();
+    }
+    document.addEventListener('visibilitychange', aoEsconder);
+    window.addEventListener('pagehide', gravarPendente);
+    return () => {
+      document.removeEventListener('visibilitychange', aoEsconder);
+      window.removeEventListener('pagehide', gravarPendente);
+    };
+  });
 
   async function handleExport(images, exportedDoc) {
     clearTimeout(changeTimer.current);
@@ -437,20 +451,11 @@ export function CarouselStudioClient({
     }
   }
 
-  // Dois painéis sobre o mesmo canvas é o que espremia a tela. A gaveta do
-  // roteiro sai de cena quando a dica da foto entra.
+  // Dois painéis sobre o mesmo canvas é o que espremia a tela. Clicar no espaço
+  // da foto abre o painel Mídia lá dentro, então a gaveta do roteiro sai da
+  // frente.
   function handleSelection(next) {
-    setSelection(next);
     if (next?.elementType === 'image') setEditorialOpen(false);
-  }
-
-  async function copySearchTerms(query) {
-    try {
-      await navigator.clipboard.writeText(query);
-      setMessage('Termos de busca copiados.');
-    } catch {
-      setMessage('Não foi possível copiar. Selecione os termos e copie à mão.');
-    }
   }
 
   async function removeSlideImage(item) {
@@ -562,10 +567,17 @@ export function CarouselStudioClient({
   const applied = Boolean(approvedEditorial?.approvedAt) && !showEntry;
   const studioSlides = appliedItems(approvedEditorial);
   const appliedSlides = applied ? studioSlides : [];
-  // A dica abre ao lado do editor quando a pessoa clica na imagem de um slide.
-  const selectedHint = selection?.elementType === 'image'
-    ? studioSlides.find((item) => item.order === Number(selection.slideIndex) + 1) || null
-    : null;
+  // As dicas de foto atravessam a ponte e são desenhadas dentro do painel
+  // Mídia do editor. Antes elas abriam num cartão flutuante ancorado no canto
+  // do iframe, que cobria a barra de ferramentas e o começo do canvas.
+  const dicasDeFoto = studioSlides.map((item) => ({
+    order: item.order,
+    headline: item.headline,
+    scene: item.hint?.scene,
+    query: item.hint?.query,
+    queryPt: item.hint?.queryPt,
+    avoid: item.hint?.avoid || GENERIC_AVOID
+  })).filter((item) => item.scene);
 
   return (
     <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-56px)]'} flex-col`}>
@@ -620,40 +632,25 @@ export function CarouselStudioClient({
           slides de roteiro ela comia a altura, e a arte 1080×1350 saía cortada
           embaixo. Sobrepor devolve a altura ao canvas em todos os passos. */}
       <div className="relative min-h-0 flex-1">
-        {/* A dica flutua por cima do editor em vez de empurrá-lo. Empurrar
-            muda a largura do iframe, e o canvas do Studio refaz o zoom "fit"
-            por ResizeObserver: a arte pulava de tamanho a cada clique numa
-            imagem. Cobrir um canto incomoda menos que mexer no que a pessoa
-            está olhando — e o cartão fecha no X ou no Esc. */}
-        {selectedHint && <aside aria-label="Foto sugerida para este slide" className="absolute left-3 top-3 z-30 flex max-h-[calc(100%-1.5rem)] w-[300px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
-          <div className="flex items-center gap-2 border-b border-line px-3 py-2">
-            <Camera size={14} className="text-accent" />
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Slide {String(selectedHint.order).padStart(2, '0')} · imagem</span>
-            <button type="button" onClick={() => setSelection(null)} aria-label="Fechar a dica de foto" className="ml-auto rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-ink"><X size={14} /></button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-3 text-sm">
-            <p className="text-[11px] font-semibold text-muted">{selectedHint.headline}</p>
-            <p className="mt-2 leading-relaxed text-ink"><strong className="font-semibold">Procure uma foto de:</strong> {selectedHint.hint.scene}</p>
-            <div className="mt-3 flex items-start gap-1.5">
-              <code className="min-w-0 flex-1 break-words rounded bg-surface-2 px-2 py-1.5 text-[11px] leading-relaxed text-muted">{selectedHint.hint.query}</code>
-              <button type="button" onClick={() => copySearchTerms(selectedHint.hint.query)} aria-label="Copiar os termos de busca" className="shrink-0 rounded-lg border border-line px-1.5 py-1 text-muted hover:border-accent/40 hover:text-ink"><Copy size={12} /></button>
-            </div>
-            <p className="mt-1.5 text-[10px] leading-relaxed text-muted">Termos em inglês: é assim que o banco de imagens acha mais.</p>
-            <a
-              href={`https://www.pexels.com/search/${encodeURIComponent(selectedHint.hint.query)}/`}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold text-ink hover:border-accent/40"
-            >Buscar no Pexels <ExternalLink size={13} /></a>
-            <p className="mt-3 rounded-lg bg-surface-2 px-2.5 py-2 text-[10px] leading-relaxed text-muted">Evite {selectedHint.hint.avoid || GENERIC_AVOID}</p>
-            <p className="mt-3 text-[10px] leading-relaxed text-muted">Arraste a foto da sua pasta direto para cima da imagem no editor.</p>
-          </div>
-        </aside>}
-
         {/* O tipo escolhido também escolhe a arte de partida: tendência abre no
             editorial escuro, case no papel, lista na numerada. Trocar continua
             possível dentro do Studio. */}
-        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} slideCount={initialSlideCount} templateId={(!approvedEditorial && initialTemplateId) || templateDoTipo(approvedEditorial?.contentType || contentType) || undefined} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onSelection={handleSelection} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
+        <CarouselStudioFrame key={studioKey} title={doc?.name || 'Novo carrossel'} brandId={brandId} brand={brand} initialDoc={doc} initialScript={initialScript} initialMedia={approvedEditorial?.media || []} imageHints={dicasDeFoto} slideCount={initialSlideCount} templateId={(!approvedEditorial && initialTemplateId) || templateDoTipo(approvedEditorial?.contentType || contentType) || undefined} onChange={handleChange} onExport={handleExport} onMediaUpload={handleMediaUpload} onMediaDelete={handleMediaDelete} onSelection={handleSelection} onDraftSaved={(id) => setDraftId(id)} onError={setMessage} onClose={onClose} />
+
+        {/* Enquanto o roteiro não existe, a guia cobre a barra de frames e o
+            começo da capa — e o rótulo "FRAMES" aparecia cortado, como se a
+            tela estivesse quebrada. Este véu diz que há um painel na frente, e
+            de quebra vira o gesto de fechar clicando fora. Ele só existe neste
+            passo: com o roteiro aplicado a guia é consulta, e clicar na imagem
+            de um slide atrás dela é o que abre a dica de foto. */}
+        {editorialOpen && !applied && (
+          <button
+            type="button"
+            aria-label="Fechar a guia editorial"
+            onClick={() => setEditorialOpen(false)}
+            className="absolute inset-0 z-10 cursor-default bg-app/60 backdrop-blur-[1px]"
+          />
+        )}
 
         <aside
           id="carousel-editorial"
