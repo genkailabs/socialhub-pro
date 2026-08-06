@@ -31,6 +31,19 @@ describe('listStudioTemplates', () => {
     expect(cards[0].previewUrl).toContain('/templates/editorial-dark.png');
   });
 
+  it('leva a lista de slides da previa, absoluta no Studio', async () => {
+    respondeCom({ templates: [{ id: 'editorial-dark', name: 'x', blurb: 'x', funnelStage: 'Topo', preview: '/templates/editorial-dark.png', previewSlides: ['/templates/editorial-dark.png', '/templates/editorial-dark--2.png'] }] });
+    const { cards } = await listStudioTemplates();
+    expect(cards[0].previewSlides).toHaveLength(2);
+    expect(cards[0].previewSlides[1]).toMatch(/^https?:\/\/.+\/templates\/editorial-dark--2\.png$/);
+  });
+
+  it('Studio fora do ar: sem lista de slides, em vez de link quebrado', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
+    const { cards } = await listStudioTemplates();
+    expect(cards.every((card) => card.previewSlides.length === 0)).toBe(true);
+  });
+
   it('Studio fora do ar: cai no espelho, sem previa e sem grade vazia', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
     const { online, cards } = await listStudioTemplates();
