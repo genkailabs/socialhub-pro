@@ -1,6 +1,6 @@
 'use client';
 
-// Ponte com as skills BrandsDecoded. Elas rodam no Claude, não aqui: o Hub
+// Ponte com as skills GenkaiLabs. Elas rodam no Claude, não aqui: o Hub
 // monta o briefing com os dados reais da marca e entrega. Saída manual e
 // assumida, igual à ponte com GPT próprio no Studio.
 

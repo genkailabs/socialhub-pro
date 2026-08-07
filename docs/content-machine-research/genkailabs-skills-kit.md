@@ -1,5 +1,5 @@
 ---
-title: Kit de Skills BrandsDecoded — posicionamento, proposta e landing page
+title: Kit de Skills GenkaiLabs — posicionamento, proposta e landing page
 description: Síntese dos três pacotes inspecionados e dos limites de adaptação ao SocialHub.
 tags:
   - content-machine
@@ -8,13 +8,13 @@ tags:
   - proposals
   - landing-pages
 ---
-# Kit de Skills BrandsDecoded — posicionamento, proposta e landing page
+# Kit de Skills GenkaiLabs — posicionamento, proposta e landing page
 
 **Materiais-fonte:**
 
 - `E:\Skiils\Claude\00 - Comece por aqui - Visao Geral.pdf`
-- `E:\Skiils\Claude\brandsdecoded-diagnostico-marca.skill.zip`
-- `E:\Skiils\Claude\brandsdecoded-propostas.skill.zip`
+- `E:\Skiils\Claude\genkailabs-diagnostico-marca.skill.zip`
+- `E:\Skiils\Claude\genkailabs-propostas.skill.zip`
 - `E:\Skiils\Claude\landing-page-machine.skill.zip`
 
 **Método de leitura:** texto extraído do PDF e inspeção estática dos arquivos internos dos ZIPs. Os pacotes não foram instalados, executados nem alterados.

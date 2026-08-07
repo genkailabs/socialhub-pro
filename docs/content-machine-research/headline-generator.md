@@ -1,5 +1,5 @@
 ---
-title: Gerador de Headlines BrandsDecoded 5.5
+title: Gerador de Headlines GenkaiLabs 5.5
 description: Síntese dos modos, critérios e limites de adaptação do gerador de headlines.
 tags:
   - content-machine
@@ -7,9 +7,9 @@ tags:
   - headlines
   - editorial
 ---
-# Gerador de Headlines BrandsDecoded 5.5
+# Gerador de Headlines GenkaiLabs 5.5
 
-**Arquivo-fonte:** `E:\Claude Curso\Gerador de Headlines 5.5\BrandsDecoded_Headline_Generator.pdf`  
+**Arquivo-fonte:** PDF do gerador de headlines de referência, v5.5 (arquivo local, fora do repositório).  
 **Formato original:** prompt operacional de 5 páginas para Claude.  
 **Leitura:** extração local de texto e síntese; este documento não reproduz exemplos nem regras proprietárias literalmente.
 
@@ -42,7 +42,7 @@ O prompt rejeita aberturas burocráticas, listas saturadas, linguagem institucio
 | Material do curso | Direção segura para o SocialHub |
 | --- | --- |
 | Base de posts e “outliers” apresentada como prova de performance. | Tratar como alegação do curso não verificada; medir resultados apenas com dados da própria marca e contexto. |
-| Padrões e tom BrandsDecoded. | Transformar em biblioteca de padrões configurável por marca, nicho e objetivo, sem copiar voz, frases ou exemplos. |
+| Padrões e tom GenkaiLabs. | Transformar em biblioteca de padrões configurável por marca, nicho e objetivo, sem copiar voz, frases ou exemplos. |
 | Meta de maximizar alcance, likes e compartilhamentos. | Usar como objetivos editoriais possíveis, nunca como promessa de performance. |
 | Contagem fixa de palavras para todo hook e sub-hook. | Aplicar limites por template e espaço visual, com exceção humana quando a clareza exigir. |
 | Inferir o ângulo quando o insumo é vago. | Exibir a suposição e pedir confirmação antes da geração longa quando houver ambiguidade relevante. |

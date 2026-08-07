@@ -12,7 +12,7 @@ Três frentes abertas na mesma sessão:
    como "demorou mais que o esperado" em vez do erro real.
 2. **O Studio não cabe na tela.** A faixa editorial de 4 passos fica empilhada acima do
    iframe e come a altura; sobra pouco para o canvas e a arte 1080×1350 é cortada.
-3. **Falta a tela de Tendências.** Referência estudada: `maquina.brandsdecoded.com.br`.
+3. **Falta a tela de Tendências.** Referência estudada: uma ferramenta de mercado do mesmo nicho.
 
 ## O que a referência faz (verificado no navegador, 31/07)
 
@@ -48,7 +48,7 @@ futura, e mudaria o plano (fila de revisão, custo por execução, bloqueio do I
 ## Limite que já está escrito no repositório
 
 `docs/content-machine-research/README.md` proíbe reutilizar conteúdo, marca, métricas ou
-promessas da BrandsDecoded. Então: copiamos a **função**, não o **catálogo**. Os 11
+promessas da GenkaiLabs. Então: copiamos a **função**, não o **catálogo**. Os 11
 registros, os textos, os scores e o nome do método não entram. A tabela nasce vazia.
 
 ---

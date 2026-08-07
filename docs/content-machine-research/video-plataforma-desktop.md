@@ -76,7 +76,7 @@ A plataforma apresentada evita IA integrada para reduzir custo e manter controle
 
 ## Captura de referência recebida
 
-**Fonte:** `E:\Claude Curso\videos\screencapture-maquina-brandsdecoded-br-2026-07-29-23_46_46.png`.
+**Fonte:** captura de tela da ferramenta de referência, feita em 29/07/2026 (arquivo local, fora do repositório).
 
 A captura consolida o layout desktop que deve orientar o V2:
 

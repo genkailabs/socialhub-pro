@@ -3,7 +3,7 @@
 ## Fonte e limite
 
 - Vídeo auditado: `C:\Users\Damien\Videos\2026-08-01 12-31-10.mp4` (18:02).
-- Ferramenta de referência: `https://maquina.brandsdecoded.com.br/`.
+- Ferramenta de referência: um editor de carrossel de mercado, estudado apenas no navegador.
 - O vídeo é a fonte de verdade para o escopo solicitado. O changelog e as telas públicas servem apenas como apoio.
 - Reproduzir capacidades e fluxos; não copiar marca, textos, templates ou materiais proprietários.
 

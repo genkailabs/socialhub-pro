@@ -4,7 +4,7 @@
 **Onde vive:** `carrossel-studio/src/lib/templates/` (catálogo de templates do Studio)
 **Data:** 2026-08-05
 **Referências analisadas:** `docs/referencias-layout/carrossel/01-morte-dos-reels` (10 slides),
-`02-cuidados-masculinos` (9 slides), `03-brandsdecoded-prints`
+`02-cuidados-masculinos` (9 slides), `03-genkailabs-prints`
 
 ---
 

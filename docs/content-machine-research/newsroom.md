@@ -39,7 +39,7 @@ Um fluxo de *news-jacking*: a partir de um nicho e um recorte regional, pesquisa
 ## Limites do curso que não devem virar regra do produto
 
 - A janela de “publicar em duas horas” é uma tese operacional do curso; podemos usá-la como referência de velocidade, não como promessa ao cliente.
-- Paleta, fontes, `Powered by Newsroom`, templates e referências BrandsDecoded não pertencem ao SocialHub.
+- Paleta, fontes, `Powered by Newsroom`, templates e referências GenkaiLabs não pertencem ao SocialHub.
 - A pesquisa não pode se apoiar apenas em blogs ou posts sociais sem confirmação de fonte primária/editorial.
 
 ## Possível encaixe futuro

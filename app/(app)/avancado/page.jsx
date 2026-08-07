@@ -17,7 +17,7 @@ export default async function AvancadoPage() {
       <header>
         <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.6px] text-ink">Avançado</h1>
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted">
-          Métodos da BrandsDecoded que rodam no Claude, não aqui. O Hub entra com o que só ele tem: o briefing
+          Métodos da GenkaiLabs que rodam no Claude, não aqui. O Hub entra com o que só ele tem: o briefing
           já preenchido com a marca ativa.
         </p>
       </header>

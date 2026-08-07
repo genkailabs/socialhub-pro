@@ -19,7 +19,7 @@ const marca = {
 describe('skills de agência dentro do Hub', () => {
   it('tem as quatro skills, com o diagnóstico no núcleo e o resto no avançado', () => {
     expect(SKILLS_AGENCIA).toHaveLength(4);
-    expect(skillsPorEscopo('nucleo').map((s) => s.id)).toEqual(['brandsdecoded-diagnostico-marca']);
+    expect(skillsPorEscopo('nucleo').map((s) => s.id)).toEqual(['genkailabs-diagnostico-marca']);
     expect(skillsPorEscopo('avancado')).toHaveLength(3);
   });
 
@@ -42,7 +42,7 @@ describe('skills de agência dentro do Hub', () => {
   // O valor do Hub aqui é não recomeçar do zero: o briefing sai com o que a
   // marca já tem cadastrado.
   it('monta o briefing com os dados reais da marca', () => {
-    const texto = briefingDaSkill('brandsdecoded-diagnostico-marca', marca);
+    const texto = briefingDaSkill('genkailabs-diagnostico-marca', marca);
 
     expect(texto).toContain('BlueprintPRO');
     expect(texto).toContain('Marca: GenkaiLabs');
@@ -71,7 +71,7 @@ describe('skills de agência dentro do Hub', () => {
   });
 
   it('abre o Claude com o briefing na caixa e cai na tela limpa quando o texto é longo demais', () => {
-    const url = claudeUrl(briefingDaSkill('brandsdecoded-propostas', marca));
+    const url = claudeUrl(briefingDaSkill('genkailabs-propostas', marca));
 
     expect(url.startsWith('https://claude.ai/new?q=')).toBe(true);
     expect(decodeURIComponent(url)).toContain('GenkaiLabs');
